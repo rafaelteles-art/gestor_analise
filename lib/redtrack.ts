@@ -1,0 +1,119 @@
+export interface RedTrackMetric {
+  date: string;
+  campaign_id: string;
+  campaign_name: string;
+  clicks: number;
+  conversions: number;
+  total_conversions: number;
+  revenue: number;
+  total_revenue: number;
+  cost: number;
+  profit: number;
+  roas: number;
+}
+
+/**
+ * Fetches RedTrack report data grouped by campaign.
+ * Uses the /report endpoint with group=campaign.
+ */
+export async function fetchRedTrackMetrics(
+  dateFrom: string,
+  dateTo: string,
+  campaignIds: string[]
+): Promise<RedTrackMetric[]> {
+  const apiKey = process.env.REDTRACK_API_KEY;
+
+  if (!apiKey) {
+    console.error("RedTrack API key missing.");
+    return [];
+  }
+
+  // /report com group=campaign retorna campaign_id e campaign (nome)
+  const url = `https://api.redtrack.io/report?api_key=${apiKey}&date_from=${dateFrom}&date_to=${dateTo}&tz=America/Sao_Paulo&group=campaign`;
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { "Accept": "application/json" }
+    });
+
+    if (!res.ok) {
+      throw new Error(`RedTrack API error: ${res.statusText}`);
+    }
+    
+    const data = await res.json();
+    const reports = Array.isArray(data) ? data : (data.data || []);
+    if (!reports || reports.length === 0) return [];
+
+    let parsedResult: RedTrackMetric[] = reports.map((item: any) => ({
+      date: dateFrom,
+      campaign_id: String(item.campaign_id || ''),
+      campaign_name: item.campaign || 'Unknown',
+      clicks: parseInt(item.clicks || '0', 10),
+      conversions: parseInt(item.conversions || '0', 10),
+      total_conversions: parseInt(item.total_conversions || '0', 10),
+      revenue: parseFloat(item.revenue || '0'),
+      total_revenue: parseFloat(item.total_revenue || '0'),
+      cost: parseFloat(item.cost || '0'),
+      profit: parseFloat(item.profit || '0'),
+      roas: parseFloat(item.roas || '0'),
+    }));
+
+    // Filtrar por campaigns selecionados (se especificados)
+    if (campaignIds.length > 0) {
+      parsedResult = parsedResult.filter(r => campaignIds.includes(r.campaign_id));
+    }
+
+    return parsedResult;
+  } catch (error) {
+    console.error("Failed to fetch RedTrack metrics:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetches RedTrack report data grouped by rt_ad.
+ * Returns aggregated stats per rt_ad code (ex: LT1033.3).
+ */
+export async function fetchRedTrackByRtAd(
+  dateFrom: string,
+  dateTo: string
+): Promise<{rt_ad: string; cost: number; profit: number; total_revenue: number; total_conversions: number; clicks: number; roas: number}[]> {
+  const apiKey = process.env.REDTRACK_API_KEY;
+
+  if (!apiKey) {
+    console.error("RedTrack API key missing.");
+    return [];
+  }
+
+  const url = `https://api.redtrack.io/report?api_key=${apiKey}&date_from=${dateFrom}&date_to=${dateTo}&tz=America/Sao_Paulo&group=rt_ad`;
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { "Accept": "application/json" }
+    });
+
+    if (!res.ok) {
+      throw new Error(`RedTrack API error: ${res.statusText}`);
+    }
+    
+    const data = await res.json();
+    const reports = Array.isArray(data) ? data : (data.data || []);
+
+    return reports
+      .filter((item: any) => item.rt_ad && item.rt_ad.length > 0)
+      .map((item: any) => ({
+        rt_ad: item.rt_ad,
+        cost: parseFloat(item.cost || '0'),
+        profit: parseFloat(item.profit || '0'),
+        total_revenue: parseFloat(item.total_revenue || '0'),
+        total_conversions: parseInt(item.total_conversions || '0', 10),
+        clicks: parseInt(item.clicks || '0', 10),
+        roas: parseFloat(item.roas || '0'),
+      }));
+  } catch (error) {
+    console.error("Failed to fetch RedTrack rt_ad metrics:", error);
+    return [];
+  }
+}
