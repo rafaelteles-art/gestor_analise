@@ -71,17 +71,17 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
     <div>
       <div className="flex justify-between items-end mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-gray-200">Linked Ad Accounts</h2>
+          <h2 className="text-xl font-semibold text-gray-800">Linked Ad Accounts</h2>
           <div className="flex gap-3 mt-3">
             <button 
               onClick={() => handleToggleAll(true)}
-              className="flex items-center gap-1.5 text-xs text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-transparent shadow-sm"
             >
               <CheckSquare className="w-3.5 h-3.5" /> Ativar Todas
             </button>
             <button 
               onClick={() => handleToggleAll(false)}
-              className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
             >
               <Square className="w-3.5 h-3.5" /> Desativar Todas
             </button>
@@ -90,52 +90,52 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
         <button 
           onClick={syncAccounts} 
           disabled={isSyncing}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 shadow-sm rounded-xl text-sm font-medium text-white transition-all disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
           {isSyncing ? 'Scanning Meta...' : 'Scan New Accounts'}
         </button>
       </div>
 
-      <div className="bg-gray-900/40 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
         {accounts.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">
+          <div className="p-12 text-center text-gray-400 text-sm">
             Nenhuma conta mapeada. Clique em "Scan New Accounts" para mapear do Facebook.
           </div>
         ) : (
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-900/60 text-gray-400 text-xs uppercase tracking-wider">
-                <th className="px-6 py-4 font-medium">Conta</th>
-                <th className="px-6 py-4 font-medium">Business Manager</th>
-                <th className="px-6 py-4 font-medium">Status / Toggle</th>
+              <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 text-[10px] uppercase tracking-wider font-bold">
+                <th className="px-6 py-4 font-bold">Conta</th>
+                <th className="px-6 py-4 font-bold">Business Manager</th>
+                <th className="px-6 py-4 font-bold">Status / Toggle</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/50">
+            <tbody className="divide-y divide-gray-100">
               {accounts.map((acc) => (
-                <tr key={acc.account_id} className="hover:bg-gray-800/30 transition-colors">
+                <tr key={acc.account_id} className="hover:bg-gray-50 transition-colors text-sm">
                   <td className="px-6 py-4">
-                    <p className="font-medium text-gray-200">{acc.account_name}</p>
-                    <p className="text-xs text-gray-500 font-mono mt-1">{acc.account_id}</p>
+                    <p className="font-bold text-gray-800">{acc.account_name}</p>
+                    <p className="text-[11px] text-gray-400 font-mono mt-1">{acc.account_id}</p>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-gray-300 text-sm">{acc.bm_name}</p>
-                    <p className="text-xs text-gray-500 font-mono mt-1">{acc.bm_id}</p>
+                    <p className="text-gray-600">{acc.bm_name}</p>
+                    <p className="text-[11px] text-gray-400 font-mono mt-1">{acc.bm_id}</p>
                   </td>
                   <td className="px-6 py-4">
                     <button
                       onClick={() => handleToggle(acc.account_id, acc.is_selected)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${
-                        acc.is_selected ? 'bg-indigo-500' : 'bg-gray-700'
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                        acc.is_selected ? 'bg-indigo-600' : 'bg-gray-200'
                       }`}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                           acc.is_selected ? 'translate-x-6' : 'translate-x-1'
-                        }`}
+                        } shadow-sm`}
                       />
                     </button>
-                    {acc.is_selected && <span className="ml-3 text-xs text-emerald-400 font-medium inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Active</span>}
+                    {acc.is_selected && <span className="ml-3 text-xs text-emerald-600 font-bold inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5"/> Ativa</span>}
                   </td>
                 </tr>
               ))}

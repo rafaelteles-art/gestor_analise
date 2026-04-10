@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { pool } from './db';
 
 export async function fetchAndSyncRedTrackCampaigns() {
   const apiKey = process.env.REDTRACK_API_KEY;
@@ -33,12 +33,25 @@ export async function fetchAndSyncRedTrackCampaigns() {
     }));
 
     if (mappedCampaigns.length > 0) {
-      const { error } = await supabase
-        .from('redtrack_campaign_selections')
-        .upsert(mappedCampaigns, { onConflict: 'campaign_id' });
-
-      if (error) {
-        throw new Error(error.message);
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        for (const camp of mappedCampaigns) {
+          await client.query(
+            `INSERT INTO redtrack_campaign_selections (campaign_id, campaign_name, status, is_selected)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (campaign_id) DO UPDATE SET
+               campaign_name = EXCLUDED.campaign_name,
+               status = EXCLUDED.status;`,
+            [camp.campaign_id, camp.campaign_name, camp.status, camp.is_selected]
+          );
+        }
+        await client.query('COMMIT');
+      } catch(err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
       }
     }
 

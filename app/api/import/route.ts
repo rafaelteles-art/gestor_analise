@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchMetaMetrics } from '@/lib/meta';
+import { fetchPaginatedRedTrack } from '@/lib/redtrack';
 
 // Busca cotação USD→BRL do dia
 async function getUsdToBrl(): Promise<number> {
@@ -38,23 +39,45 @@ export async function POST(req: NextRequest) {
     // ============================================================
     // BUSCA CONCORRENTE — 4 fontes
     // ============================================================
-    const [usdToBrl, metaResultsMatrix, rtAdData, rtCampaignData] = await Promise.all([
+    const [usdToBrl, metaResultsMatrix, rtAds, rtCampaignsReport] = await Promise.all([
       // 0. Cotação USD→BRL
       getUsdToBrl(),
       // 1. Facebook: campanhas de cada conta selecionada
-      Promise.all(metaAccountIds.map(accId => fetchMetaMetrics(accId, dateFrom, dateTo))),
+      Promise.all(accounts.map((acc: any) => fetchMetaMetrics(acc.account_id || acc.id, dateFrom, dateTo, acc.access_token))),
       // 2. RedTrack: report por rt_ad (filtrado pelas campanhas RT selecionadas)
-      fetch(`https://api.redtrack.io/report?api_key=${apiKey}&date_from=${dateFrom}&date_to=${dateTo}&tz=America/Sao_Paulo&group=rt_ad&campaign_id=${campaignIdParam}&per=5000`)
-        .then(r => r.json()),
+      fetchPaginatedRedTrack(`https://api.redtrack.io/report?api_key=${apiKey}&date_from=${dateFrom}&date_to=${dateTo}&tz=America/Sao_Paulo&group=rt_ad&campaign_id=${campaignIdParam}`),
       // 3. RedTrack: report por rt_campaign (= nome da campanha FB, filtrado)
-      fetch(`https://api.redtrack.io/report?api_key=${apiKey}&date_from=${dateFrom}&date_to=${dateTo}&tz=America/Sao_Paulo&group=rt_campaign&campaign_id=${campaignIdParam}&per=5000`)
-        .then(r => r.json()),
+      fetchPaginatedRedTrack(`https://api.redtrack.io/report?api_key=${apiKey}&date_from=${dateFrom}&date_to=${dateTo}&tz=America/Sao_Paulo&group=rt_campaign&campaign_id=${campaignIdParam}`),
     ]);
 
-    let metaResults = metaResultsMatrix.flat();
-    const rtAds = (Array.isArray(rtAdData) ? rtAdData : [])
-      .filter((item: any) => item.rt_ad && item.rt_ad.length > 0);
-    const rtCampaignsReport = Array.isArray(rtCampaignData) ? rtCampaignData : [];
+    const rawMetaResults = metaResultsMatrix.flat();
+    
+    // Agrupa campanhas do Meta pelo nome (caso haja campanhas duplicadas com mesmo nome, soma os gastos/cliques/impressoes)
+    const metaMap = new Map<string, any>();
+    rawMetaResults.forEach((mc: any) => {
+      const name = mc.campaign_name;
+      if (metaMap.has(name)) {
+        const existing = metaMap.get(name);
+        existing.spend += mc.spend;
+        existing.impressions += mc.impressions;
+        existing.clicks += mc.clicks;
+      } else {
+        metaMap.set(name, { ...mc });
+      }
+    });
+
+    // Recalcula CPM e CTR após a soma (CPM = gasto / (impressoes/1000) e CTR = cliques / impressoes)
+    metaMap.forEach((val) => {
+      if (val.impressions > 0) {
+        val.cpm = (val.spend / val.impressions) * 1000;
+        val.ctr = (val.clicks / val.impressions) * 100;
+      }
+    });
+
+    let metaResults = Array.from(metaMap.values());
+    
+    // Filtro RT final garante consistencia
+    const cleanRtAds = rtAds.filter((item: any) => item.rt_ad && item.rt_ad.length > 0);
 
     console.log(`[Import] Cotação: ${usdToBrl} | Meta: ${metaResults.length} campanhas`);
     console.log(`[Import] RT rt_ads: ${rtAds.length}, RT rt_campaigns: ${rtCampaignsReport.length}`);
@@ -80,7 +103,7 @@ export async function POST(req: NextRequest) {
     // ============================================================
     // MOTOR DE CRUZAMENTO
     // ============================================================
-    const finalReport = rtAds.map((rtItem: any) => {
+    const finalReport = cleanRtAds.map((rtItem: any) => {
       // Escapa caracteres especiais do rt_ad para usar no Regex
       const escapedAd = rtItem.rt_ad.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       // Regex: garante que o rt_ad não está grudado com outras letras, números, underscores ou pontos (ex: evita que LT802 pegue LT802.16 ou abcLT802)

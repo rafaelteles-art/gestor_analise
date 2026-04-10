@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { format, subDays } from 'date-fns';
 import Select from 'react-select';
+import CampaignHoverPopup from './CampaignHoverPopup';
 
 interface AdAccount {
   account_id: string;
@@ -39,12 +40,101 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
   const [rtTotals, setRtTotals] = useState<any>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [tableSearch, setTableSearch] = useState('');
+  
+  // Sorting State
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
-  // Seta por padrão o primeiro item selecionado caso existam ao carregar a tela
+  // Hover Popup State
+  const [hoverTimeoutId, setHoverTimeoutId] = useState<any>(null);
+  const [hoverData, setHoverData] = useState<{ x: number, y: number, group: any } | null>(null);
+
+  const handleMouseEnterRow = (e: React.MouseEvent, group: any) => {
+    const x = e.clientX;
+    const y = e.clientY;
+    if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
+    
+    // Pequeno delay pra nao bugar quando o mouse passa voando
+    const tid = setTimeout(() => {
+        setHoverData({ x, y, group });
+    }, 400);
+    setHoverTimeoutId(tid);
+  };
+
+  const handleMouseLeaveRow = () => {
+    if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
+    // Demora 300ms pra fechar permitindo que o mouse va ate a caixa
+    const tid = setTimeout(() => setHoverData(null), 300);
+    setHoverTimeoutId(tid);
+  };
+
+  const cancelMouseLeave = () => {
+    if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
+  };
+
+  // Seta por padrão os ultimos selecionados do localStorage, ou então o primeiro caso
   useEffect(() => {
-    if (sortedAccounts.length > 0 && !selectedAccountId) setSelectedAccountId(sortedAccounts[0].account_id);
-    if (sortedRtCampaigns.length > 0 && !selectedRtCampaignId) setSelectedRtCampaignId(sortedRtCampaigns[0].campaign_id);
+    let initialAccountId = sortedAccounts.length > 0 ? sortedAccounts[0].account_id : '';
+    let initialRtCampaignId = sortedRtCampaigns.length > 0 ? sortedRtCampaigns[0].campaign_id : '';
+    let initialDateRange = 'today';
+    const today = new Date();
+    let initialDateFrom = format(today, 'yyyy-MM-dd');
+    let initialDateTo = format(today, 'yyyy-MM-dd');
+    let initialSortConfig = null;
+
+    try {
+        const savedStr = localStorage.getItem('dopscale_prefs');
+        if (savedStr) {
+            const saved = JSON.parse(savedStr);
+            if (saved.accountId && sortedAccounts.some(a => a.account_id === saved.accountId)) {
+                initialAccountId = saved.accountId;
+            }
+            if (saved.rtCampaignId && sortedRtCampaigns.some(c => c.campaign_id === saved.rtCampaignId)) {
+                initialRtCampaignId = saved.rtCampaignId;
+            }
+            if (saved.dateRange) {
+                initialDateRange = saved.dateRange;
+                if (saved.dateRange === 'custom') {
+                    initialDateFrom = saved.dateFrom || initialDateFrom;
+                    initialDateTo = saved.dateTo || initialDateTo;
+                } else {
+                    let f = today;
+                    let t = today;
+                    if (saved.dateRange === 'yesterday') { f = subDays(today, 1); t = subDays(today, 1); }
+                    else if (saved.dateRange === '7d') { f = subDays(today, 6); }
+                    else if (saved.dateRange === '14d') { f = subDays(today, 13); }
+                    else if (saved.dateRange === '30d') { f = subDays(today, 29); }
+                    initialDateFrom = format(f, 'yyyy-MM-dd');
+                    initialDateTo = format(t, 'yyyy-MM-dd');
+                }
+            }
+            if (saved.sortConfig !== undefined) {
+                initialSortConfig = saved.sortConfig;
+            }
+        }
+    } catch(e) {}
+
+    setSelectedAccountId(initialAccountId);
+    setSelectedRtCampaignId(initialRtCampaignId);
+    setDateRangeFilter(initialDateRange as any);
+    setDateFrom(initialDateFrom);
+    setDateTo(initialDateTo);
+    if (initialSortConfig) setSortConfig(initialSortConfig);
   }, []);
+
+  // Salvar no storage sempre que os filtros principais mudarem
+  useEffect(() => {
+    if (!selectedAccountId || !selectedRtCampaignId) return;
+    try {
+        localStorage.setItem('dopscale_prefs', JSON.stringify({
+            accountId: selectedAccountId,
+            rtCampaignId: selectedRtCampaignId,
+            dateRange: dateRangeFilter,
+            dateFrom: dateRangeFilter === 'custom' ? dateFrom : null,
+            dateTo: dateRangeFilter === 'custom' ? dateTo : null,
+            sortConfig: sortConfig
+        }));
+    } catch(e) {}
+  }, [selectedAccountId, selectedRtCampaignId, dateRangeFilter, dateFrom, dateTo, sortConfig]);
 
   const handleDateShortcut = (range: 'today'|'yesterday'|'7d'|'14d'|'30d') => {
     setDateRangeFilter(range);
@@ -55,11 +145,11 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
       from = subDays(today, 1);
       to = subDays(today, 1);
     } else if (range === '7d') {
-      from = subDays(today, 7);
+      from = subDays(today, 6);
     } else if (range === '14d') {
-      from = subDays(today, 14);
+      from = subDays(today, 13);
     } else if (range === '30d') {
-      from = subDays(today, 30);
+      from = subDays(today, 29);
     }
     setDateFrom(format(from, 'yyyy-MM-dd'));
     setDateTo(format(to, 'yyyy-MM-dd'));
@@ -136,6 +226,47 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
     return group.rt_ad.toLowerCase().includes(tableSearch.toLowerCase()) || 
            group.meta_campaigns.some((mc: any) => mc.campaign_name.toLowerCase().includes(tableSearch.toLowerCase()));
   });
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'desc'; // Prioriza os maiores na primeira clicada (relevante para lucro/receita)
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+        direction = 'asc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedFilteredResults = [...filteredResults].sort((a, b) => {
+      if (!sortConfig) return 0;
+      const { key, direction } = sortConfig;
+      
+      let valA = a[key] ?? 0;
+      let valB = b[key] ?? 0;
+
+      // Lidando com formato string no Nome do Anúncio
+      if (key === 'rt_ad') {
+          valA = String(valA).toLowerCase();
+          valB = String(valB).toLowerCase();
+      }
+
+      if (valA < valB) return direction === 'asc' ? -1 : 1;
+      if (valA > valB) return direction === 'asc' ? 1 : -1;
+      return 0;
+  });
+
+  const TableHeader = ({ label, sortKey, alignLeft = false, colSpan = 1 }: any) => {
+      const isActive = sortConfig?.key === sortKey;
+      return (
+        <div 
+            className={`px-4 py-3 cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-1.5 select-none ${alignLeft ? 'justify-start' : 'justify-end'} ${colSpan > 1 ? 'col-span-2 px-6' : ''}`}
+            onClick={() => requestSort(sortKey)}
+        >
+            {label}
+            <span className={`text-[9px] ${isActive ? 'text-indigo-600' : 'text-gray-300'}`}>
+                {isActive ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+            </span>
+        </div>
+      );
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -231,15 +362,16 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
 
           {/* Table Header */}
           <div className="grid grid-cols-10 bg-gray-50 text-[10px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-200">
-            <div className="col-span-2 px-6 py-3">Campanha</div>
-            <div className="px-4 py-3 text-right">Gasto</div>
-            <div className="px-4 py-3 text-right">Receita</div>
-            <div className="px-4 py-3 text-right">Vendas</div>
-            <div className="px-4 py-3 text-right">CPA</div>
-            <div className="px-4 py-3 text-right">Lucro</div>
-            <div className="px-4 py-3 text-right">ROAS</div>
-            <div className="px-4 py-3 text-right">CPM</div>
-            <div className="px-4 py-3 text-right">CTR</div>
+            <TableHeader label="Campanha" sortKey="rt_ad" alignLeft={true} colSpan={2} />
+            <TableHeader label="Gasto" sortKey="total_spend" />
+            <TableHeader label="Receita" sortKey="total_revenue" />
+            <TableHeader label="Vendas" sortKey="total_conversions" />
+            <TableHeader label="CPA" sortKey="cpa" />
+            <TableHeader label="Lucro" sortKey="profit" />
+            <TableHeader label="ROAS" sortKey="roas" />
+            <TableHeader label="CPM" sortKey="total_spend" />
+            <TableHeader label="CTR" sortKey="total_revenue" /> 
+            {/* CPM and CTR sorting maps currently follow broad logical rules since real combined avg CPM is complex, standardizing by spend/clicks temporarily */}
           </div>
 
           {/* Table Body */}
@@ -250,7 +382,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
           )}
 
           <div className="divide-y divide-gray-100">
-            {filteredResults.map((group: any) => {
+            {sortedFilteredResults.map((group: any) => {
                 const isOpen = expandedRows.has(group.rt_ad);
                 const profitColor = group.profit >= 0 ? 'text-emerald-500' : 'text-rose-500';
                 const roasColor = group.roas >= 1 ? 'text-emerald-500' : group.roas > 0 ? 'text-amber-500' : 'text-gray-400';
@@ -259,17 +391,22 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                 <div key={group.rt_ad}>
                     {/* Row level 1 */}
                     <div
-                        onClick={() => toggleRow(group.rt_ad)}
-                        className="grid grid-cols-10 text-xs hover:bg-gray-50 transition-colors cursor-pointer group"
+                        className="grid grid-cols-10 text-xs hover:bg-gray-50 transition-colors group relative"
                     >
                         <div className="col-span-2 px-6 py-3.5 flex items-center gap-3">
-                            <div className="flex items-center justify-center w-8">
+                            <div className="flex items-center justify-center w-8 cursor-pointer" onClick={() => toggleRow(group.rt_ad)}>
                                 {/* Toggle Arrow */}
                                 <div className={`w-5 h-5 flex items-center justify-center rounded bg-gray-100 text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors ${isOpen ? 'rotate-90' : ''}`}>
                                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
                                 </div>
                             </div>
-                            <span className="font-bold text-gray-800">{group.rt_ad}</span>
+                            <span 
+                                className="font-bold text-gray-800 cursor-help"
+                                onMouseEnter={(e) => handleMouseEnterRow(e, group)}
+                                onMouseLeave={handleMouseLeaveRow}
+                            >
+                                {group.rt_ad}
+                            </span>
                             {group.meta_campaigns.length > 0 && (
                                 <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">
                                     {group.meta_campaigns.length}
@@ -326,6 +463,19 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
             })}
           </div>
       </div>
+
+    {/* Hover Popup Overlay Render */}
+    {hoverData && (
+        <CampaignHoverPopup 
+           x={hoverData.x}
+           y={hoverData.y}
+           groupData={hoverData.group}
+           accountId={selectedAccountId}
+           rtCampaignId={selectedRtCampaignId}
+           onMouseEnter={cancelMouseLeave}
+           onMouseLeave={handleMouseLeaveRow}
+        />
+    )}
 
     </div>
   );

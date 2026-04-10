@@ -13,6 +13,38 @@ export interface RedTrackMetric {
 }
 
 /**
+ * Função utilitária para extrair com paginação infinita a API do RedTrack.
+ * Resolve o problema do limite de 1000 rows por requisição em janelas de longo período.
+ */
+export async function fetchPaginatedRedTrack(baseUrl: string): Promise<any[]> {
+    let allData: any[] = [];
+    let page = 1;
+    let limit = 1000;
+    
+    while(true) {
+        try {
+            const url = `${baseUrl}&per=${limit}&page=${page}`;
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+            if (!res.ok) break;
+            
+            const data = await res.json();
+            const arr = Array.isArray(data) ? data : (data?.data || []);
+            
+            if (arr.length === 0) break;
+            allData.push(...arr);
+            
+            if (arr.length < limit) break; // Chegou no fim da esteira
+            page++;
+        } catch (err) {
+            console.error('[RedTrack Pagination Error]:', err);
+            break;
+        }
+    }
+    
+    return allData;
+}
+
+/**
  * Fetches RedTrack report data grouped by campaign.
  * Uses the /report endpoint with group=campaign.
  */

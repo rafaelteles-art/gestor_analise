@@ -13,9 +13,10 @@ export interface MetaAdMetric {
 export async function fetchMetaMetrics(
   adAccountId: string,
   dateFrom: string,
-  dateTo: string
+  dateTo: string,
+  accessToken?: string
 ): Promise<MetaAdMetric[]> {
-  const token = process.env.META_ACCESS_TOKEN;
+  const token = accessToken || process.env.META_ACCESS_TOKEN;
 
   if (!token || !adAccountId || !dateFrom || !dateTo) {
     console.error(`Meta API credentials missing for account: ${adAccountId}`);
