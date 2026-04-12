@@ -1,0 +1,32 @@
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  maxInstances: 3
+  minInstances: 0
+  concurrency: 80
+
+env:
+  - variable: NEXT_PUBLIC_SUPABASE_URL
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_SUPABASE_ANON_KEY
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: META_ACCESS_TOKEN
+    secret: meta-access-token
+    availability:
+      - RUNTIME
+  - variable: REDTRACK_API_KEY
+    secret: redtrack-api-key
+    availability:
+      - RUNTIME
+  - variable: DATABASE_URL
+    secret: database-url
+    availability:
+      - RUNTIME
+  - variable: META_PROFILES
+    secret: meta-profiles
+    availability:
+      - RUNTIME

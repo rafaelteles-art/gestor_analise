@@ -50,6 +50,38 @@ async function main() {
       is_selected boolean DEFAULT false,
       created_at timestamp with time zone DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS public.meta_ads_metrics (
+      id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+      date date NOT NULL,
+      campaign_id character varying NOT NULL,
+      campaign_name character varying,
+      spend numeric DEFAULT 0,
+      impressions integer DEFAULT 0,
+      clicks integer DEFAULT 0,
+      conversions integer DEFAULT 0,
+      ctr numeric DEFAULT 0,
+      cpm numeric DEFAULT 0,
+      created_at timestamp with time zone DEFAULT now(),
+      UNIQUE (date, campaign_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS public.redtrack_metrics (
+      id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+      date date NOT NULL,
+      campaign_id character varying NOT NULL,
+      campaign_name character varying,
+      clicks integer DEFAULT 0,
+      conversions integer DEFAULT 0,
+      total_conversions integer DEFAULT 0,
+      revenue numeric DEFAULT 0,
+      total_revenue numeric DEFAULT 0,
+      cost numeric DEFAULT 0,
+      profit numeric DEFAULT 0,
+      roas numeric DEFAULT 0,
+      created_at timestamp with time zone DEFAULT now(),
+      UNIQUE (date, campaign_id)
+    );
   `;
   await pool.query(createTablesSql);
   console.log("      Tabelas criadas com sucesso!");

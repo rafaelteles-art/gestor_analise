@@ -161,7 +161,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
     else setDateTo(val);
   };
 
-  const handleImport = async () => {
+  const handleImport = async (forceRefresh = false) => {
     if (!selectedAccountId || !selectedRtCampaignId || !dateFrom || !dateTo) return;
 
     setIsImporting(true);
@@ -177,7 +177,8 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
           dateTo,
           accounts: acc ? [acc] : [],
           rtCampaigns: camp ? [camp] : [],
-          filterRegex: ''
+          filterRegex: '',
+          forceRefresh,
         })
       });
 
@@ -195,9 +196,9 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
     }
   };
 
-  // Auto-import when filters change
+  // Auto-import when filters change (usa cache)
   useEffect(() => {
-    handleImport();
+    handleImport(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccountId, selectedRtCampaignId, dateFrom, dateTo]);
 
@@ -262,7 +263,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
         >
             {label}
             <span className={`text-[9px] ${isActive ? 'text-indigo-600' : 'text-gray-300'}`}>
-                {isActive ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                {isActive ? (sortConfig?.direction === 'asc' ? '▲' : '▼') : '↕'}
             </span>
         </div>
       );
@@ -298,12 +299,31 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                 />
             </div>
 
-            {isImporting && (
-                <div className="flex items-center gap-2 text-indigo-600 text-xs font-semibold">
-                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    Sincronizando...
-                </div>
-            )}
+            {/* Atualizar: usa cache quando disponível */}
+            <button
+                onClick={() => handleImport(false)}
+                disabled={isImporting}
+                title="Carregar dados (usa cache quando disponível)"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-indigo-600 hover:border-indigo-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+                <svg className={`h-3.5 w-3.5 ${isImporting ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {isImporting ? 'Carregando...' : 'Atualizar'}
+            </button>
+
+            {/* Sincronizar: força busca nas APIs e atualiza cache */}
+            <button
+                onClick={() => handleImport(true)}
+                disabled={isImporting}
+                title="Forçar sincronização com Meta e RedTrack (ignora cache)"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-amber-200 text-amber-600 hover:bg-amber-50 hover:border-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+                <svg className={`h-3.5 w-3.5 ${isImporting ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                Sincronizar
+            </button>
         </div>
 
         {/* Date Filters */}
@@ -437,7 +457,26 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                             <div className="px-4 py-2 text-right">CPM</div>
                             <div className="px-4 py-2 text-right">CTR</div>
                         </div>
-                        {group.meta_campaigns.map((mc: any, idx: number) => {
+                        {([...group.meta_campaigns].sort((a: any, b: any) => {
+          if (!sortConfig) return 0;
+          const { key, direction } = sortConfig;
+          const mcKeyMap: Record<string, string> = {
+            rt_ad: 'campaign_name',
+            total_spend: 'spend',
+            total_revenue: 'revenue',
+            total_conversions: 'conversions',
+            cpa: 'cpa',
+            profit: 'profit',
+            roas: 'roas',
+          };
+          const mcKey = mcKeyMap[key] ?? key;
+          let valA = a[mcKey] ?? 0;
+          let valB = b[mcKey] ?? 0;
+          if (mcKey === 'campaign_name') { valA = String(valA).toLowerCase(); valB = String(valB).toLowerCase(); }
+          if (valA < valB) return direction === 'asc' ? -1 : 1;
+          if (valA > valB) return direction === 'asc' ? 1 : -1;
+          return 0;
+        })).map((mc: any, idx: number) => {
                         const mcProfitColor = mc.profit >= 0 ? 'text-emerald-500' : 'text-rose-500';
                         const mcRoasColor = mc.roas >= 1 ? 'text-emerald-500' : mc.roas > 0 ? 'text-amber-500' : 'text-gray-400';
                         return (

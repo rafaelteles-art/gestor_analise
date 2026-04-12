@@ -25,7 +25,10 @@ export async function fetchPaginatedRedTrack(baseUrl: string): Promise<any[]> {
         try {
             const url = `${baseUrl}&per=${limit}&page=${page}`;
             const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
-            if (!res.ok) break;
+            if (!res.ok) {
+                console.error(`[RedTrack] HTTP ${res.status} on page ${page}: ${await res.text().catch(() => '')}`);
+                break;
+            }
             
             const data = await res.json();
             const arr = Array.isArray(data) ? data : (data?.data || []);

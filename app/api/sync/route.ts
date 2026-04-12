@@ -1,64 +1,79 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { pool } from '@/lib/db';
 import { fetchMetaMetrics } from '@/lib/meta';
 import { fetchRedTrackMetrics } from '@/lib/redtrack';
 
-export async function POST(request: Request) {
+export async function POST() {
+  const client = await pool.connect();
   try {
-    // Para simplificar no protótipo, puxamos os dados de "ontem" ou podemos fixar uma data
     const today = new Date();
     today.setDate(today.getDate() - 1); // Yesterday
-    const dateStr = today.toISOString().split('T')[0]; 
+    const dateStr = today.toISOString().split('T')[0];
 
-    // 1. Extrair os Dados (Em paralelo)
     console.log(`Buscando métricas da data: ${dateStr}`);
-    
-    // Consulta QUAIS contas do Meta Ads o usuário habilitou para sincronizar
-    const { data: accounts } = await supabase
-      .from('meta_ad_accounts')
-      .select('account_id')
-      .eq('is_selected', true);
-      
-    const selectedAccounts = accounts?.map(a => a.account_id.replace('act_', 'act_')) || [];
-    
-    // Dispara requests para o Meta (para cada conta selecionada) e para o RedTrack
-    // Dispara requests para o Meta (para cada conta selecionada) e para o RedTrack
-    const metaPromises = selectedAccounts.map(accId => fetchMetaMetrics(accId, dateStr, dateStr));
-    
+
+    // 1. Consulta QUAIS contas do Meta Ads o usuário habilitou para sincronizar
+    const { rows: accounts } = await client.query(
+      `SELECT account_id FROM public.meta_ad_accounts WHERE is_selected = true`
+    );
+    const selectedAccounts = accounts.map((a: any) => a.account_id);
+
+    // 2. Extrair dados em paralelo
+    const metaPromises = selectedAccounts.map((accId: string) => fetchMetaMetrics(accId, dateStr, dateStr));
     const [metaDataArrays, redtrackData] = await Promise.all([
       Promise.all(metaPromises),
       fetchRedTrackMetrics(dateStr, dateStr, [])
     ]);
-    
-    // O Meta retorna um array por conta. Precisamos achatar todos numa lista só.
     const metaData = metaDataArrays.flat();
 
-    // 2. Inserir (ou atualizar) Meta Ads no Supabase
+    // 3. Upsert Meta Ads no GCP
     let metaCount = 0;
     if (metaData.length > 0) {
-      const { error, count } = await supabase
-        .from('meta_ads_metrics')
-        .upsert(metaData, { onConflict: 'date,campaign_id' }); // Ignora duplicação se rodar 2x
-        
-      if (error) console.error("Erro ao salvar dados do Meta no Supabase:", error);
-      metaCount = metaData.length;
+      for (const row of metaData) {
+        await client.query(
+          `INSERT INTO public.meta_ads_metrics (date, campaign_id, campaign_name, spend, impressions, clicks, conversions, ctr, cpm)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           ON CONFLICT (date, campaign_id) DO UPDATE SET
+             campaign_name = EXCLUDED.campaign_name,
+             spend = EXCLUDED.spend,
+             impressions = EXCLUDED.impressions,
+             clicks = EXCLUDED.clicks,
+             conversions = EXCLUDED.conversions,
+             ctr = EXCLUDED.ctr,
+             cpm = EXCLUDED.cpm`,
+          [row.date, row.campaign_id, row.campaign_name, row.spend, row.impressions, row.clicks, row.conversions, row.ctr, row.cpm]
+        );
+        metaCount++;
+      }
     }
 
-    // 3. Inserir (ou atualizar) RedTrack no Supabase
+    // 4. Upsert RedTrack no GCP
     let redtrackCount = 0;
     if (redtrackData.length > 0) {
-      const { error } = await supabase
-        .from('redtrack_metrics')
-        .upsert(redtrackData, { onConflict: 'date,campaign_id' });
-        
-      if (error) console.error("Erro ao salvar dados do RedTrack no Supabase:", error);
-      redtrackCount = redtrackData.length;
+      for (const row of redtrackData) {
+        await client.query(
+          `INSERT INTO public.redtrack_metrics (date, campaign_id, campaign_name, clicks, conversions, total_conversions, revenue, total_revenue, cost, profit, roas)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           ON CONFLICT (date, campaign_id) DO UPDATE SET
+             campaign_name = EXCLUDED.campaign_name,
+             clicks = EXCLUDED.clicks,
+             conversions = EXCLUDED.conversions,
+             total_conversions = EXCLUDED.total_conversions,
+             revenue = EXCLUDED.revenue,
+             total_revenue = EXCLUDED.total_revenue,
+             cost = EXCLUDED.cost,
+             profit = EXCLUDED.profit,
+             roas = EXCLUDED.roas`,
+          [row.date, row.campaign_id, row.campaign_name, row.clicks, row.conversions, row.total_conversions, row.revenue, row.total_revenue, row.cost, row.profit, row.roas]
+        );
+        redtrackCount++;
+      }
     }
 
     return NextResponse.json({
       success: true,
       message: `Sincronização Finalizada. ${metaCount} campanhas do Meta e ${redtrackCount} do RedTrack salvas.`,
-      records: { metaData, redtrackData } // retornamos o payload para verificar
+      records: { metaData, redtrackData }
     });
 
   } catch (error: any) {
@@ -67,5 +82,7 @@ export async function POST(request: Request) {
       { success: false, error: error.message },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }

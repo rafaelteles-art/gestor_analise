@@ -1,7 +1,6 @@
-import React from 'react';
 import { pool } from '@/lib/db';
 import ClientImport from './ClientImport';
-import DopScaleLayout from '../components/DopScaleLayout';
+import V2MediaLabLayout from '../components/V2MediaLabLayout';
 
 export default async function ImportPage() {
   let dbAccounts: any[] = [];
@@ -18,8 +17,8 @@ export default async function ImportPage() {
   }
 
   return (
-    <DopScaleLayout title="Dashboard">
+    <V2MediaLabLayout title="Dashboard">
       <ClientImport dbAccounts={dbAccounts || []} rtCampaigns={rtCampaigns || []} />
-    </DopScaleLayout>
+    </V2MediaLabLayout>
   );
 }

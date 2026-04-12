@@ -1,12 +1,12 @@
-import DopScaleLayout from '../components/DopScaleLayout';
+import V2MediaLabLayout from '../components/V2MediaLabLayout';
 import ApiTokenForm from './components/ApiTokenForm';
 
 export default function ApiConfigPage() {
   return (
-    <DopScaleLayout title="Configurações de Integração">
+    <V2MediaLabLayout title="Configurações de Integração">
       <div className="max-w-4xl">
         <ApiTokenForm />
       </div>
-    </DopScaleLayout>
+    </V2MediaLabLayout>
   );
 }
