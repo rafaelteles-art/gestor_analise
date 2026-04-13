@@ -243,7 +243,7 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       const data = await res.json();
       if (data.success) window.location.reload();
       else alert('Erro: ' + data.error);
-    } catch { alert('Erro de rede.'); }
+    } catch (e: any) { alert('Erro de rede: ' + (e?.message ?? String(e))); }
     finally { setIsScanningCamps(false); }
   };
 
