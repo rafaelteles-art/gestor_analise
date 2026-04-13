@@ -35,8 +35,9 @@ export async function fetchMetaMetrics(
       const data: any = await res.json();
       
       if (data.error) {
-        console.warn(`Meta API error for ${adAccountId}: ${data.error.message}`);
-        return allResults; // Retorna o que já coletou, não trava
+        const msg = data.error.message ?? JSON.stringify(data.error);
+        console.warn(`Meta API error for ${adAccountId}: ${msg}`);
+        throw new Error(msg);
       }
       
       if (!data.data) break;
@@ -107,8 +108,9 @@ export async function fetchMetaMetricsPerDay(
       const data: any = await res.json();
 
       if (data.error) {
-        console.warn(`[Meta] Erro na conta ${adAccountId}: ${data.error.message}`);
-        return allResults;
+        const msg = data.error.message ?? JSON.stringify(data.error);
+        console.warn(`[Meta] Erro na conta ${adAccountId}: ${msg}`);
+        throw new Error(msg);
       }
 
       if (!data.data) break;

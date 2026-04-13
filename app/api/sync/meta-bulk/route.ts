@@ -3,6 +3,11 @@ import { pool } from '@/lib/db';
 import { fetchMetaMetricsPerDay } from '@/lib/meta';
 import { format, subDays } from 'date-fns';
 
+// Aumenta o limite de tempo para ambientes Vercel Pro/Enterprise
+export const maxDuration = 300;
+
+const CONCURRENCY = 3; // contas processadas em paralelo (respeita rate limits da Meta)
+
 /**
  * POST /api/sync/meta-bulk
  *
@@ -45,7 +50,11 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       const send = (obj: object) => {
-        controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
+        } catch {
+          // cliente desconectou — ignora
+        }
       };
 
       send({ type: 'start', total: accounts.length, dateFrom, dateTo, days });
@@ -53,16 +62,14 @@ export async function POST(req: Request) {
       let totalRows = 0;
       let errorCount = 0;
 
-      for (let i = 0; i < accounts.length; i++) {
-        const acc = accounts[i];
-        send({ type: 'progress', index: i + 1, total: accounts.length, account: acc.account_name });
-
+      // Processa uma conta e salva no banco
+      const processAccount = async (acc: typeof accounts[0]) => {
         try {
           const metrics = await fetchMetaMetricsPerDay(acc.account_id, dateFrom, dateTo, acc.access_token);
 
           if (metrics.length === 0) {
             send({ type: 'account_done', account: acc.account_name, rows: 0, status: 'empty' });
-            continue;
+            return;
           }
 
           // Upsert em lote dentro de uma transação por conta
@@ -114,6 +121,18 @@ export async function POST(req: Request) {
           errorCount++;
           send({ type: 'account_done', account: acc.account_name, rows: 0, status: 'error', error: fetchErr.message });
         }
+      };
+
+      // Processa em lotes paralelos de CONCURRENCY contas ao mesmo tempo
+      for (let i = 0; i < accounts.length; i += CONCURRENCY) {
+        const batch = accounts.slice(i, i + CONCURRENCY);
+
+        // Envia progress para todas as contas do lote antes de iniciar
+        batch.forEach((acc, j) => {
+          send({ type: 'progress', index: i + j + 1, total: accounts.length, account: acc.account_name });
+        });
+
+        await Promise.all(batch.map(acc => processAccount(acc)));
       }
 
       send({
