@@ -12,10 +12,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     // Controla o acesso a rotas — chamado pelo middleware
     authorized({ auth: session, request: { nextUrl } }) {
       const isLoggedIn = !!session?.user;
-      const isOnLogin = nextUrl.pathname === "/login";
+      const pathname = nextUrl.pathname;
+
+      // Rotas internas do NextAuth: sempre permitir (senão bloqueia o próprio login)
+      if (pathname.startsWith("/api/auth")) return true;
 
       // Na página de login: se já logado, manda pro app
-      if (isOnLogin) {
+      if (pathname === "/login") {
         if (isLoggedIn) return Response.redirect(new URL("/import", nextUrl));
         return true;
       }

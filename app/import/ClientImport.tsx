@@ -36,6 +36,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
   const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   const [isImporting, setIsImporting] = useState(false);
+  const [isSyncingToday, setIsSyncingToday] = useState(false);
   const [importResults, setImportResults] = useState<any[]>([]);
   const [rtTotals, setRtTotals] = useState<any>(null);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
@@ -197,6 +198,27 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
     }
   };
 
+  const handleSyncToday = async () => {
+    if (!selectedAccountId || !selectedRtCampaignId) return;
+    setIsSyncingToday(true);
+    try {
+      const response = await fetch('/api/import/sync-today', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: selectedAccountId, rtCampaignId: selectedRtCampaignId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      // Recarrega a tabela com os dados frescos do banco
+      await handleImport();
+    } catch (error: any) {
+      console.error(error);
+      alert("Erro ao sincronizar hoje: " + error.message);
+    } finally {
+      setIsSyncingToday(false);
+    }
+  };
+
   // Auto-import when filters change
   useEffect(() => {
     handleImport();
@@ -280,6 +302,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
         <div className="flex items-center gap-3">
             <div className="min-w-[250px]">
                 <Select
+                    instanceId="select-rt-campaign"
                     options={sortedRtCampaigns.map(c => ({ value: c.campaign_id, label: c.campaign_name }))}
                     value={sortedRtCampaigns.map(c => ({ value: c.campaign_id, label: c.campaign_name })).find(o => o.value === selectedRtCampaignId) || null}
                     onChange={(selected: any) => setSelectedRtCampaignId(selected?.value || '')}
@@ -291,6 +314,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
 
             <div className="min-w-[250px]">
                 <Select
+                    instanceId="select-meta-account"
                     options={sortedAccounts.map(a => ({ value: a.account_id, label: a.account_name }))}
                     value={sortedAccounts.map(a => ({ value: a.account_id, label: a.account_name })).find(o => o.value === selectedAccountId) || null}
                     onChange={(selected: any) => setSelectedAccountId(selected?.value || '')}
@@ -316,7 +340,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
             {/* Recarregar: relê do banco de dados (sincronização com APIs fica em Configurações) */}
             <button
                 onClick={() => handleImport()}
-                disabled={isImporting}
+                disabled={isImporting || isSyncingToday}
                 title="Recarregar dados do banco (para sincronizar com Meta e RedTrack, use Configurações)"
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-amber-200 text-amber-600 hover:bg-amber-50 hover:border-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -324,6 +348,20 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 Recarregar
+            </button>
+
+            {/* Sincronizar Hoje: busca dados do dia atual via API e atualiza o banco */}
+            <button
+                onClick={handleSyncToday}
+                disabled={isImporting || isSyncingToday}
+                title="Buscar dados de hoje via API (Meta + RedTrack) e atualizar o banco"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+                <svg className={`h-3.5 w-3.5 ${isSyncingToday ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m8.66-13l-.87.5M4.21 15.5l-.87.5M20.66 15.5l-.87-.5M4.21 8.5l-.87-.5M21 12h-1M4 12H3" />
+                    <circle cx="12" cy="12" r="4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {isSyncingToday ? 'Sincronizando...' : 'Hoje (API)'}
             </button>
         </div>
 

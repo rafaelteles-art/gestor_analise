@@ -103,6 +103,7 @@ export default function RtCampaignSelector({ initialCampaigns }: { initialCampai
           </p>
         ) : (
           <Select<Option, true>
+            instanceId="select-rt-campaigns-settings"
             isMulti
             options={allOptions}
             value={selected}

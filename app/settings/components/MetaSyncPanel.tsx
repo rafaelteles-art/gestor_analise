@@ -303,6 +303,7 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
         </div>
 
         <Select<CampaignOption, true>
+          instanceId="select-meta-campaigns-settings"
           isMulti
           options={allOptions}
           value={selected}
