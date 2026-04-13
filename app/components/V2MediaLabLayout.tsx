@@ -4,9 +4,16 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 
 export default function V2MediaLabLayout({ children, title }: { children: React.ReactNode, title: string }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+
+  const user = session?.user;
+  const initials = user?.name
+    ? user.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
+    : '??';
 
   return (
     <div className="flex min-h-screen bg-[#f4f7fb] text-gray-800 font-sans">
@@ -45,12 +52,37 @@ export default function V2MediaLabLayout({ children, title }: { children: React.
             Configurações
           </Link>
         </nav>
-        <div className="p-4 border-t border-gray-100 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">TU</div>
-            <div className="text-sm">
-                <p className="font-semibold text-gray-800 leading-tight">Test User</p>
-                <p className="text-xs text-gray-500">V2 Media Lab</p>
+
+        {/* User info + logout */}
+        <div className="p-4 border-t border-gray-100">
+          <div className="flex items-center gap-3">
+            {user?.image ? (
+              <Image
+                src={user.image}
+                alt={user.name ?? 'Usuário'}
+                width={32}
+                height={32}
+                className="rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                {initials}
+              </div>
+            )}
+            <div className="text-sm min-w-0 flex-1">
+              <p className="font-semibold text-gray-800 leading-tight truncate">{user?.name ?? 'Carregando...'}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.email ?? ''}</p>
             </div>
+          </div>
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="mt-3 w-full flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg px-3 py-2 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Sair
+          </button>
         </div>
       </aside>
 

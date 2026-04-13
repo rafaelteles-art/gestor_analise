@@ -162,7 +162,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
     else setDateTo(val);
   };
 
-  const handleImport = async (forceRefresh = false) => {
+  const handleImport = async () => {
     if (!selectedAccountId || !selectedRtCampaignId || !dateFrom || !dateTo) return;
 
     setIsImporting(true);
@@ -179,7 +179,6 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
           accounts: acc ? [acc] : [],
           rtCampaigns: camp ? [camp] : [],
           filterRegex: '',
-          forceRefresh,
         })
       });
 
@@ -198,9 +197,9 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
     }
   };
 
-  // Auto-import when filters change (usa cache)
+  // Auto-import when filters change
   useEffect(() => {
-    handleImport(false);
+    handleImport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccountId, selectedRtCampaignId, dateFrom, dateTo]);
 
@@ -301,11 +300,11 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                 />
             </div>
 
-            {/* Atualizar: usa cache quando disponível */}
+            {/* Atualizar: lê do banco de dados */}
             <button
-                onClick={() => handleImport(false)}
+                onClick={() => handleImport()}
                 disabled={isImporting}
-                title="Carregar dados (usa cache quando disponível)"
+                title="Carregar dados do banco de dados"
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-indigo-600 hover:border-indigo-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 <svg className={`h-3.5 w-3.5 ${isImporting ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -314,17 +313,17 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                 {isImporting ? 'Carregando...' : 'Atualizar'}
             </button>
 
-            {/* Sincronizar: força busca nas APIs e atualiza cache */}
+            {/* Recarregar: relê do banco de dados (sincronização com APIs fica em Configurações) */}
             <button
-                onClick={() => handleImport(true)}
+                onClick={() => handleImport()}
                 disabled={isImporting}
-                title="Forçar sincronização com Meta e RedTrack (ignora cache)"
+                title="Recarregar dados do banco (para sincronizar com Meta e RedTrack, use Configurações)"
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-amber-200 text-amber-600 hover:bg-amber-50 hover:border-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 <svg className={`h-3.5 w-3.5 ${isImporting ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
-                Sincronizar
+                Recarregar
             </button>
         </div>
 
