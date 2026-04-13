@@ -9,13 +9,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    // Controla o acesso a rotas — chamado pelo middleware
+    authorized({ auth: session, request: { nextUrl } }) {
+      const isLoggedIn = !!session?.user;
+      const isOnLogin = nextUrl.pathname === "/login";
+
+      // Na página de login: se já logado, manda pro app
+      if (isOnLogin) {
+        if (isLoggedIn) return Response.redirect(new URL("/import", nextUrl));
+        return true;
+      }
+
+      // Em qualquer outra rota: exige login
+      if (!isLoggedIn) return false; // NextAuth redireciona para /login automaticamente
+
+      return true;
+    },
+    // Restringe acesso apenas a emails @v2globalteam.com
     signIn({ profile }) {
-      // Restringe acesso apenas a emails do domínio @v2globalteam.com
       const email = profile?.email ?? "";
       return email.endsWith("@v2globalteam.com");
-    },
-    session({ session, token }) {
-      return session;
     },
   },
   pages: {
