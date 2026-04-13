@@ -38,6 +38,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
   const [isImporting, setIsImporting] = useState(false);
   const [importResults, setImportResults] = useState<any[]>([]);
   const [rtTotals, setRtTotals] = useState<any>(null);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [tableSearch, setTableSearch] = useState('');
   
@@ -187,6 +188,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
 
       setImportResults(data.data || []);
       setRtTotals(data.rt_totals || null);
+      setExchangeRate(data.exchange_rate ?? null);
       setExpandedRows(new Set());
     } catch (error: any) {
       console.error(error);
@@ -359,6 +361,12 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                     <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
                 </div>
             ))}
+            {exchangeRate !== null && (
+              <div className="flex flex-col justify-center self-stretch px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm whitespace-nowrap">
+                <h3 className="text-[10px] text-gray-400 font-bold tracking-wider mb-2 uppercase">USD/BRL</h3>
+                <p className="text-2xl font-bold text-gray-800">R$ {exchangeRate.toFixed(4).replace('.', ',')}</p>
+              </div>
+            )}
         </div>
       )}
 

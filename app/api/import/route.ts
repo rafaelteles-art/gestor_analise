@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchMetaMetrics } from '@/lib/meta';
 import { fetchPaginatedRedTrack } from '@/lib/redtrack';
+import { getRedtrackApiKey } from '@/lib/config';
 import { pool } from '@/lib/db';
 
 // ============================================================
@@ -51,15 +52,34 @@ async function writeCache(cacheKey: string, dateFrom: string, dateTo: string, da
 }
 
 // ============================================================
-// USD→BRL (sempre fresco — chamada leve, não cacheada)
+// USD→BRL — cotação histórica do dateTo (ou atual se for hoje)
 // ============================================================
-async function getUsdToBrl(): Promise<number> {
+async function getUsdToBrl(dateTo: string): Promise<number> {
   try {
-    const res = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL');
+    const today = new Date().toISOString().split('T')[0];
+
+    if (dateTo >= today) {
+      // Período inclui hoje: cotação ao vivo
+      const res = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL');
+      const data = await res.json();
+      const rate = parseFloat(data.USDBRL.bid);
+      console.log(`[Import] Cotação atual USD→BRL: ${rate}`);
+      return rate;
+    }
+
+    // Período histórico: busca o último dia útil até dateTo
+    // (limit=5 garante que fins-de-semana e feriados sejam cobertos)
+    const dateFormatted = dateTo.replace(/-/g, '');
+    const res = await fetch(
+      `https://economia.awesomeapi.com.br/json/daily/USD-BRL/5?end_date=${dateFormatted}`
+    );
     const data = await res.json();
-    const rate = parseFloat(data.USDBRL.bid);
-    console.log(`[Import] Cotação USD→BRL: ${rate}`);
-    return rate;
+    if (Array.isArray(data) && data.length > 0) {
+      const rate = parseFloat(data[0].bid);
+      console.log(`[Import] Cotação histórica USD→BRL (${dateTo}): ${rate}`);
+      return rate;
+    }
+    throw new Error('Sem dados históricos');
   } catch {
     console.warn('[Import] Erro ao buscar cotação, usando 5.50 como fallback');
     return 5.50;
@@ -78,7 +98,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Faltam parâmetros obrigatórios.' }, { status: 400 });
     }
 
-    const apiKey = process.env.REDTRACK_API_KEY;
+    const apiKey = await getRedtrackApiKey();
     if (!apiKey) {
       return NextResponse.json({ error: 'REDTRACK_API_KEY não configurada.' }, { status: 500 });
     }
@@ -94,8 +114,8 @@ export async function POST(req: NextRequest) {
     // BUSCA (cache-first) — Meta por conta, RT compartilhado
     // ============================================================
 
-    // 1. Cotação (sempre ao vivo — chamada rápida)
-    const usdToBrlPromise = getUsdToBrl();
+    // 1. Cotação histórica do dateTo (ou ao vivo se incluir hoje)
+    const usdToBrlPromise = getUsdToBrl(dateTo);
 
     // 2. Meta: uma entrada de cache por (account_id, dateFrom, dateTo)
     const metaResults: any[] = [];

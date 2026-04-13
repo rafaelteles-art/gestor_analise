@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchPaginatedRedTrack } from '@/lib/redtrack';
+import { getRedtrackApiKey } from '@/lib/config';
 import { format, subDays } from 'date-fns';
 
 /**
@@ -14,7 +15,7 @@ import { format, subDays } from 'date-fns';
  * Retorna NDJSON em streaming para mostrar progresso na UI.
  */
 export async function POST() {
-  const apiKey = process.env.REDTRACK_API_KEY;
+  const apiKey = await getRedtrackApiKey();
   if (!apiKey) {
     return NextResponse.json({ error: 'REDTRACK_API_KEY não configurada.' }, { status: 500 });
   }

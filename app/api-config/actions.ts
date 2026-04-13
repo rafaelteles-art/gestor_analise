@@ -1,65 +1,83 @@
 'use server'
 
-import { promises as fs } from 'fs';
-import path from 'path';
+import { pool } from '@/lib/db';
+import { invalidateConfigCache } from '@/lib/config';
 
-export async function getStoredTokens() {
-  let metaProfiles = [];
-  try {
-    if (process.env.META_PROFILES) {
-      metaProfiles = JSON.parse(process.env.META_PROFILES);
-    } else if (process.env.META_ACCESS_TOKEN) {
-      metaProfiles = [{ name: 'Default', token: process.env.META_ACCESS_TOKEN }];
-    }
-  } catch(e) {}
-
-  return {
-    metaProfiles,
-    redtrackKey: process.env.REDTRACK_API_KEY || ''
-  };
+// Garante que a tabela de configurações existe
+async function ensureSettingsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
 }
 
-export async function saveApiTokens(metaProfiles: {name: string, token: string}[], redtrackKey: string) {
-  try {
-    const envPath = path.join(process.cwd(), '.env.local');
-    let envContent = '';
-    
-    try {
-      envContent = await fs.readFile(envPath, 'utf8');
-    } catch(e) {
-      // file doesn't exist, ignore
-    }
+export async function getStoredTokens() {
+  let metaProfiles: { name: string; token: string }[] = [];
+  let redtrackKey = '';
 
-    const lines = envContent.split('\n');
-    let hasProfiles = false;
-    let hasRedtrack = false;
+  // 1. Tenta ler do banco de dados (fonte primária e persistente)
+  try {
+    await ensureSettingsTable();
+    const result = await pool.query(
+      `SELECT key, value FROM app_settings WHERE key IN ('META_PROFILES', 'REDTRACK_API_KEY')`
+    );
+    for (const row of result.rows) {
+      if (row.key === 'META_PROFILES') {
+        try { metaProfiles = JSON.parse(row.value); } catch {}
+      } else if (row.key === 'REDTRACK_API_KEY') {
+        redtrackKey = row.value;
+      }
+    }
+  } catch (e) {
+    // DB indisponível — cai no fallback abaixo
+  }
+
+  // 2. Fallback: lê de process.env (compatibilidade com .env.local existente)
+  if (metaProfiles.length === 0) {
+    try {
+      if (process.env.META_PROFILES) {
+        metaProfiles = JSON.parse(process.env.META_PROFILES);
+      } else if (process.env.META_ACCESS_TOKEN) {
+        metaProfiles = [{ name: 'Default', token: process.env.META_ACCESS_TOKEN }];
+      }
+    } catch {}
+  }
+  if (!redtrackKey) {
+    redtrackKey = process.env.REDTRACK_API_KEY || '';
+  }
+
+  return { metaProfiles, redtrackKey };
+}
+
+export async function saveApiTokens(
+  metaProfiles: { name: string; token: string }[],
+  redtrackKey: string
+) {
+  try {
+    await ensureSettingsTable();
 
     const profilesStr = JSON.stringify(metaProfiles);
 
-    const newLines = lines.map(line => {
-      if (line.startsWith('META_PROFILES=')) {
-        hasProfiles = true;
-        return `META_PROFILES='${profilesStr}'`;
-      }
-      if (line.startsWith('REDTRACK_API_KEY=')) {
-        hasRedtrack = true;
-        return `REDTRACK_API_KEY=${redtrackKey}`;
-      }
-      return line;
-    });
+    // Salva no banco de dados (persistente entre reinícios)
+    await pool.query(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES ('META_PROFILES', $1, NOW()), ('REDTRACK_API_KEY', $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [profilesStr, redtrackKey]
+    );
 
-    if (!hasProfiles) newLines.push(`META_PROFILES='${profilesStr}'`);
-    if (!hasRedtrack) newLines.push(`REDTRACK_API_KEY=${redtrackKey}`);
-
-    await fs.writeFile(envPath, newLines.join('\n'));
-
-    // Update in-memory
+    // Atualiza process.env para a sessão atual (rotas de sync usam isso)
     process.env.META_PROFILES = profilesStr;
     process.env.REDTRACK_API_KEY = redtrackKey;
-    // Keep backward compat for first token
     if (metaProfiles.length > 0) {
       process.env.META_ACCESS_TOKEN = metaProfiles[0].token;
     }
+
+    // Invalida o cache in-memory de lib/config.ts
+    invalidateConfigCache();
 
     return { success: true };
   } catch (err: any) {
@@ -67,4 +85,3 @@ export async function saveApiTokens(metaProfiles: {name: string, token: string}[
     return { success: false, error: err.message };
   }
 }
-
