@@ -2,6 +2,19 @@ import { NextResponse } from 'next/server';
 import pg from 'pg';
 const { Pool } = pg;
 
+let sharedPoolStatus = 'not tested';
+let sharedPoolError: string | null = null;
+try {
+  const { pool } = await import('@/lib/db');
+  const client = await pool.connect();
+  await client.query('SELECT 1');
+  client.release();
+  sharedPoolStatus = 'ok';
+} catch (e: any) {
+  sharedPoolStatus = 'error';
+  sharedPoolError = e.message;
+}
+
 export async function GET() {
   const dbUrl = process.env.DATABASE_URL;
 
@@ -38,5 +51,6 @@ export async function GET() {
       META_ACCESS_TOKEN_SET: !!process.env.META_ACCESS_TOKEN,
     },
     db: { status: dbStatus, error: dbError },
+    sharedPool: { status: sharedPoolStatus, error: sharedPoolError },
   });
 }
