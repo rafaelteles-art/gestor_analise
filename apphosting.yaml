@@ -7,10 +7,12 @@ runConfig:
 
 env:
   - variable: NEXT_PUBLIC_SUPABASE_URL
+    value: https://tloqhpbzewamabwykqrs.supabase.co
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_SUPABASE_ANON_KEY
+    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsb3FocGJ6ZXdhbWFid3lrcXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDM0OTYsImV4cCI6MjA5MTA3OTQ5Nn0.Sl66vW20vQGyN7iI-IS08u7_I75t1UEH7tPscutnPR0
     availability:
       - BUILD
       - RUNTIME
