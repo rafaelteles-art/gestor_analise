@@ -4,6 +4,7 @@ runConfig:
   maxInstances: 3
   minInstances: 0
   concurrency: 80
+  timeoutSeconds: 300
 
 env:
   - variable: NEXT_PUBLIC_SUPABASE_URL
