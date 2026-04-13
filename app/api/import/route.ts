@@ -197,11 +197,31 @@ export async function POST(req: NextRequest) {
       } catch { console.warn("Invalid regex:", filterRegex); }
     }
 
-    // Índice rt_campaigns por nome
+    // Índice rt_campaigns por nome (exato)
     const rtCampByName = new Map<string, any>();
     rtCampaignsReport.forEach((rc: any) => {
       if (rc.rt_campaign) rtCampByName.set(rc.rt_campaign, rc);
     });
+
+    // Lookup com merge: encontra match exato + qualquer entrada RT cujo nome
+    // está contido no nome Meta (cobre campanhas renomeadas com prefixo "ATIVAR - " etc.)
+    // e soma conversões/receita de todas as entradas encontradas.
+    const findRtCamp = (metaCampaignName: string) => {
+      const metaLower = metaCampaignName.toLowerCase();
+      const matches: any[] = [];
+      for (const [rtName, rtCamp] of rtCampByName) {
+        const isExact = rtName === metaCampaignName;
+        const isPartial = rtName.length > 10 && metaLower.includes(rtName.toLowerCase());
+        if (isExact || isPartial) matches.push(rtCamp);
+      }
+      if (matches.length === 0) return null;
+      if (matches.length === 1) return matches[0];
+      // Mais de uma entrada: soma conversões e receita
+      return {
+        convtype2: String(matches.reduce((s, c) => s + parseInt(c.convtype2 || '0', 10), 0)),
+        total_revenue: String(matches.reduce((s, c) => s + parseFloat(c.total_revenue || '0'), 0)),
+      };
+    };
 
     // Motor de cruzamento
     const finalReport = cleanRtAds.map((rtItem: any) => {
@@ -212,7 +232,7 @@ export async function POST(req: NextRequest) {
       if (matchingMeta.length === 0) return null;
 
       const enrichedCampaigns = matchingMeta.map(mc => {
-        const rtCamp = rtCampByName.get(mc.campaign_name);
+        const rtCamp = findRtCamp(mc.campaign_name);
         const spendBrl = mc.spend * usdToBrl;
         const rtRevenue = rtCamp ? parseFloat(rtCamp.total_revenue || '0') : 0;
         const rtConversions = rtCamp ? parseInt(rtCamp.convtype2 || '0', 10) : 0;
