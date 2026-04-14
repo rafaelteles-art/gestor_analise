@@ -7,6 +7,7 @@ import { Key, Save, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 export default function ApiTokenForm() {
   const [profiles, setProfiles] = useState<{name: string, token: string}[]>([{name: '', token: ''}]);
   const [redtrackKey, setRedtrackKey] = useState('');
+  const [vturbToken, setVturbToken] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -16,6 +17,7 @@ export default function ApiTokenForm() {
         setProfiles(data.metaProfiles);
       }
       setRedtrackKey(data.redtrackKey);
+      setVturbToken(data.vturbToken || '');
     });
   }, []);
 
@@ -35,7 +37,7 @@ export default function ApiTokenForm() {
 
     try {
       const validProfiles = profiles.filter(p => p.token.trim() !== '');
-      const res = await saveApiTokens(validProfiles, redtrackKey.trim());
+      const res = await saveApiTokens(validProfiles, redtrackKey.trim(), vturbToken.trim());
       if (res.success) {
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
@@ -128,6 +130,21 @@ export default function ApiTokenForm() {
             onChange={(e) => setRedtrackKey(e.target.value)}
           />
           <p className="text-xs text-gray-400 mt-2">Encontrada no seu painel principal do RedTrack, em Perfil &gt; Integração API.</p>
+        </div>
+
+        <hr className="border-gray-100" />
+
+        {/* Sessão vturb */}
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-2">vturb Analytics (API Token)</label>
+          <input
+            type="password"
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-mono placeholder:font-sans placeholder:text-gray-400"
+            placeholder="Cole seu X-Api-Token do vturb..."
+            value={vturbToken}
+            onChange={(e) => setVturbToken(e.target.value)}
+          />
+          <p className="text-xs text-gray-400 mt-2">Dashboard vturb &gt; Configurações de API Key. Enviado no header X-Api-Token em cada chamada.</p>
         </div>
 
         <div className="pt-4 border-t border-gray-100 flex items-center gap-4">

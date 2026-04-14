@@ -17,18 +17,21 @@ async function ensureSettingsTable() {
 export async function getStoredTokens() {
   let metaProfiles: { name: string; token: string }[] = [];
   let redtrackKey = '';
+  let vturbToken = '';
 
   // 1. Tenta ler do banco de dados (fonte primária e persistente)
   try {
     await ensureSettingsTable();
     const result = await pool.query(
-      `SELECT key, value FROM app_settings WHERE key IN ('META_PROFILES', 'REDTRACK_API_KEY')`
+      `SELECT key, value FROM app_settings WHERE key IN ('META_PROFILES', 'REDTRACK_API_KEY', 'VTURB_API_TOKEN')`
     );
     for (const row of result.rows) {
       if (row.key === 'META_PROFILES') {
         try { metaProfiles = JSON.parse(row.value); } catch {}
       } else if (row.key === 'REDTRACK_API_KEY') {
         redtrackKey = row.value;
+      } else if (row.key === 'VTURB_API_TOKEN') {
+        vturbToken = row.value;
       }
     }
   } catch (e) {
@@ -48,13 +51,17 @@ export async function getStoredTokens() {
   if (!redtrackKey) {
     redtrackKey = process.env.REDTRACK_API_KEY || '';
   }
+  if (!vturbToken) {
+    vturbToken = process.env.VTURB_API_TOKEN || '';
+  }
 
-  return { metaProfiles, redtrackKey };
+  return { metaProfiles, redtrackKey, vturbToken };
 }
 
 export async function saveApiTokens(
   metaProfiles: { name: string; token: string }[],
-  redtrackKey: string
+  redtrackKey: string,
+  vturbToken: string = ''
 ) {
   try {
     await ensureSettingsTable();
@@ -64,14 +71,17 @@ export async function saveApiTokens(
     // Salva no banco de dados (persistente entre reinícios)
     await pool.query(
       `INSERT INTO app_settings (key, value, updated_at)
-       VALUES ('META_PROFILES', $1, NOW()), ('REDTRACK_API_KEY', $2, NOW())
+       VALUES ('META_PROFILES', $1, NOW()),
+              ('REDTRACK_API_KEY', $2, NOW()),
+              ('VTURB_API_TOKEN', $3, NOW())
        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-      [profilesStr, redtrackKey]
+      [profilesStr, redtrackKey, vturbToken]
     );
 
     // Atualiza process.env para a sessão atual (rotas de sync usam isso)
     process.env.META_PROFILES = profilesStr;
     process.env.REDTRACK_API_KEY = redtrackKey;
+    process.env.VTURB_API_TOKEN = vturbToken;
     if (metaProfiles.length > 0) {
       process.env.META_ACCESS_TOKEN = metaProfiles[0].token;
     }

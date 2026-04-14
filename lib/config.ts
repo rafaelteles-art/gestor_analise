@@ -16,7 +16,7 @@ async function loadSettings(): Promise<Record<string, string>> {
 
   try {
     const result = await pool.query(
-      `SELECT key, value FROM app_settings WHERE key IN ('META_PROFILES', 'REDTRACK_API_KEY')`
+      `SELECT key, value FROM app_settings WHERE key IN ('META_PROFILES', 'REDTRACK_API_KEY', 'VTURB_API_TOKEN')`
     );
     const settings: Record<string, string> = {};
     for (const row of result.rows) {
@@ -40,6 +40,12 @@ export function invalidateConfigCache() {
 export async function getRedtrackApiKey(): Promise<string | undefined> {
   const settings = await loadSettings();
   return settings['REDTRACK_API_KEY'] || process.env.REDTRACK_API_KEY;
+}
+
+/** Retorna o API token do vturb Analytics */
+export async function getVturbApiToken(): Promise<string | undefined> {
+  const settings = await loadSettings();
+  return settings['VTURB_API_TOKEN'] || process.env.VTURB_API_TOKEN;
 }
 
 /** Retorna os perfis Meta (lista de {name, token}) */

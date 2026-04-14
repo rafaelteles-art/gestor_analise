@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import AccountList from './components/AccountList';
 import MetaSyncPanel from './components/MetaSyncPanel';
+import VturbSyncPanel from './components/VturbSyncPanel';
 import V2MediaLabLayout from '../components/V2MediaLabLayout';
 
 export default async function SettingsPage() {
@@ -22,6 +23,7 @@ export default async function SettingsPage() {
     <V2MediaLabLayout title="Configurações">
       <div className="max-w-4xl flex flex-col gap-8">
         <MetaSyncPanel initialRtCampaigns={rtCampaigns} />
+        <VturbSyncPanel />
         <AccountList initialAccounts={accounts} />
       </div>
     </V2MediaLabLayout>
