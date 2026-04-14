@@ -11,7 +11,7 @@ import { format, subDays } from 'date-fns';
  * is_selected = true em redtrack_campaign_selections.
  * A filtragem é manual (feita pelo usuário nas configurações).
  *
- * Pré-popula 5 ranges no import_cache: hoje, ontem, 7d, 14d, 30d.
+ * Pré-popula 7 ranges no import_cache: hoje, ontem, 2d, 3d, 7d, 14d, 30d.
  * Retorna NDJSON em streaming para mostrar progresso na UI.
  */
 export async function POST() {
@@ -22,6 +22,8 @@ export async function POST() {
 
   const today      = format(new Date(), 'yyyy-MM-dd');
   const yesterday  = format(subDays(new Date(), 1),  'yyyy-MM-dd');
+  const dateFrom2  = format(subDays(new Date(), 1),  'yyyy-MM-dd'); // ontem → hoje
+  const dateFrom3  = format(subDays(new Date(), 2),  'yyyy-MM-dd'); // anteontem → hoje
   const dateFrom7  = format(subDays(new Date(), 6),  'yyyy-MM-dd');
   const dateFrom14 = format(subDays(new Date(), 13), 'yyyy-MM-dd');
   const dateFrom30 = format(subDays(new Date(), 29), 'yyyy-MM-dd');
@@ -29,6 +31,8 @@ export async function POST() {
   const RANGES = [
     { dateFrom: today,      dateTo: today,     label: 'hoje'  },
     { dateFrom: yesterday,  dateTo: yesterday, label: 'ontem' },
+    { dateFrom: dateFrom2,  dateTo: today,     label: '2d'    },
+    { dateFrom: dateFrom3,  dateTo: today,     label: '3d'    },
     { dateFrom: dateFrom7,  dateTo: today,     label: '7d'    },
     { dateFrom: dateFrom14, dateTo: today,     label: '14d'   },
     { dateFrom: dateFrom30, dateTo: today,     label: '30d'   },

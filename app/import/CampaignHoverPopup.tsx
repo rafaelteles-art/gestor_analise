@@ -42,10 +42,9 @@ export default function CampaignHoverPopup({ x, y, groupData, accountId, rtCampa
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            rtAdName: groupData.rt_ad,
             metaAccountId: accountId,
             metaCampaignNames: metaCampaignNames,
-            rtCampaignId: rtCampaignId
+            rtCampaignId: rtCampaignId,
           })
         });
         const d = await res.json();

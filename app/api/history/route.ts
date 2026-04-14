@@ -1,101 +1,161 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { pool } from '@/lib/db';
 import { format, subDays } from 'date-fns';
-import { fetchMetaMetrics } from '@/lib/meta';
-import { fetchPaginatedRedTrack } from '@/lib/redtrack';
 
-// Reusa a cotação USD->BRL
+// ============================================================
+// USD→BRL — PTAX do Banco Central (mesma lógica do /api/import)
+// ============================================================
 async function getUsdToBrl(): Promise<number> {
-  try {
-    const res = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL');
-    const data = await res.json();
-    return parseFloat(data.USDBRL.bid);
-  } catch (e) {
-    return 5.50;
+  const today = new Date();
+  for (let i = 0; i < 5; i++) {
+    const d = subDays(today, i);
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const dd   = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const dateStr = `${mm}-${dd}-${yyyy}`;
+    try {
+      const res = await fetch(
+        `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao='${dateStr}'&$top=1&$format=json&$select=cotacaoVenda`,
+        { cache: 'no-store', signal: AbortSignal.timeout(5000) }
+      );
+      const data = await res.json();
+      if (Array.isArray(data?.value) && data.value.length > 0) {
+        return parseFloat(data.value[0].cotacaoVenda);
+      }
+    } catch { /* tenta o dia anterior */ }
   }
+  console.warn('[History] Cotação PTAX indisponível, usando 5.50');
+  return 5.50;
 }
 
-// Para um dado nome de anúncio e as contas, fetch nas 5 janelas
+// ============================================================
+// Extrai receita e vendas do blob JSON do import_cache,
+// cruzando pelo nome da campanha (exato + parcial, igual ao /import).
+// ============================================================
+function extractRtMetrics(
+  cacheData: any[],
+  metaCampaignNames: string[]
+): { revenue: number; conversions: number } {
+  const rtCampByName = new Map<string, any>();
+  for (const rc of cacheData) {
+    if (rc.rt_campaign) rtCampByName.set(rc.rt_campaign, rc);
+  }
+
+  let revenue = 0;
+  let conversions = 0;
+
+  for (const metaName of metaCampaignNames) {
+    const metaLower = metaName.toLowerCase();
+    const matches: any[] = [];
+
+    for (const [rtName, rtCamp] of rtCampByName) {
+      const isExact   = rtName === metaName;
+      const isPartial = rtName.length > 10 && metaLower.includes(rtName.toLowerCase());
+      if (isExact || isPartial) matches.push(rtCamp);
+    }
+
+    for (const m of matches) {
+      revenue     += parseFloat(m.total_revenue || '0');
+      conversions += parseInt(m.convtype2       || '0', 10);
+    }
+  }
+
+  return { revenue, conversions };
+}
+
+// ============================================================
+// ROUTE HANDLER
+// Lê exclusivamente do banco de dados.
+// Meta spend vem de meta_ads_metrics; RT vem de import_cache.
+// ============================================================
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { rtAdName, metaAccountId, metaCampaignNames, rtCampaignId } = body;
+    const { metaAccountId, metaCampaignNames, rtCampaignId } = await req.json();
 
-    if (!rtAdName || !metaAccountId || !rtCampaignId) {
+    if (!metaAccountId || !rtCampaignId) {
       return NextResponse.json({ error: 'Parâmetros insuficientes' }, { status: 400 });
     }
 
-    const apiKey = process.env.REDTRACK_API_KEY;
-    if (!apiKey) throw new Error('Sem API KEY RT');
+    const campaignNames: string[] = metaCampaignNames || [];
+    const today     = format(new Date(), 'yyyy-MM-dd');
+    const yesterday = format(subDays(new Date(), 1),  'yyyy-MM-dd');
+    const d2ago     = format(subDays(new Date(), 2),  'yyyy-MM-dd');
+    const d6ago     = format(subDays(new Date(), 6),  'yyyy-MM-dd');
+    const d13ago    = format(subDays(new Date(), 13), 'yyyy-MM-dd');
+    const d29ago    = format(subDays(new Date(), 29), 'yyyy-MM-dd');
 
-    const today = new Date();
-    const ranges = [
-      { label: 'Hoje', days: 0 },
-      { label: '2D', days: 1 },
-      { label: '3D', days: 2 },
-      { label: '7D', days: 6 },
-      { label: '30D+HOJE', days: 29 },
+    // Ranges que o hover exibe (14D e 30D ficam como N/A no popup)
+    const RANGES = [
+      { label: 'Hoje',     dateFrom: today,     dateTo: today  },
+      { label: '2D',       dateFrom: yesterday,  dateTo: today  },
+      { label: '3D',       dateFrom: d2ago,      dateTo: today  },
+      { label: '7D',       dateFrom: d6ago,      dateTo: today  },
+      { label: '14D',      dateFrom: d13ago,     dateTo: today  },
+      { label: '30D+HOJE', dateFrom: d29ago,     dateTo: today  },
     ];
 
     const usdToBrl = await getUsdToBrl();
+    const rtCacheKey = `rt_camp:${rtCampaignId}`;
 
-    const nameSet = new Set((metaCampaignNames || []) as string[]);
-
-    // Processa ranges sequencialmente para evitar rate limiting nas APIs
-    const results = [];
-    for (const range of ranges) {
-      const dFrom = format(subDays(today, range.days), 'yyyy-MM-dd');
-      const dTo = format(today, 'yyyy-MM-dd');
-
-      // 1. Meta + RedTrack em paralelo (dentro do mesmo range é seguro)
-      const [fbRaw, rtData] = await Promise.all([
-        fetchMetaMetrics(metaAccountId, dFrom, dTo),
-        fetchPaginatedRedTrack(
-          `https://api.redtrack.io/report?api_key=${apiKey}&date_from=${dFrom}&date_to=${dTo}&tz=America/Sao_Paulo&group=rt_campaign&campaign_id=${rtCampaignId}`
+    // Busca todos os ranges do import_cache em paralelo
+    const rtCacheResults = await Promise.all(
+      RANGES.map(({ dateFrom, dateTo }) =>
+        pool.query(
+          `SELECT data FROM import_cache
+           WHERE cache_key = $1 AND date_from = $2 AND date_to = $3
+           ORDER BY synced_at DESC LIMIT 1`,
+          [rtCacheKey, dateFrom, dateTo]
         )
-      ]);
+      )
+    );
 
-      // Meta spend: filtra pelos nomes exatos das campanhas do import
-      let fbSpend = 0;
-      if (nameSet.size > 0) {
-        fbSpend = fbRaw
-          .filter(row => nameSet.has(row.campaign_name))
-          .reduce((acc, row) => acc + row.spend, 0) * usdToBrl;
-      }
+    // Busca gasto Meta para cada range em paralelo (agrega de meta_ads_metrics)
+    const metaResults = await Promise.all(
+      RANGES.map(({ dateFrom, dateTo }) =>
+        pool.query(
+          `SELECT
+             COALESCE(SUM(spend), 0)::float       AS spend,
+             COALESCE(SUM(impressions), 0)::int   AS impressions,
+             COALESCE(SUM(clicks), 0)::int        AS clicks
+           FROM meta_ads_metrics
+           WHERE account_id    = $1
+             AND campaign_name = ANY($2)
+             AND date >= $3
+             AND date <= $4`,
+          [metaAccountId, campaignNames, dateFrom, dateTo]
+        )
+      )
+    );
 
-      // RedTrack receita: cruza por nome de campanha (igual ao dashboard principal)
-      const rtCampByName = new Map<string, any>();
-      (Array.isArray(rtData) ? rtData : []).forEach((rc: any) => {
-        if (rc.rt_campaign) rtCampByName.set(rc.rt_campaign, rc);
-      });
+    // Monta o resultado por label
+    const finalData: Record<string, any> = {};
 
-      let rtRevenue = 0;
-      let rtConversions = 0;
-      nameSet.forEach((campName) => {
-        const rtCamp = rtCampByName.get(campName);
-        if (rtCamp) {
-          rtRevenue += parseFloat(rtCamp.total_revenue || '0');
-          rtConversions += parseInt(rtCamp.convtype2 || '0', 10);
-        }
-      });
+    for (let i = 0; i < RANGES.length; i++) {
+      const { label } = RANGES[i];
 
-      results.push({
-        label: range.label,
-        metrics: {
-          cost: fbSpend,
-          revenue: rtRevenue,
-          profit: rtRevenue - fbSpend,
-          roas: fbSpend > 0 ? rtRevenue / fbSpend : 0,
-          sales: rtConversions,
-          cpa: rtConversions > 0 ? fbSpend / rtConversions : 0,
-        }
-      });
+      const metaRow   = metaResults[i].rows[0];
+      const spendBrl  = parseFloat(metaRow.spend) * usdToBrl;
+
+      const rtCacheRow = rtCacheResults[i].rows[0];
+      const rtData: any[] = rtCacheRow ? rtCacheRow.data : [];
+      const { revenue, conversions } = extractRtMetrics(rtData, campaignNames);
+
+      finalData[label] = {
+        cost:        spendBrl,
+        revenue,
+        profit:      revenue - spendBrl,
+        roas:        spendBrl > 0 ? revenue / spendBrl : 0,
+        sales:       conversions,
+        cpa:         conversions > 0 ? spendBrl / conversions : 0,
+        impressions: parseInt(metaRow.impressions),
+        clicks:      parseInt(metaRow.clicks),
+      };
     }
-    const finalData: any = {};
-    results.forEach(r => { finalData[r.label] = r.metrics; });
 
     return NextResponse.json({ data: finalData });
+
   } catch (error: any) {
-    console.error('[HoverAPI Error]', error);
+    console.error('[History Error]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
