@@ -40,13 +40,30 @@ async function getUsdToBrl(dateTo: string): Promise<number> {
 // COMBINADORES — agregam entradas diárias do import_cache
 // ============================================================
 
-/** Retorna códigos rt_ad distintos presentes nos dias consultados. */
-function combineDailyRtAd(rows: { data: any[] }[]): { rt_ad: string }[] {
-  const seen = new Set<string>();
-  for (const row of rows)
-    for (const entry of (row.data || []))
-      if (entry.rt_ad) seen.add(entry.rt_ad);
-  return Array.from(seen).map(rt_ad => ({ rt_ad }));
+/**
+ * Agrega métricas por rt_ad somando as entradas diárias do import_cache.
+ * Fonte de verdade para receita/conversões por rt_ad — vem direto do RedTrack
+ * (group=rt_ad), então evita o double-count que acontecia ao reconstruir via
+ * matching de nome de rt_campaign × Meta campaign.
+ */
+function combineDailyRtAd(rows: { data: any[] }[]): {
+  rt_ad: string;
+  total_revenue: number;
+  total_conversions: number;
+  clicks: number;
+}[] {
+  const map = new Map<string, { rt_ad: string; total_revenue: number; total_conversions: number; clicks: number }>();
+  for (const row of rows) {
+    for (const entry of (row.data || [])) {
+      if (!entry.rt_ad) continue;
+      const cur = map.get(entry.rt_ad) ?? { rt_ad: entry.rt_ad, total_revenue: 0, total_conversions: 0, clicks: 0 };
+      cur.total_revenue     += parseFloat(entry.total_revenue || '0');
+      cur.total_conversions += parseInt(entry.total_conversions || '0', 10);
+      cur.clicks            += parseInt(entry.clicks || '0', 10);
+      map.set(entry.rt_ad, cur);
+    }
+  }
+  return Array.from(map.values());
 }
 
 /** Soma total_revenue e convtype2 por nome de campanha RT entre os dias consultados. */
@@ -257,8 +274,12 @@ export async function POST(req: NextRequest) {
       });
 
       const totalSpend       = enrichedCampaigns.reduce((s, c) => s + c.spend, 0);
-      const totalRevenue     = enrichedCampaigns.reduce((s, c) => s + c.revenue, 0);
-      const totalConversions = enrichedCampaigns.reduce((s, c) => s + c.conversions, 0);
+      // Receita e conversões no nível do rt_ad vêm direto da agregação do cache
+      // rt_ad (group=rt_ad do RedTrack), não da soma das sub-linhas Meta. Isso
+      // impede double-count quando um mesmo rt_campaign casa com múltiplas Meta
+      // campaigns via substring match em `findRtCamp`.
+      const totalRevenue     = rtItem.total_revenue;
+      const totalConversions = rtItem.total_conversions;
       const totalImpressions = enrichedCampaigns.reduce((s, c) => s + c.impressions, 0);
       const totalClicks      = enrichedCampaigns.reduce((s, c) => s + c.clicks, 0);
       const avgCpm = totalImpressions > 0

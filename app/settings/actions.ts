@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache';
 import { pool } from '@/lib/db';
 
 // Toggle the is_selected flag for a specific account
@@ -9,6 +10,7 @@ export async function toggleAccountSelection(accountId: string, newStatus: boole
       'UPDATE meta_ad_accounts SET is_selected = $1 WHERE account_id = $2',
       [newStatus, accountId]
     );
+    revalidatePath('/settings');
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -21,6 +23,7 @@ export async function toggleAllAccountsSelection(newStatus: boolean) {
       'UPDATE meta_ad_accounts SET is_selected = $1 WHERE is_selected != $1',
       [newStatus]
     );
+    revalidatePath('/settings');
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -33,6 +36,7 @@ export async function toggleBmSelection(bmId: string, newStatus: boolean) {
       'UPDATE meta_ad_accounts SET is_selected = $1 WHERE bm_id = $2',
       [newStatus, bmId]
     );
+    revalidatePath('/settings');
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -53,6 +57,7 @@ export async function setRtCampaignSelections(selectedIds: string[]) {
       );
     }
     await client.query('COMMIT');
+    revalidatePath('/settings');
   } catch (error: any) {
     await client.query('ROLLBACK');
     throw new Error(error.message);
