@@ -53,7 +53,7 @@ export async function GET() {
         // Usa batch request do Meta Graph API para buscar status + gastos de várias contas de uma vez
         const batchRequests = batch.map(accountId => ({
           method: 'GET',
-          relative_url: `${accountId}?fields=account_status,amount_spent,spend_cap,timezone_name`,
+          relative_url: `${accountId}?fields=account_status,amount_spent,adtrust_dsl,timezone_name`,
         }));
 
         let res: Response;
@@ -100,9 +100,10 @@ export async function GET() {
           }
 
           const newStatus = mapMetaStatus(body.account_status);
-          // amount_spent e spend_cap vêm em centavos (string) — NULL quando não disponível
+          // amount_spent e adtrust_dsl vêm em centavos (string) — NULL quando não disponível
+          // adtrust_dsl = limite diário da conta (Daily Spend Limit) definido pelo Meta
           const gastoTotal = body.amount_spent != null ? Number(body.amount_spent) / 100 : null;
-          const limite     = body.spend_cap    != null ? Number(body.spend_cap)    / 100 : null;
+          const limite     = body.adtrust_dsl  != null ? Number(body.adtrust_dsl)  / 100 : null;
           const timezone   = body.timezone_name ?? null;
 
           await pool.query(

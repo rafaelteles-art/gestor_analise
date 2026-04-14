@@ -753,7 +753,7 @@ export default function ClientStatusContas({ initialAccounts }: { initialAccount
                 <th className="px-4 py-3">ID Meta</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Gasto Total</th>
-                <th className="px-4 py-3 text-right">Limite</th>
+                <th className="px-4 py-3 text-right">Limite Diário</th>
                 <th className="px-4 py-3">Moeda</th>
                 <th className="px-4 py-3">Etapa</th>
                 <th className="px-4 py-3">Oferta</th>
