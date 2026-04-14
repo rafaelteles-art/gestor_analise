@@ -1,14 +1,21 @@
 export async function GET() {
-  const authSecret = process.env.AUTH_SECRET ?? "";
-  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
+  let usdBrlResult: unknown = null;
+  let usdBrlError: string | null = null;
 
-  return Response.json({
-    authSecretLength: authSecret.length,
-    authSecretEndsWithNewline: authSecret.endsWith("\n"),
-    authSecretLastCharCode: authSecret.charCodeAt(authSecret.length - 1),
-    googleClientSecretLength: googleClientSecret.length,
-    googleClientSecretEndsWithNewline: googleClientSecret.endsWith("\n"),
-    hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
-    authUrl: process.env.AUTH_URL ?? null,
-  });
+  try {
+    const res = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+    });
+    const data = await res.json();
+    usdBrlResult = {
+      status: res.status,
+      bid: data?.USDBRL?.bid ?? null,
+      raw: data,
+    };
+  } catch (e) {
+    usdBrlError = String(e);
+  }
+
+  return Response.json({ usdBrlResult, usdBrlError });
 }
