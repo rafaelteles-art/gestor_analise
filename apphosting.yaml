@@ -34,3 +34,17 @@ env:
     secret: meta-profiles
     availability:
       - RUNTIME
+  - variable: AUTH_URL
+    value: https://v2-media-lab--v2-media-lab.us-central1.hosted.app
+    availability:
+      - RUNTIME
+  - variable: GOOGLE_CLIENT_ID
+    value: 611439523851-si73k5u0ptla7fn2vu8cfbstrf0li71u.apps.googleusercontent.com
+    availability:
+      - RUNTIME
+  - variable: GOOGLE_CLIENT_SECRET
+    secret: google-client-secret
+    availability:
+      - RUNTIME
+  - variable: AUTH_SECRET
+    secret: auth-secret
