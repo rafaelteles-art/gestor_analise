@@ -17,6 +17,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Rotas internas do NextAuth: sempre permitir (senão bloqueia o próprio login)
       if (pathname.startsWith("/api/auth")) return true;
 
+      // Rota de debug: sempre permitir
+      if (pathname.startsWith("/api/debug-env")) return true;
+
       // Na página de login: se já logado, manda pro app
       if (pathname === "/login") {
         if (isLoggedIn) return Response.redirect(new URL("/import", nextUrl));
