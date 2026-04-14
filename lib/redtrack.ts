@@ -20,30 +20,36 @@ export async function fetchPaginatedRedTrack(baseUrl: string): Promise<any[]> {
     let allData: any[] = [];
     let page = 1;
     let limit = 1000;
-    
+
     while(true) {
         try {
             const url = `${baseUrl}&per=${limit}&page=${page}`;
             const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
             if (!res.ok) {
-                console.error(`[RedTrack] HTTP ${res.status} on page ${page}: ${await res.text().catch(() => '')}`);
+                const body = await res.text().catch(() => '');
+                if (res.status === 429) {
+                    // Rate limit atingido — lança erro para que o chamador saiba,
+                    // ao invés de retornar silenciosamente []
+                    throw new Error(`RedTrack rate limit (429): ${body}`);
+                }
+                console.error(`[RedTrack] HTTP ${res.status} on page ${page}: ${body}`);
                 break;
             }
-            
+
             const data = await res.json();
             const arr = Array.isArray(data) ? data : (data?.data || []);
-            
+
             if (arr.length === 0) break;
             allData.push(...arr);
-            
+
             if (arr.length < limit) break; // Chegou no fim da esteira
             page++;
         } catch (err) {
             console.error('[RedTrack Pagination Error]:', err);
-            break;
+            throw err; // Propaga para o rt-bulk mostrar erro real na UI
         }
     }
-    
+
     return allData;
 }
 

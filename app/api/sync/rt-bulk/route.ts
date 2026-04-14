@@ -82,7 +82,8 @@ export async function POST() {
         send({ type: 'progress', index: i + 1, total: selectedCampaigns.length, campaign: camp.campaign_name });
 
         try {
-          // Busca os ranges sequencialmente para respeitar rate limit de 2 req/s
+          // Busca os ranges sequencialmente para respeitar rate limit de 2 req/s.
+          // Delay de 1000ms (1s) entre cada chamada garante margem segura com 7 ranges.
           const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
           const rangeResults: { dateFrom: string; dateTo: string; rtAds: any[]; rtCampaigns: any[] }[] = [];
           for (const { dateFrom, dateTo } of RANGES) {
@@ -91,13 +92,13 @@ export async function POST() {
               `&date_from=${dateFrom}&date_to=${dateTo}` +
               `&tz=America/Sao_Paulo&group=rt_ad&campaign_id=${camp.campaign_id}`
             );
-            await delay(600);
+            await delay(1000);
             const rtCampaigns = await fetchPaginatedRedTrack(
               `https://api.redtrack.io/report?api_key=${apiKey}` +
               `&date_from=${dateFrom}&date_to=${dateTo}` +
               `&tz=America/Sao_Paulo&group=rt_campaign&campaign_id=${camp.campaign_id}`
             );
-            await delay(600);
+            await delay(1000);
             rangeResults.push({ dateFrom, dateTo, rtAds, rtCampaigns });
           }
 

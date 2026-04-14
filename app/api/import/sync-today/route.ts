@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. RT rt_ad: busca hoje via API
-    await delay(600);
+    await delay(1000);
     const rtAds = await fetchPaginatedRedTrack(
       `https://api.redtrack.io/report?api_key=${apiKey}` +
       `&date_from=${today}&date_to=${today}` +
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     console.log(`[SyncToday] RT rt_ad: ${rtAds.length} registros`);
 
     // 3. RT rt_campaign: busca hoje via API
-    await delay(600);
+    await delay(1000);
     const rtCampaigns = await fetchPaginatedRedTrack(
       `https://api.redtrack.io/report?api_key=${apiKey}` +
       `&date_from=${today}&date_to=${today}` +
