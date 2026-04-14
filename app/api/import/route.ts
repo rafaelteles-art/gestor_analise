@@ -2,37 +2,36 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 
 // ============================================================
-// USD→BRL — cotação histórica do dateTo (ou atual se for hoje)
-// Mantida aqui pois é uma API de terceiro leve, não Meta/RT.
+// USD→BRL — PTAX do Banco Central do Brasil (sem rate limit)
+// Tenta dateTo e recua até 5 dias para cobrir fins de semana/feriados.
 // ============================================================
 async function getUsdToBrl(dateTo: string): Promise<number> {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const [year, month, day] = dateTo.split('-').map(Number);
+    const base = new Date(year, month - 1, day);
 
-    if (dateTo >= today) {
-      const res = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL');
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(base);
+      d.setDate(d.getDate() - i);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const dateStr = `${mm}-${dd}-${yyyy}`;
+
+      const res = await fetch(
+        `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao='${dateStr}'&$top=1&$format=json&$select=cotacaoVenda`,
+        { cache: 'no-store', signal: AbortSignal.timeout(8000) }
+      );
       const data = await res.json();
-      const rate = parseFloat(data.USDBRL.bid);
-      console.log(`[Import] Cotação atual USD→BRL: ${rate}`);
-      return rate;
+      if (Array.isArray(data?.value) && data.value.length > 0) {
+        const rate = parseFloat(data.value[0].cotacaoVenda);
+        console.log(`[Import] Cotação PTAX USD→BRL (${dateStr}): ${rate}`);
+        return rate;
+      }
     }
-
-    const endFmt = dateTo.replace(/-/g, '');
-    const startDate = new Date(dateTo);
-    startDate.setDate(startDate.getDate() - 5);
-    const startFmt = startDate.toISOString().split('T')[0].replace(/-/g, '');
-    const res = await fetch(
-      `https://economia.awesomeapi.com.br/json/daily/USD-BRL/5?start_date=${startFmt}&end_date=${endFmt}`
-    );
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      const rate = parseFloat(data[0].bid);
-      console.log(`[Import] Cotação histórica USD→BRL (${dateTo}): ${rate}`);
-      return rate;
-    }
-    throw new Error('Sem dados históricos');
+    throw new Error('Sem dados PTAX nos últimos 5 dias');
   } catch {
-    console.warn('[Import] Erro ao buscar cotação, usando 5.50 como fallback');
+    console.warn('[Import] Erro ao buscar cotação PTAX, usando 5.50 como fallback');
     return 5.50;
   }
 }
