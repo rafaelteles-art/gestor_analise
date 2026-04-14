@@ -35,8 +35,12 @@ interface LogLine {
   accounts?: number;
   dateFrom?: string;
   dateTo?: string;
+  today?: string;
   days?: number;
   step?: string;
+  level?: 'info' | 'warn' | 'error';
+  message?: string;
+  ts?: number;
 }
 
 // ── Helpers UI ────────────────────────────────────────────────────────────────
@@ -58,6 +62,35 @@ function StatusBanner({ ok, children }: { ok: boolean; children: React.ReactNode
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       <span>{children}</span>
+    </div>
+  );
+}
+
+function StreamLog({ lines }: { lines: LogLine[] }) {
+  const scrollRef = (el: HTMLDivElement | null) => {
+    if (el) el.scrollTop = el.scrollHeight;
+  };
+  return (
+    <div className="border border-gray-100 rounded-lg overflow-hidden">
+      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+        <span>Status</span>
+        <span className="text-gray-300">{lines.length} evento(s)</span>
+      </div>
+      <div ref={scrollRef} className="max-h-64 overflow-y-auto bg-gray-900 text-gray-100 font-mono text-[11px] leading-relaxed px-3 py-2 whitespace-pre-wrap">
+        {lines.map((l, i) => {
+          const color =
+            l.level === 'error' ? 'text-rose-400' :
+            l.level === 'warn'  ? 'text-amber-300' :
+            'text-gray-100';
+          const ts = l.ts ? new Date(l.ts).toLocaleTimeString() : '';
+          return (
+            <div key={i} className={color}>
+              <span className="text-gray-500">{ts} </span>
+              {l.message}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -272,6 +305,7 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
   const progressLine = lines.filter(l => l.type === 'progress').slice(-1)[0];
   const doneLine     = lines.find(l => l.type === 'done');
   const campLines    = lines.filter(l => l.type === 'campaign_done');
+  const streamLogs   = lines.filter(l => l.type === 'log');
   const progressPct  = progressLine && syncStart
     ? Math.round(((progressLine.index ?? 0) / (syncStart.total ?? 1)) * 100) : 0;
 
@@ -354,7 +388,7 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       {/* ── Botão Sincronizar ── */}
       <div className="flex items-center justify-between gap-4">
         <p className="text-xs text-gray-500">
-          Pré-popula <span className="font-semibold text-gray-700">hoje, ontem, 7d, 14d e 30d</span> no cache para cada campanha selecionada.
+          Sincroniza <span className="font-semibold text-gray-700">apenas o dia de hoje</span> no cache, uma campanha por vez, com retry automático em caso de rate limit.
         </p>
         <button onClick={handleSync} disabled={running || selected.length === 0}
           className="shrink-0 flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -364,10 +398,16 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       </div>
 
       {/* ── Progresso ── */}
-      {running && syncStart && (
+      {(running || done) && syncStart && (
         <div>
           <div className="flex justify-between text-[10px] text-gray-500 mb-1">
-            <span>{progressLine ? `Processando: ${progressLine.campaign}` : `Sincronizando ${syncStart.total} campanha(s)...`}</span>
+            <span>
+              {done
+                ? `Concluído · ${syncStart.total} campanha(s)`
+                : progressLine
+                  ? `Processando [${progressLine.index}/${progressLine.total}]: ${progressLine.campaign}`
+                  : `Sincronizando ${syncStart.total} campanha(s)...`}
+            </span>
             <span>{progressPct}%</span>
           </div>
           <ProgressBar pct={progressPct} />
@@ -378,8 +418,13 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
         <StatusBanner ok={(doneLine.errorCount ?? 0) === 0}>
           {doneLine.synced} campanha(s) sincronizada(s)
           {(doneLine.errorCount ?? 0) > 0 && ` · ${doneLine.errorCount} erro(s)`}
-          {' · '}{doneLine.dateFrom} → {doneLine.dateTo}
+          {doneLine.today && ` · dia ${doneLine.today}`}
         </StatusBanner>
+      )}
+
+      {/* ── Log em streaming ── */}
+      {streamLogs.length > 0 && (
+        <StreamLog lines={streamLogs} />
       )}
 
       {campLines.length > 0 && (
