@@ -31,7 +31,7 @@ function LoginCard() {
         <div className="w-full bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 text-center">
           {error === 'AccessDenied'
             ? 'Acesso negado. Use um email @v2globalteam.com para entrar.'
-            : 'Ocorreu um erro ao fazer login. Tente novamente.'}
+            : `Erro: ${error}`}
         </div>
       )}
 
