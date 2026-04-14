@@ -42,33 +42,40 @@ async function ensureColumns() {
 
 export default async function StatusContasPage() {
   let accounts: any[] = [];
+  let ofertasOptions: string[] = [];
 
   try {
     await ensureColumns();
-    const res = await pool.query(`
-      SELECT
-        id, account_id, account_name, bm_id, bm_name, is_selected,
-        COALESCE(etapa, 'Não Utilizada') AS etapa,
-        COALESCE(gestor, '{}') AS gestor,
-        COALESCE(oferta, '{}') AS oferta,
-        cartao,
-        COALESCE(moeda, 'BRL') AS moeda,
-        COALESCE(limite, 0) AS limite,
-        COALESCE(gasto_total, 0) AS gasto_total,
-        perfil,
-        COALESCE(account_status, 'ACTIVE') AS account_status,
-        timezone
-      FROM meta_ad_accounts
-      ORDER BY bm_name ASC, account_name ASC
-    `);
-    accounts = res.rows;
+    const [accRes, ofertasRes] = await Promise.all([
+      pool.query(`
+        SELECT
+          id, account_id, account_name, bm_id, bm_name, is_selected,
+          COALESCE(etapa, 'Não Utilizada') AS etapa,
+          COALESCE(gestor, '{}') AS gestor,
+          COALESCE(oferta, '{}') AS oferta,
+          cartao,
+          COALESCE(moeda, 'BRL') AS moeda,
+          COALESCE(limite, 0) AS limite,
+          COALESCE(gasto_total, 0) AS gasto_total,
+          perfil,
+          COALESCE(account_status, 'ACTIVE') AS account_status,
+          timezone
+        FROM meta_ad_accounts
+        ORDER BY bm_name ASC, account_name ASC
+      `),
+      pool.query(`
+        SELECT nome FROM ofertas WHERE status = 'ATIVO' ORDER BY nome ASC
+      `).catch(() => ({ rows: [] as { nome: string }[] })),
+    ]);
+    accounts = accRes.rows;
+    ofertasOptions = ofertasRes.rows.map((r: { nome: string }) => r.nome);
   } catch (error) {
     console.error('Erro ao carregar contas:', error);
   }
 
   return (
     <V2MediaLabLayout title="Status de Contas">
-      <ClientStatusContas initialAccounts={accounts} />
+      <ClientStatusContas initialAccounts={accounts} ofertasOptions={ofertasOptions} />
     </V2MediaLabLayout>
   );
 }

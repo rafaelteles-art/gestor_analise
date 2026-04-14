@@ -1,14 +1,17 @@
 import { pool } from './db';
 
-export async function fetchAndSyncRedTrackCampaigns() {
+export async function fetchAndSyncRedTrackCampaigns(onProgress?: (message: string) => void) {
+  const report = (msg: string) => { try { onProgress?.(msg); } catch {} };
   const apiKey = process.env.REDTRACK_API_KEY;
   if (!apiKey) {
     console.log("Ignorando RedTrack scanner: API Key ausente.");
+    report("RedTrack API Key ausente — pulando");
     return { success: true, count: 0, campaigns: [] };
   }
 
   try {
     console.log("Buscando campanhas do RedTrack...");
+    report("Buscando campanhas do RedTrack…");
     const url = `https://api.redtrack.io/campaigns?api_key=${apiKey}&limit=500`;
 
     const res = await fetch(url, {
@@ -31,6 +34,8 @@ export async function fetchAndSyncRedTrackCampaigns() {
       status: c.status || 'unknown',
       is_selected: false
     }));
+
+    report(`Salvando ${mappedCampaigns.length} campanhas RedTrack no banco…`);
 
     if (mappedCampaigns.length > 0) {
       const client = await pool.connect();

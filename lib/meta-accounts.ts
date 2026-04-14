@@ -67,7 +67,8 @@ async function fetchBmAdAccounts(bmId: string, token: string): Promise<any[]> {
   return [...clientAccounts, ...ownedAccounts];
 }
 
-export async function fetchAndSyncMetaAccounts() {
+export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) => void) {
+  const report = (msg: string) => { try { onProgress?.(msg); } catch {} };
   let profiles: {name: string, token: string}[] = [];
 
   try {
@@ -90,6 +91,7 @@ export async function fetchAndSyncMetaAccounts() {
       if (!token) continue;
 
       console.log(`Buscando contas para o Perfil: ${profile.name}`);
+      report(`Perfil ${profile.name}: buscando contas pessoais…`);
 
       // 1. Contas pessoais vinculadas ao usuário (com paginação)
       const personalAccounts = await fetchAllPages(
@@ -109,6 +111,8 @@ export async function fetchAndSyncMetaAccounts() {
           cartao: parseCardDigits(acc.funding_source_details?.display_string),
         });
       });
+
+      report(`Perfil ${profile.name}: ${personalAccounts.length} contas pessoais. Buscando BMs…`);
 
       // 2. Business Managers onde o usuário é membro direto
       const directBms = await fetchAllPages(
@@ -136,10 +140,14 @@ export async function fetchAndSyncMetaAccounts() {
 
       const allBms = Array.from(allBmMap.values());
       console.log(`Total de BMs encontrados para ${profile.name}: ${allBms.length}`);
+      report(`Perfil ${profile.name}: ${allBms.length} BMs encontrados`);
 
       // 4. Para cada BM (direto ou cliente), buscar owned + client ad accounts
+      let bmIndex = 0;
       for (const bm of allBms) {
+        bmIndex++;
         console.log(`Buscando contas do BM: ${bm.name} (${bm.id})`);
+        report(`BM ${bmIndex}/${allBms.length}: ${bm.name}`);
 
         const bmAccounts = await fetchBmAdAccounts(bm.id, token);
         bmAccounts.forEach((acc: any) => {
@@ -172,6 +180,8 @@ export async function fetchAndSyncMetaAccounts() {
       }
     }
     const uniqueAccounts = Array.from(accountMap.values());
+
+    report(`Salvando ${uniqueAccounts.length} contas no banco…`);
 
     if (uniqueAccounts.length > 0) {
       const client = await pool.connect();

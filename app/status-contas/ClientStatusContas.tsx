@@ -65,8 +65,6 @@ function getGmtOffset(tz: string): string {
 
 const GESTORES = ['RAFAEL', 'KARINE'] as const;
 
-// Ofertas serão puxadas de lista dinâmica futuramente; por enquanto vazio
-const OFERTAS: string[] = [];
 
 // ─── Etapa Config ─────────────────────────────────────────────────────────────
 
@@ -371,7 +369,13 @@ function NewAccountModal({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function ClientStatusContas({ initialAccounts }: { initialAccounts: Account[] }) {
+export default function ClientStatusContas({
+  initialAccounts,
+  ofertasOptions = [],
+}: {
+  initialAccounts: Account[];
+  ofertasOptions?: string[];
+}) {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(initialAccounts.map(a => a.bm_name)));
   const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set());
@@ -386,6 +390,13 @@ export default function ClientStatusContas({ initialAccounts }: { initialAccount
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSyncingStatus, setIsSyncingStatus] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{
+    label: string;
+    message: string;
+    current: number;
+    total: number;
+    indeterminate: boolean;
+  } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [batchEtapa, setBatchEtapa] = useState('');
   const [isUpdatingBatch, setIsUpdatingBatch] = useState(false);
@@ -498,15 +509,84 @@ export default function ClientStatusContas({ initialAccounts }: { initialAccount
     }
   };
 
+  const runStreamedSync = async (url: string, label: string) => {
+    setSyncProgress({ label, message: 'Conectando…', current: 0, total: 0, indeterminate: true });
+
+    let success = false;
+    let errorMsg: string | null = null;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n');
+        buffer = parts.pop() ?? '';
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          let line: any;
+          try { line = JSON.parse(part); } catch { continue; }
+
+          if (line.type === 'start') {
+            setSyncProgress({
+              label,
+              message: line.message ?? 'Iniciando…',
+              current: 0,
+              total: line.total ?? 0,
+              indeterminate: !line.total,
+            });
+          } else if (line.type === 'progress') {
+            setSyncProgress(prev => ({
+              label,
+              message: line.message ?? prev?.message ?? '',
+              current: line.current ?? prev?.current ?? 0,
+              total: line.total ?? prev?.total ?? 0,
+              indeterminate: line.total == null && !prev?.total,
+            }));
+          } else if (line.type === 'done') {
+            success = !!line.success;
+            setSyncProgress(prev => ({
+              label,
+              message: line.message ?? 'Concluído',
+              current: prev?.total ?? prev?.current ?? 1,
+              total: prev?.total ?? 1,
+              indeterminate: false,
+            }));
+          } else if (line.type === 'error') {
+            errorMsg = line.error ?? 'Erro desconhecido';
+          }
+        }
+      }
+    } catch (err: any) {
+      errorMsg = err?.message ?? 'Erro de rede';
+    }
+
+    if (errorMsg) {
+      alert(`Erro em ${label}: ${errorMsg}`);
+      setSyncProgress(null);
+      return;
+    }
+
+    if (success) {
+      setTimeout(() => window.location.reload(), 400);
+    } else {
+      setSyncProgress(null);
+    }
+  };
+
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const res = await fetch('/api/accounts/sync');
-      const data = await res.json();
-      if (data.success) window.location.reload();
-      else alert('Erro ao sincronizar: ' + data.error);
-    } catch {
-      alert('Erro de rede');
+      await runStreamedSync('/api/accounts/sync', 'Sincronizar Meta');
     } finally {
       setIsSyncing(false);
     }
@@ -515,12 +595,7 @@ export default function ClientStatusContas({ initialAccounts }: { initialAccount
   const handleSyncStatus = async () => {
     setIsSyncingStatus(true);
     try {
-      const res = await fetch('/api/status-contas/sync');
-      const data = await res.json();
-      if (data.success) window.location.reload();
-      else alert('Erro ao atualizar status: ' + data.error);
-    } catch {
-      alert('Erro de rede');
+      await runStreamedSync('/api/status-contas/sync', 'Atualizar Status');
     } finally {
       setIsSyncingStatus(false);
     }
@@ -567,6 +642,29 @@ export default function ClientStatusContas({ initialAccounts }: { initialAccount
 
       {/* Action Bar */}
       <div className="flex justify-end items-center gap-3">
+        {syncProgress && (
+          <div className="flex-1 max-w-md bg-white border border-gray-200 rounded-xl shadow-sm px-4 py-2">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <span className="text-xs font-bold text-gray-700 truncate">{syncProgress.label}</span>
+              <span className="text-[10px] font-medium text-gray-500 tabular-nums whitespace-nowrap">
+                {syncProgress.total > 0
+                  ? `${syncProgress.current}/${syncProgress.total} · ${Math.min(100, Math.round((syncProgress.current / syncProgress.total) * 100))}%`
+                  : 'em andamento…'}
+              </span>
+            </div>
+            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              {syncProgress.indeterminate || syncProgress.total === 0 ? (
+                <div className="h-full w-1/3 bg-indigo-500 rounded-full animate-[sync-indeterminate_1.2s_ease-in-out_infinite]" />
+              ) : (
+                <div
+                  className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(100, Math.round((syncProgress.current / syncProgress.total) * 100))}%` }}
+                />
+              )}
+            </div>
+            <p className="mt-1.5 text-[11px] text-gray-500 truncate">{syncProgress.message}</p>
+          </div>
+        )}
         <button
           onClick={handleSyncStatus}
           disabled={isSyncingStatus}
@@ -642,7 +740,7 @@ export default function ClientStatusContas({ initialAccounts }: { initialAccount
           <select value={filterOferta} onChange={e => setFilterOferta(e.target.value)}
             className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50">
             <option value="">Todas</option>
-            {OFERTAS.map(o => <option key={o} value={o}>{o}</option>)}
+            {ofertasOptions.map(o => <option key={o} value={o}>{o}</option>)}
             <option value="__NONE__">Sem oferta</option>
           </select>
         </div>
@@ -863,7 +961,7 @@ export default function ClientStatusContas({ initialAccounts }: { initialAccount
                               accountId={acc.account_id}
                               field="oferta"
                               currentValue={acc.oferta}
-                              options={OFERTAS}
+                              options={ofertasOptions}
                               placeholder="—"
                               onUpdate={updateField}
                             />
