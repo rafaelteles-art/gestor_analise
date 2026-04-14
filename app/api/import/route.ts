@@ -37,10 +37,42 @@ async function getUsdToBrl(dateTo: string): Promise<number> {
 }
 
 // ============================================================
+// COMBINADORES — agregam entradas diárias do import_cache
+// ============================================================
+
+/** Retorna códigos rt_ad distintos presentes nos dias consultados. */
+function combineDailyRtAd(rows: { data: any[] }[]): { rt_ad: string }[] {
+  const seen = new Set<string>();
+  for (const row of rows)
+    for (const entry of (row.data || []))
+      if (entry.rt_ad) seen.add(entry.rt_ad);
+  return Array.from(seen).map(rt_ad => ({ rt_ad }));
+}
+
+/** Soma total_revenue e convtype2 por nome de campanha RT entre os dias consultados. */
+function combineDailyRtCamp(rows: { data: any[] }[]): { rt_campaign: string; total_revenue: string; convtype2: string }[] {
+  const map = new Map<string, { total_revenue: number; convtype2: number }>();
+  for (const row of rows) {
+    for (const entry of (row.data || [])) {
+      if (!entry.rt_campaign) continue;
+      const cur = map.get(entry.rt_campaign) ?? { total_revenue: 0, convtype2: 0 };
+      cur.total_revenue += parseFloat(entry.total_revenue || '0');
+      cur.convtype2     += parseInt(entry.convtype2 || '0', 10);
+      map.set(entry.rt_campaign, cur);
+    }
+  }
+  return Array.from(map.entries()).map(([rt_campaign, v]) => ({
+    rt_campaign,
+    total_revenue: String(v.total_revenue),
+    convtype2:     String(v.convtype2),
+  }));
+}
+
+// ============================================================
 // ROUTE HANDLER
 // Lê exclusivamente do banco de dados.
 // Dados Meta vêm de meta_ads_metrics (populado pelo sync bulk).
-// Dados RT vêm de import_cache (populado pelo rt-bulk sync).
+// Dados RT vêm de import_cache (entradas diárias, populado pelo rt-bulk).
 // Para forçar atualização dos dados, use Configurações → Sincronizar.
 // ============================================================
 export async function POST(req: NextRequest) {
@@ -105,25 +137,30 @@ export async function POST(req: NextRequest) {
       }));
     }));
 
-    // 3. RedTrack rt_ad e rt_campaign — lidos do import_cache
+    // 3. RedTrack rt_ad e rt_campaign — combina entradas diárias do import_cache
     const [rtAdResult, rtCampResult, usdToBrl] = await Promise.all([
       pool.query(
         `SELECT data FROM import_cache
-         WHERE cache_key = $1 AND date_from = $2 AND date_to = $3
-         ORDER BY synced_at DESC LIMIT 1`,
+         WHERE cache_key = $1
+           AND date_from >= $2 AND date_from <= $3
+           AND date_from = date_to
+         ORDER BY date_from`,
         [`rt_ad:${campaignIdParam}`, dateFrom, dateTo]
       ),
       pool.query(
         `SELECT data FROM import_cache
-         WHERE cache_key = $1 AND date_from = $2 AND date_to = $3
-         ORDER BY synced_at DESC LIMIT 1`,
+         WHERE cache_key = $1
+           AND date_from >= $2 AND date_from <= $3
+           AND date_from = date_to
+         ORDER BY date_from`,
         [`rt_camp:${campaignIdParam}`, dateFrom, dateTo]
       ),
       usdToBrlPromise,
     ]);
 
-    const rtAds: any[]            = rtAdResult.rows.length  > 0 ? rtAdResult.rows[0].data  : [];
-    const rtCampaignsReport: any[] = rtCampResult.rows.length > 0 ? rtCampResult.rows[0].data : [];
+    // Combina entradas diárias: rt_ad → códigos únicos; rt_camp → soma receita/vendas
+    const rtAds: any[] = combineDailyRtAd(rtAdResult.rows);
+    const rtCampaignsReport: any[] = combineDailyRtCamp(rtCampResult.rows);
 
     console.log(`[DB] RT rt_ad: ${rtAds.length} registros | RT rt_campaign: ${rtCampaignsReport.length} registros`);
 

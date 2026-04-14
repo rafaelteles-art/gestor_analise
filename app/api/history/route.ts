@@ -3,24 +3,30 @@ import { pool } from '@/lib/db';
 import { format, subDays } from 'date-fns';
 
 // ============================================================
-// USD→BRL — PTAX do Banco Central (mesma lógica do /api/import)
+// USD→BRL — PTAX do Banco Central (cache em memória por dia)
 // ============================================================
+let ptaxCache: { value: number; date: string } | null = null;
+
 async function getUsdToBrl(): Promise<number> {
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  if (ptaxCache?.date === todayStr) return ptaxCache.value;
+
   const today = new Date();
   for (let i = 0; i < 5; i++) {
     const d = subDays(today, i);
     const mm   = String(d.getMonth() + 1).padStart(2, '0');
     const dd   = String(d.getDate()).padStart(2, '0');
     const yyyy = d.getFullYear();
-    const dateStr = `${mm}-${dd}-${yyyy}`;
     try {
       const res = await fetch(
-        `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao='${dateStr}'&$top=1&$format=json&$select=cotacaoVenda`,
+        `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao='${mm}-${dd}-${yyyy}'&$top=1&$format=json&$select=cotacaoVenda`,
         { cache: 'no-store', signal: AbortSignal.timeout(5000) }
       );
       const data = await res.json();
       if (Array.isArray(data?.value) && data.value.length > 0) {
-        return parseFloat(data.value[0].cotacaoVenda);
+        const value = parseFloat(data.value[0].cotacaoVenda);
+        ptaxCache = { value, date: todayStr };
+        return value;
       }
     } catch { /* tenta o dia anterior */ }
   }
@@ -29,44 +35,61 @@ async function getUsdToBrl(): Promise<number> {
 }
 
 // ============================================================
-// Extrai receita e vendas do blob JSON do import_cache,
-// cruzando pelo nome da campanha (exato + parcial, igual ao /import).
+// COMBINADOR — soma total_revenue e convtype2 por campanha RT
+// nas linhas diárias retornadas pelo import_cache.
+// ============================================================
+function combineDailyRtCamp(
+  rows: { date_from: string; data: any[] }[],
+  fromDate: string
+): { rt_campaign: string; total_revenue: string; convtype2: string }[] {
+  const map = new Map<string, { total_revenue: number; convtype2: number }>();
+  for (const row of rows) {
+    if (row.date_from < fromDate) continue; // filtra pelo range desejado
+    for (const entry of (row.data || [])) {
+      if (!entry.rt_campaign) continue;
+      const cur = map.get(entry.rt_campaign) ?? { total_revenue: 0, convtype2: 0 };
+      cur.total_revenue += parseFloat(entry.total_revenue || '0');
+      cur.convtype2     += parseInt(entry.convtype2 || '0', 10);
+      map.set(entry.rt_campaign, cur);
+    }
+  }
+  return Array.from(map.entries()).map(([rt_campaign, v]) => ({
+    rt_campaign,
+    total_revenue: String(v.total_revenue),
+    convtype2:     String(v.convtype2),
+  }));
+}
+
+// ============================================================
+// Extrai receita/vendas do blob combinado cruzando pelo nome
+// da campanha Meta (exato + parcial, igual ao /import).
 // ============================================================
 function extractRtMetrics(
-  cacheData: any[],
+  rtCampData: { rt_campaign: string; total_revenue: string; convtype2: string }[],
   metaCampaignNames: string[]
 ): { revenue: number; conversions: number } {
-  const rtCampByName = new Map<string, any>();
-  for (const rc of cacheData) {
-    if (rc.rt_campaign) rtCampByName.set(rc.rt_campaign, rc);
-  }
-
+  const rtCampByName = new Map(rtCampData.map(rc => [rc.rt_campaign, rc]));
   let revenue = 0;
   let conversions = 0;
 
   for (const metaName of metaCampaignNames) {
     const metaLower = metaName.toLowerCase();
-    const matches: any[] = [];
-
-    for (const [rtName, rtCamp] of rtCampByName) {
+    for (const [rtName, rc] of rtCampByName) {
       const isExact   = rtName === metaName;
       const isPartial = rtName.length > 10 && metaLower.includes(rtName.toLowerCase());
-      if (isExact || isPartial) matches.push(rtCamp);
-    }
-
-    for (const m of matches) {
-      revenue     += parseFloat(m.total_revenue || '0');
-      conversions += parseInt(m.convtype2       || '0', 10);
+      if (isExact || isPartial) {
+        revenue     += parseFloat(rc.total_revenue || '0');
+        conversions += parseInt(rc.convtype2 || '0', 10);
+      }
     }
   }
-
   return { revenue, conversions };
 }
 
 // ============================================================
 // ROUTE HANDLER
-// Lê exclusivamente do banco de dados.
-// Meta spend vem de meta_ads_metrics; RT vem de import_cache.
+// Uma única query para cada fonte (Meta e RT), depois filtra
+// por range no código para evitar N queries paralelas.
 // ============================================================
 export async function POST(req: NextRequest) {
   try {
@@ -77,68 +100,53 @@ export async function POST(req: NextRequest) {
     }
 
     const campaignNames: string[] = metaCampaignNames || [];
-    const today     = format(new Date(), 'yyyy-MM-dd');
-    const yesterday = format(subDays(new Date(), 1),  'yyyy-MM-dd');
-    const d2ago     = format(subDays(new Date(), 2),  'yyyy-MM-dd');
-    const d6ago     = format(subDays(new Date(), 6),  'yyyy-MM-dd');
-    const d13ago    = format(subDays(new Date(), 13), 'yyyy-MM-dd');
-    const d29ago    = format(subDays(new Date(), 29), 'yyyy-MM-dd');
+    const today  = format(new Date(), 'yyyy-MM-dd');
+    const d29ago = format(subDays(new Date(), 29), 'yyyy-MM-dd');
 
-    // Ranges que o hover exibe (14D e 30D ficam como N/A no popup)
+    // Ranges exibidos no hover (14D e 30D ficam como N/A visualmente)
     const RANGES = [
-      { label: 'Hoje',     dateFrom: today,     dateTo: today  },
-      { label: '2D',       dateFrom: yesterday,  dateTo: today  },
-      { label: '3D',       dateFrom: d2ago,      dateTo: today  },
-      { label: '7D',       dateFrom: d6ago,      dateTo: today  },
-      { label: '14D',      dateFrom: d13ago,     dateTo: today  },
-      { label: '30D+HOJE', dateFrom: d29ago,     dateTo: today  },
+      { label: 'Hoje',     dateFrom: today },
+      { label: '2D',       dateFrom: format(subDays(new Date(), 1),  'yyyy-MM-dd') },
+      { label: '3D',       dateFrom: format(subDays(new Date(), 2),  'yyyy-MM-dd') },
+      { label: '7D',       dateFrom: format(subDays(new Date(), 6),  'yyyy-MM-dd') },
+      { label: '14D',      dateFrom: format(subDays(new Date(), 13), 'yyyy-MM-dd') },
+      { label: '30D+HOJE', dateFrom: d29ago },
     ];
 
-    const usdToBrl = await getUsdToBrl();
-    const rtCacheKey = `rt_camp:${rtCampaignId}`;
+    // Busca tudo de uma vez (últimos 30 dias), filtra por range no código
+    const [rtRows, metaRows, usdToBrl] = await Promise.all([
+      pool.query(
+        `SELECT date_from, data FROM import_cache
+         WHERE cache_key = $1
+           AND date_from >= $2
+           AND date_from = date_to
+         ORDER BY date_from`,
+        [`rt_camp:${rtCampaignId}`, d29ago]
+      ),
+      pool.query(
+        `SELECT date, SUM(spend)::float AS spend, SUM(impressions)::int AS impressions, SUM(clicks)::int AS clicks
+         FROM meta_ads_metrics
+         WHERE account_id    = $1
+           AND campaign_name = ANY($2)
+           AND date >= $3 AND date <= $4
+         GROUP BY date ORDER BY date`,
+        [metaAccountId, campaignNames, d29ago, today]
+      ),
+      getUsdToBrl(),
+    ]);
 
-    // Busca todos os ranges do import_cache em paralelo
-    const rtCacheResults = await Promise.all(
-      RANGES.map(({ dateFrom, dateTo }) =>
-        pool.query(
-          `SELECT data FROM import_cache
-           WHERE cache_key = $1 AND date_from = $2 AND date_to = $3
-           ORDER BY synced_at DESC LIMIT 1`,
-          [rtCacheKey, dateFrom, dateTo]
-        )
-      )
-    );
-
-    // Busca gasto Meta para cada range em paralelo (agrega de meta_ads_metrics)
-    const metaResults = await Promise.all(
-      RANGES.map(({ dateFrom, dateTo }) =>
-        pool.query(
-          `SELECT
-             COALESCE(SUM(spend), 0)::float       AS spend,
-             COALESCE(SUM(impressions), 0)::int   AS impressions,
-             COALESCE(SUM(clicks), 0)::int        AS clicks
-           FROM meta_ads_metrics
-           WHERE account_id    = $1
-             AND campaign_name = ANY($2)
-             AND date >= $3
-             AND date <= $4`,
-          [metaAccountId, campaignNames, dateFrom, dateTo]
-        )
-      )
-    );
-
-    // Monta o resultado por label
     const finalData: Record<string, any> = {};
 
-    for (let i = 0; i < RANGES.length; i++) {
-      const { label } = RANGES[i];
-
-      const metaRow   = metaResults[i].rows[0];
-      const spendBrl  = parseFloat(metaRow.spend) * usdToBrl;
-
-      const rtCacheRow = rtCacheResults[i].rows[0];
-      const rtData: any[] = rtCacheRow ? rtCacheRow.data : [];
+    for (const { label, dateFrom } of RANGES) {
+      // RT: combina entradas diárias a partir de dateFrom
+      const rtData = combineDailyRtCamp(rtRows.rows, dateFrom);
       const { revenue, conversions } = extractRtMetrics(rtData, campaignNames);
+
+      // Meta: soma dias a partir de dateFrom
+      const metaFiltered = metaRows.rows.filter((r: any) => r.date >= dateFrom);
+      const spendBrl = metaFiltered.reduce((s: number, r: any) => s + r.spend, 0) * usdToBrl;
+      const impressions = metaFiltered.reduce((s: number, r: any) => s + r.impressions, 0);
+      const clicks      = metaFiltered.reduce((s: number, r: any) => s + r.clicks, 0);
 
       finalData[label] = {
         cost:        spendBrl,
@@ -147,8 +155,8 @@ export async function POST(req: NextRequest) {
         roas:        spendBrl > 0 ? revenue / spendBrl : 0,
         sales:       conversions,
         cpa:         conversions > 0 ? spendBrl / conversions : 0,
-        impressions: parseInt(metaRow.impressions),
-        clicks:      parseInt(metaRow.clicks),
+        impressions,
+        clicks,
       };
     }
 

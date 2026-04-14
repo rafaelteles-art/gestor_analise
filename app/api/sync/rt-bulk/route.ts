@@ -7,11 +7,14 @@ import { format, subDays } from 'date-fns';
 /**
  * POST /api/sync/rt-bulk
  *
- * Sincroniza os dados de rt_ad e rt_campaign para cada campanha com
- * is_selected = true em redtrack_campaign_selections.
- * A filtragem é manual (feita pelo usuário nas configurações).
+ * Sincroniza dados diários de rt_ad e rt_campaign para cada campanha
+ * selecionada em redtrack_campaign_selections.
  *
- * Pré-popula 7 ranges no import_cache: hoje, ontem, 2d, 3d, 7d, 14d, 30d.
+ * Estratégia: uma entrada por dia no import_cache (date_from = date_to = dia).
+ * Dias históricos já cacheados são pulados — só re-busca o dia de hoje
+ * (que ainda está em andamento). O import/history combinam as entradas
+ * diárias em runtime para qualquer período.
+ *
  * Retorna NDJSON em streaming para mostrar progresso na UI.
  */
 export async function POST() {
@@ -20,25 +23,11 @@ export async function POST() {
     return NextResponse.json({ error: 'REDTRACK_API_KEY não configurada.' }, { status: 500 });
   }
 
-  const today      = format(new Date(), 'yyyy-MM-dd');
-  const yesterday  = format(subDays(new Date(), 1),  'yyyy-MM-dd');
-  const dateFrom2  = format(subDays(new Date(), 1),  'yyyy-MM-dd'); // ontem → hoje
-  const dateFrom3  = format(subDays(new Date(), 2),  'yyyy-MM-dd'); // anteontem → hoje
-  const dateFrom7  = format(subDays(new Date(), 6),  'yyyy-MM-dd');
-  const dateFrom14 = format(subDays(new Date(), 13), 'yyyy-MM-dd');
-  const dateFrom30 = format(subDays(new Date(), 29), 'yyyy-MM-dd');
+  const DAYS_TO_SYNC = 30;
+  const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const oldestDay = format(subDays(new Date(), DAYS_TO_SYNC - 1), 'yyyy-MM-dd');
 
-  const RANGES = [
-    { dateFrom: today,      dateTo: today,     label: 'hoje'  },
-    { dateFrom: yesterday,  dateTo: yesterday, label: 'ontem' },
-    { dateFrom: dateFrom2,  dateTo: today,     label: '2d'    },
-    { dateFrom: dateFrom3,  dateTo: today,     label: '3d'    },
-    { dateFrom: dateFrom7,  dateTo: today,     label: '7d'    },
-    { dateFrom: dateFrom14, dateTo: today,     label: '14d'   },
-    { dateFrom: dateFrom30, dateTo: today,     label: '30d'   },
-  ];
-
-  // Somente campanhas marcadas manualmente pelo usuário
   let selectedCampaigns: { campaign_id: string; campaign_name: string }[] = [];
   try {
     const res = await pool.query(
@@ -59,19 +48,19 @@ export async function POST() {
     );
   }
 
-  // ── Streaming NDJSON ───────────────────────────────────────────────────────
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (obj: object) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
+      const send = (obj: object) => {
+        try { controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n')); } catch {}
+      };
 
       send({
         type: 'start',
-        step: 'sync',
         total: selectedCampaigns.length,
-        ranges: RANGES.map(r => r.label),
-        dateFrom: dateFrom30,
-        dateTo: today,
+        daysToSync: DAYS_TO_SYNC,
+        oldestDay,
+        today,
       });
 
       let synced = 0;
@@ -82,48 +71,75 @@ export async function POST() {
         send({ type: 'progress', index: i + 1, total: selectedCampaigns.length, campaign: camp.campaign_name });
 
         try {
-          // Busca os ranges sequencialmente para respeitar rate limit de 2 req/s.
-          // Delay de 1000ms (1s) entre cada chamada garante margem segura com 7 ranges.
-          const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
-          const rangeResults: { dateFrom: string; dateTo: string; rtAds: any[]; rtCampaigns: any[] }[] = [];
-          for (const { dateFrom, dateTo } of RANGES) {
+          // Descobre quais dias já estão cacheados (exceto hoje, que sempre rebusca)
+          const cachedResult = await pool.query(
+            `SELECT DISTINCT date_from FROM import_cache
+             WHERE cache_key = $1
+               AND date_from >= $2
+               AND date_from = date_to`,
+            [`rt_ad:${camp.campaign_id}`, oldestDay]
+          );
+          const cachedDays = new Set(cachedResult.rows.map((r: any) => r.date_from));
+
+          // Lista de dias a buscar: histórico ausente + sempre hoje
+          const daysToFetch: string[] = [];
+          for (let d = 0; d < DAYS_TO_SYNC; d++) {
+            const day = format(subDays(new Date(), d), 'yyyy-MM-dd');
+            if (day === today || !cachedDays.has(day)) {
+              daysToFetch.push(day);
+            }
+          }
+
+          console.log(`[RT-Bulk] ${camp.campaign_name}: ${daysToFetch.length} dias a buscar (${DAYS_TO_SYNC - daysToFetch.length} já em cache)`);
+
+          let daysFetched = 0;
+          for (const day of daysToFetch) {
             const rtAds = await fetchPaginatedRedTrack(
               `https://api.redtrack.io/report?api_key=${apiKey}` +
-              `&date_from=${dateFrom}&date_to=${dateTo}` +
+              `&date_from=${day}&date_to=${day}` +
               `&tz=America/Sao_Paulo&group=rt_ad&campaign_id=${camp.campaign_id}`
             );
             await delay(1000);
+
             const rtCampaigns = await fetchPaginatedRedTrack(
               `https://api.redtrack.io/report?api_key=${apiKey}` +
-              `&date_from=${dateFrom}&date_to=${dateTo}` +
+              `&date_from=${day}&date_to=${day}` +
               `&tz=America/Sao_Paulo&group=rt_campaign&campaign_id=${camp.campaign_id}`
             );
             await delay(1000);
-            rangeResults.push({ dateFrom, dateTo, rtAds, rtCampaigns });
-          }
 
-          // Upsert no import_cache para cada range
-          for (const { dateFrom, dateTo, rtAds, rtCampaigns } of rangeResults) {
             await pool.query(
               `INSERT INTO import_cache (cache_key, date_from, date_to, data, synced_at)
-               VALUES ($1, $2, $3, $4, NOW()), ($5, $2, $3, $6, NOW())
+               VALUES ($1, $2, $2, $3, NOW()), ($4, $2, $2, $5, NOW())
                ON CONFLICT (cache_key, date_from, date_to) DO UPDATE SET
                  data = EXCLUDED.data, synced_at = NOW()`,
               [
-                `rt_ad:${camp.campaign_id}`,   dateFrom, dateTo, JSON.stringify(rtAds),
-                `rt_camp:${camp.campaign_id}`,                   JSON.stringify(rtCampaigns),
+                `rt_ad:${camp.campaign_id}`,  day, JSON.stringify(rtAds),
+                `rt_camp:${camp.campaign_id}`,     JSON.stringify(rtCampaigns),
               ]
             );
+            daysFetched++;
           }
 
-          // Exibe totais do range de 30d no log
-          const r30 = rangeResults.find(r => r.dateFrom === dateFrom30)!;
+          // Conta rt_ads distintos nos últimos 30 dias para o log
+          const summaryResult = await pool.query(
+            `SELECT data FROM import_cache
+             WHERE cache_key = $1 AND date_from >= $2 AND date_from = date_to`,
+            [`rt_ad:${camp.campaign_id}`, oldestDay]
+          );
+          const distinctRtAds = new Set(
+            summaryResult.rows.flatMap((r: any) =>
+              (r.data || []).map((e: any) => e.rt_ad).filter(Boolean)
+            )
+          ).size;
+
           synced++;
           send({
             type: 'campaign_done',
             campaign: camp.campaign_name,
-            rtAds: r30.rtAds.length,
-            rtCampaigns: r30.rtCampaigns.length,
+            daysFetched,
+            daysSkipped: DAYS_TO_SYNC - daysToFetch.length,
+            rtAds: distinctRtAds,
             status: 'ok',
           });
         } catch (err: any) {
@@ -132,7 +148,7 @@ export async function POST() {
         }
       }
 
-      send({ type: 'done', synced, errorCount, skipped: 0, dateFrom: dateFrom30, dateTo: today });
+      send({ type: 'done', synced, errorCount, today, oldestDay });
       controller.close();
     },
   });
