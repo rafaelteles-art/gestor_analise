@@ -48,3 +48,5 @@ env:
       - RUNTIME
   - variable: AUTH_SECRET
     secret: auth-secret
+    availability:
+      - RUNTIME
