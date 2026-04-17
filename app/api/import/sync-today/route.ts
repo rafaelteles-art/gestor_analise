@@ -104,15 +104,26 @@ export async function POST(req: NextRequest) {
     );
     console.log(`[SyncToday] RT rt_camp: ${rtCampaigns.length} registros`);
 
-    // 4. Upserta RT no import_cache
+    // 4. RT sub3 (= Meta campaign_id): agrupa receita por ID da campanha Meta.
+    //    Usado para join robusto a renomeações de campanha (nome muda, ID não).
+    await delay(1000);
+    const rtCampById = await fetchPaginatedRedTrack(
+      `https://api.redtrack.io/report?api_key=${apiKey}` +
+      `&date_from=${today}&date_to=${today}` +
+      `&tz=America/Sao_Paulo&group=sub3&campaign_id=${rtCampaignId}`
+    );
+    console.log(`[SyncToday] RT sub3 (meta_campaign_id): ${rtCampById.length} registros`);
+
+    // 5. Upserta RT no import_cache (3 chaves: rt_ad, rt_camp, rt_camp_id)
     await pool.query(
       `INSERT INTO import_cache (cache_key, date_from, date_to, data, synced_at)
-       VALUES ($1, $2, $3, $4, NOW()), ($5, $2, $3, $6, NOW())
+       VALUES ($1, $2, $3, $4, NOW()), ($5, $2, $3, $6, NOW()), ($7, $2, $3, $8, NOW())
        ON CONFLICT (cache_key, date_from, date_to) DO UPDATE SET
          data = EXCLUDED.data, synced_at = NOW()`,
       [
-        `rt_ad:${rtCampaignId}`,   today, today, JSON.stringify(rtAds),
-        `rt_camp:${rtCampaignId}`,                JSON.stringify(rtCampaigns),
+        `rt_ad:${rtCampaignId}`,      today, today, JSON.stringify(rtAds),
+        `rt_camp:${rtCampaignId}`,                   JSON.stringify(rtCampaigns),
+        `rt_camp_id:${rtCampaignId}`,                JSON.stringify(rtCampById),
       ]
     );
 
@@ -121,6 +132,7 @@ export async function POST(req: NextRequest) {
       meta_rows: metaRows.length,
       rt_ads: rtAds.length,
       rt_campaigns: rtCampaigns.length,
+      rt_camp_ids: rtCampById.length,
       date: today,
     });
 

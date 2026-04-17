@@ -6,7 +6,7 @@ import { format, subDays } from 'date-fns';
 // Aumenta o limite de tempo para ambientes Vercel Pro/Enterprise
 export const maxDuration = 300;
 
-const CONCURRENCY = 3; // contas processadas em paralelo (respeita rate limits da Meta)
+const BATCH_SIZE = 10; // contas processadas por fila (lote)
 
 /**
  * POST /api/sync/meta-bulk
@@ -22,10 +22,18 @@ const CONCURRENCY = 3; // contas processadas em paralelo (respeita rate limits d
  */
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
-  const days: number = Math.min(Math.max(parseInt(body.days ?? '30', 10), 1), 90);
+  const mode: string = body.mode ?? 'range';
+  const isYesterday = mode === 'yesterday';
+  const days: number = isYesterday
+    ? 1
+    : Math.min(Math.max(parseInt(body.days ?? '30', 10), 1), 90);
 
-  const dateTo   = format(new Date(), 'yyyy-MM-dd');
-  const dateFrom = format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
+  const dateTo   = isYesterday
+    ? format(subDays(new Date(), 1), 'yyyy-MM-dd')
+    : format(new Date(), 'yyyy-MM-dd');
+  const dateFrom = isYesterday
+    ? dateTo
+    : format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
 
   // Busca todas as contas selecionadas
   let accounts: { account_id: string; account_name: string; access_token: string }[] = [];
@@ -123,16 +131,33 @@ export async function POST(req: Request) {
         }
       };
 
-      // Processa em lotes paralelos de CONCURRENCY contas ao mesmo tempo
-      for (let i = 0; i < accounts.length; i += CONCURRENCY) {
-        const batch = accounts.slice(i, i + CONCURRENCY);
+      // Processa em filas de BATCH_SIZE contas por vez
+      const totalBatches = Math.ceil(accounts.length / BATCH_SIZE);
+      for (let i = 0; i < accounts.length; i += BATCH_SIZE) {
+        const batch = accounts.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
 
-        // Envia progress para todas as contas do lote antes de iniciar
+        send({
+          type: 'batch_start',
+          batch: batchNum,
+          totalBatches,
+          batchSize: batch.length,
+          accounts: batch.map(a => a.account_name),
+        });
+
+        // Envia progress para cada conta do lote
         batch.forEach((acc, j) => {
           send({ type: 'progress', index: i + j + 1, total: accounts.length, account: acc.account_name });
         });
 
+        // Processa todas as contas do lote em paralelo
         await Promise.all(batch.map(acc => processAccount(acc)));
+
+        send({
+          type: 'batch_done',
+          batch: batchNum,
+          totalBatches,
+        });
       }
 
       send({

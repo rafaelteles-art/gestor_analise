@@ -1,69 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-
-// ============================================================
-// USD→BRL — PTAX do Banco Central do Brasil (sem rate limit)
-// Tenta dateTo e recua até 5 dias para cobrir fins de semana/feriados.
-// ============================================================
-async function getUsdToBrl(dateTo: string): Promise<number> {
-  try {
-    const [year, month, day] = dateTo.split('-').map(Number);
-    const base = new Date(year, month - 1, day);
-
-    for (let i = 0; i < 5; i++) {
-      const d = new Date(base);
-      d.setDate(d.getDate() - i);
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const yyyy = d.getFullYear();
-      const dateStr = `${mm}-${dd}-${yyyy}`;
-
-      const res = await fetch(
-        `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao='${dateStr}'&$top=1&$format=json&$select=cotacaoVenda`,
-        { cache: 'no-store', signal: AbortSignal.timeout(8000) }
-      );
-      const data = await res.json();
-      if (Array.isArray(data?.value) && data.value.length > 0) {
-        const rate = parseFloat(data.value[0].cotacaoVenda);
-        console.log(`[Import] Cotação PTAX USD→BRL (${dateStr}): ${rate}`);
-        return rate;
-      }
-    }
-    throw new Error('Sem dados PTAX nos últimos 5 dias');
-  } catch {
-    console.warn('[Import] Erro ao buscar cotação PTAX, usando 5.50 como fallback');
-    return 5.50;
-  }
-}
+import { getUsdToBrl } from '@/lib/usd-brl';
 
 // ============================================================
 // COMBINADORES — agregam entradas diárias do import_cache
 // ============================================================
 
-/**
- * Agrega métricas por rt_ad somando as entradas diárias do import_cache.
- * Fonte de verdade para receita/conversões por rt_ad — vem direto do RedTrack
- * (group=rt_ad), então evita o double-count que acontecia ao reconstruir via
- * matching de nome de rt_campaign × Meta campaign.
- */
-function combineDailyRtAd(rows: { data: any[] }[]): {
-  rt_ad: string;
-  total_revenue: number;
-  total_conversions: number;
-  clicks: number;
-}[] {
-  const map = new Map<string, { rt_ad: string; total_revenue: number; total_conversions: number; clicks: number }>();
-  for (const row of rows) {
-    for (const entry of (row.data || [])) {
-      if (!entry.rt_ad) continue;
-      const cur = map.get(entry.rt_ad) ?? { rt_ad: entry.rt_ad, total_revenue: 0, total_conversions: 0, clicks: 0 };
-      cur.total_revenue     += parseFloat(entry.total_revenue || '0');
-      cur.total_conversions += parseInt(entry.total_conversions || '0', 10);
-      cur.clicks            += parseInt(entry.clicks || '0', 10);
-      map.set(entry.rt_ad, cur);
-    }
-  }
-  return Array.from(map.values());
+/** Retorna códigos rt_ad distintos presentes nos dias consultados. */
+function combineDailyRtAd(rows: { data: any[] }[]): { rt_ad: string }[] {
+  const seen = new Set<string>();
+  for (const row of rows)
+    for (const entry of (row.data || []))
+      if (entry.rt_ad) seen.add(entry.rt_ad);
+  return Array.from(seen).map(rt_ad => ({ rt_ad }));
 }
 
 /** Soma total_revenue e convtype2 por nome de campanha RT entre os dias consultados. */
@@ -83,6 +32,22 @@ function combineDailyRtCamp(rows: { data: any[] }[]): { rt_campaign: string; tot
     total_revenue: String(v.total_revenue),
     convtype2:     String(v.convtype2),
   }));
+}
+
+/** Soma total_revenue e convtype2 por Meta campaign_id (sub3) entre os dias consultados. */
+function combineDailyRtCampById(rows: { data: any[] }[]): Map<string, { total_revenue: number; convtype2: number }> {
+  const map = new Map<string, { total_revenue: number; convtype2: number }>();
+  for (const row of rows) {
+    for (const entry of (row.data || [])) {
+      const metaId = entry.sub3;
+      if (!metaId) continue;
+      const cur = map.get(metaId) ?? { total_revenue: 0, convtype2: 0 };
+      cur.total_revenue += parseFloat(entry.total_revenue || '0');
+      cur.convtype2     += parseInt(entry.convtype2 || '0', 10);
+      map.set(metaId, cur);
+    }
+  }
+  return map;
 }
 
 // ============================================================
@@ -110,7 +75,7 @@ export async function POST(req: NextRequest) {
     // BUSCA — tudo vem do banco, sem chamadas à API Meta ou RT
     // ============================================================
 
-    // 1. Cotação USD→BRL (awesomeapi — terceiro leve, não Meta/RT)
+    // 1. Cotação USD→BRL (AwesomeAPI primário, BCB fallback, cache em DB)
     const usdToBrlPromise = getUsdToBrl(dateTo);
 
     // 2. Meta: agrega meta_ads_metrics pelo período selecionado
@@ -154,8 +119,30 @@ export async function POST(req: NextRequest) {
       }));
     }));
 
-    // 3. RedTrack rt_ad e rt_campaign — combina entradas diárias do import_cache
-    const [rtAdResult, rtCampResult, usdToBrl] = await Promise.all([
+    // 2.1. vturb: identifica players vinculados à campanha RT selecionada via rtkcmpid.
+    const vturbLinkedPlayersPromise = pool.query(
+      `SELECT DISTINCT player_id
+       FROM vturb_utm_metrics
+       WHERE query_key = 'rtkcmpid'
+         AND grouped_field = ANY($3)
+         AND date >= $1 AND date <= $2`,
+      [dateFrom, dateTo, rtCampaignIds]
+    );
+
+    // 2.2. vturb: stats por player de vturb_metrics (pitch vem do raw JSONB).
+    const vturbPlayerStatsPromise = pool.query(
+      `SELECT player_id,
+         SUM(total_started)                      AS total_started,
+         SUM(conversions)                        AS total_conversions,
+         SUM((raw->>'total_over_pitch')::bigint) AS total_over_pitch
+       FROM vturb_metrics
+       WHERE date >= $1 AND date <= $2
+       GROUP BY player_id`,
+      [dateFrom, dateTo]
+    );
+
+    // 3. RedTrack rt_ad, rt_campaign e rt_camp_id (sub3=Meta campaign_id)
+    const [rtAdResult, rtCampResult, rtCampIdResult, usdToBrl] = await Promise.all([
       pool.query(
         `SELECT data FROM import_cache
          WHERE cache_key = $1
@@ -172,20 +159,64 @@ export async function POST(req: NextRequest) {
          ORDER BY date_from`,
         [`rt_camp:${campaignIdParam}`, dateFrom, dateTo]
       ),
+      pool.query(
+        `SELECT data FROM import_cache
+         WHERE cache_key = $1
+           AND date_from >= $2 AND date_from <= $3
+           AND date_from = date_to
+         ORDER BY date_from`,
+        [`rt_camp_id:${campaignIdParam}`, dateFrom, dateTo]
+      ),
       usdToBrlPromise,
     ]);
 
-    // Combina entradas diárias: rt_ad → códigos únicos; rt_camp → soma receita/vendas
+    // Combina entradas diárias
     const rtAds: any[] = combineDailyRtAd(rtAdResult.rows);
     const rtCampaignsReport: any[] = combineDailyRtCamp(rtCampResult.rows);
+    const rtByMetaId = combineDailyRtCampById(rtCampIdResult.rows);
 
-    console.log(`[DB] RT rt_ad: ${rtAds.length} registros | RT rt_campaign: ${rtCampaignsReport.length} registros`);
+    // vturb: aguarda as duas queries (linked players + stats por player)
+    const [vturbLinkedPlayers, vturbPlayerStats] = await Promise.all([
+      vturbLinkedPlayersPromise,
+      vturbPlayerStatsPromise,
+    ]);
+
+    // Players vinculados à campanha RT selecionada via rtkcmpid
+    const linkedPlayerIds = new Set<string>(
+      vturbLinkedPlayers.rows.map((r: any) => r.player_id)
+    );
+
+    // Agrega stats dos players vinculados: pitch (over_pitch), plays (started), conversões
+    let vturbTotalStarted = 0;
+    let vturbTotalOverPitch = 0;
+    let vturbTotalConversions = 0;
+
+    for (const r of vturbPlayerStats.rows) {
+      if (!linkedPlayerIds.has(r.player_id)) continue;
+      vturbTotalStarted     += Number(r.total_started)     || 0;
+      vturbTotalOverPitch   += Number(r.total_over_pitch)  || 0;
+      vturbTotalConversions += Number(r.total_conversions)  || 0;
+    }
+
+    // Retenção = pessoas no pitch / plays únicos
+    // Conversão VT = conversões / plays únicos
+    const vturbRetention = vturbTotalStarted > 0
+      ? (vturbTotalOverPitch / vturbTotalStarted) * 100 : null;
+    const vturbConvRate = vturbTotalStarted > 0
+      ? (vturbTotalConversions / vturbTotalStarted) * 100 : null;
+
+    console.log(`[DB] vturb rtkcmpid: ${linkedPlayerIds.size} players | started=${vturbTotalStarted} | over_pitch=${vturbTotalOverPitch} | conv=${vturbTotalConversions}`);
+    console.log(`[DB] RT rt_ad: ${rtAds.length} | RT rt_camp: ${rtCampaignsReport.length} | RT rt_camp_id (sub3): ${rtByMetaId.size}`);
 
     // ============================================================
     // PROCESSAMENTO (igual ao original)
     // ============================================================
 
-    // Agrupa campanhas do Meta pelo nome (soma gastos/cliques/impressões duplicados)
+    // Agrupa campanhas do Meta pelo nome (soma gastos/cliques/impressões duplicados).
+    // Mantém a lista de TODOS os campaign_ids que compartilham o nome — Meta com
+    // frequência tem várias campanhas idênticas (escalas de ABO), e cada uma tem seu
+    // próprio sub3 no RedTrack. Sem isso, o lookup por sub3 pega só a fatia da
+    // primeira campaign_id e perde a receita das demais.
     const metaMap = new Map<string, any>();
     metaResults.forEach((mc: any) => {
       const name = mc.campaign_name;
@@ -194,8 +225,11 @@ export async function POST(req: NextRequest) {
         existing.spend       += mc.spend;
         existing.impressions += mc.impressions;
         existing.clicks      += mc.clicks;
+        if (!existing.campaign_ids.includes(mc.campaign_id)) {
+          existing.campaign_ids.push(mc.campaign_id);
+        }
       } else {
-        metaMap.set(name, { ...mc });
+        metaMap.set(name, { ...mc, campaign_ids: [mc.campaign_id] });
       }
     });
 
@@ -243,6 +277,25 @@ export async function POST(req: NextRequest) {
       };
     };
 
+    // Lookup robusto: soma sub3 (Meta campaign_id) de TODAS as campanhas que
+    // compartilham o nome — preserva a imunidade a renomeações e cobre o caso
+    // comum de várias ad sets duplicadas no Meta com o mesmo nome. Cai no match
+    // por nome só se nenhuma das ids tiver entrada no rt_camp_id.
+    const findRevenue = (mc: any) => {
+      const ids: string[] = mc.campaign_ids || [mc.campaign_id];
+      let totalRev = 0, totalConv = 0, anyHit = false;
+      for (const id of ids) {
+        const byId = rtByMetaId.get(id);
+        if (byId) {
+          anyHit = true;
+          totalRev  += byId.total_revenue;
+          totalConv += byId.convtype2;
+        }
+      }
+      if (anyHit) return { total_revenue: String(totalRev), convtype2: String(totalConv) };
+      return findRtCamp(mc.campaign_name);
+    };
+
     // Motor de cruzamento
     const finalReport = cleanRtAds.map((rtItem: any) => {
       const escapedAd = rtItem.rt_ad.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -252,7 +305,7 @@ export async function POST(req: NextRequest) {
       if (matchingMeta.length === 0) return null;
 
       const enrichedCampaigns = matchingMeta.map(mc => {
-        const rtCamp      = findRtCamp(mc.campaign_name);
+        const rtCamp      = findRevenue(mc);
         const spendBrl    = mc.spend * usdToBrl;
         const rtRevenue   = rtCamp ? parseFloat(rtCamp.total_revenue || '0') : 0;
         const rtConversions = rtCamp ? parseInt(rtCamp.convtype2 || '0', 10) : 0;
@@ -270,16 +323,13 @@ export async function POST(req: NextRequest) {
           cpa:           rtConversions > 0 ? spendBrl / rtConversions : 0,
           profit:        rtRevenue - spendBrl,
           roas:          spendBrl > 0 ? rtRevenue / spendBrl : 0,
+          vturb_conversion_rate: vturbConvRate,
         };
       });
 
       const totalSpend       = enrichedCampaigns.reduce((s, c) => s + c.spend, 0);
-      // Receita e conversões no nível do rt_ad vêm direto da agregação do cache
-      // rt_ad (group=rt_ad do RedTrack), não da soma das sub-linhas Meta. Isso
-      // impede double-count quando um mesmo rt_campaign casa com múltiplas Meta
-      // campaigns via substring match em `findRtCamp`.
-      const totalRevenue     = rtItem.total_revenue;
-      const totalConversions = rtItem.total_conversions;
+      const totalRevenue     = enrichedCampaigns.reduce((s, c) => s + c.revenue, 0);
+      const totalConversions = enrichedCampaigns.reduce((s, c) => s + c.conversions, 0);
       const totalImpressions = enrichedCampaigns.reduce((s, c) => s + c.impressions, 0);
       const totalClicks      = enrichedCampaigns.reduce((s, c) => s + c.clicks, 0);
       const avgCpm = totalImpressions > 0
@@ -299,17 +349,21 @@ export async function POST(req: NextRequest) {
         meta_impressions:  totalImpressions,
         meta_clicks:       totalClicks,
         meta_campaigns:    enrichedCampaigns,
+        vturb_over_pitch_rate: vturbRetention,
+        vturb_conversion_rate: vturbConvRate,
       };
     }).filter(Boolean);
 
     // Totais gerais
-    const totals = {
+    const totals: any = {
       cost:        finalReport.reduce((s: number, g: any) => s + g.cost, 0),
       revenue:     finalReport.reduce((s: number, g: any) => s + g.total_revenue, 0),
       profit:      finalReport.reduce((s: number, g: any) => s + g.profit, 0),
       conversions: finalReport.reduce((s: number, g: any) => s + g.total_conversions, 0),
       roas: 0,
       cpa: 0,
+      vturb_over_pitch_rate: vturbRetention,
+      vturb_conversion_rate: vturbConvRate,
     };
     totals.roas = totals.cost > 0 ? totals.revenue / totals.cost : 0;
     totals.cpa  = totals.conversions > 0 ? totals.cost / totals.conversions : 0;

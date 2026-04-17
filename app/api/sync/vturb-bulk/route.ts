@@ -4,7 +4,8 @@ import { getVturbApiToken } from '@/lib/config';
 import {
   fetchVturbPlayers,
   fetchVturbPlayerDaily,
-  VturbDailyMetric,
+  fetchVturbPlayerUtmDaily,
+  VturbUtmDailyMetric,
 } from '@/lib/vturb';
 import { format, subDays } from 'date-fns';
 
@@ -35,6 +36,31 @@ async function ensureVturbTable() {
       PRIMARY KEY (date, player_id)
     )
   `);
+
+  // Tabela por UTM (utm_content, utm_campaign...) usada para casar com rt_ad/rt_campaign
+  // no dashboard de ads. Populada via /traffic_origin/stats_by_day.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS vturb_utm_metrics (
+      date                    DATE    NOT NULL,
+      player_id               TEXT    NOT NULL,
+      query_key               TEXT    NOT NULL,
+      grouped_field           TEXT    NOT NULL,
+      total_started           BIGINT  DEFAULT 0,
+      total_viewed            BIGINT  DEFAULT 0,
+      total_finished          BIGINT  DEFAULT 0,
+      total_over_pitch        BIGINT  DEFAULT 0,
+      total_under_pitch       BIGINT  DEFAULT 0,
+      total_conversions       BIGINT  DEFAULT 0,
+      over_pitch_rate         NUMERIC DEFAULT 0,
+      overall_conversion_rate NUMERIC DEFAULT 0,
+      amount_brl              NUMERIC DEFAULT 0,
+      amount_usd              NUMERIC DEFAULT 0,
+      raw                     JSONB,
+      updated_at              TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (date, player_id, query_key, grouped_field)
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_vturb_utm_key_field ON vturb_utm_metrics (query_key, grouped_field, date)`);
 }
 
 /**
@@ -48,10 +74,18 @@ async function ensureVturbTable() {
  */
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
-  const days: number = Math.min(Math.max(parseInt(body.days ?? '30', 10), 1), 90);
+  const mode: string = body.mode ?? 'range';
+  const isYesterday = mode === 'yesterday';
+  const days: number = isYesterday
+    ? 1
+    : Math.min(Math.max(parseInt(body.days ?? '30', 10), 1), 90);
 
-  const dateTo   = format(new Date(), 'yyyy-MM-dd');
-  const dateFrom = format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
+  const dateTo   = isYesterday
+    ? format(subDays(new Date(), 1), 'yyyy-MM-dd')
+    : format(new Date(), 'yyyy-MM-dd');
+  const dateFrom = isYesterday
+    ? dateTo
+    : format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
 
   const token = await getVturbApiToken();
   if (!token) {
@@ -97,15 +131,24 @@ export async function POST(req: Request) {
 
       const processPlayer = async (player: typeof players[0]) => {
         const label = player.name || player.id;
+        console.log(`[vturb-bulk] player "${label}" → pitch_time=${player.pitch_time}, video_duration=${player.video_duration}`);
         try {
-          const rows: VturbDailyMetric[] = await fetchVturbPlayerDaily(
-            token,
-            player,
-            dateFrom,
-            dateTo,
-          );
+          const [rows, utmRows] = await Promise.all([
+            fetchVturbPlayerDaily(token, player, dateFrom, dateTo),
+            fetchVturbPlayerUtmDaily(
+              token,
+              player,
+              ['utm_content', 'utm_campaign', 'rtkcmpid'],
+              dateFrom,
+              dateTo,
+            ).catch((e) => {
+              // Se falhar (e.g. endpoint indisponível pra esse player), não aborta o player inteiro.
+              console.warn(`[vturb-bulk] utm fetch falhou p/ ${label}: ${e?.message}`);
+              return [] as VturbUtmDailyMetric[];
+            }),
+          ]);
 
-          if (rows.length === 0) {
+          if (rows.length === 0 && utmRows.length === 0) {
             send({ type: 'account_done', account: label, rows: 0, status: 'empty' });
             return;
           }
@@ -113,6 +156,47 @@ export async function POST(req: Request) {
           const client = await pool.connect();
           try {
             await client.query('BEGIN');
+            for (const u of utmRows) {
+              await client.query(
+                `INSERT INTO vturb_utm_metrics
+                   (date, player_id, query_key, grouped_field,
+                    total_started, total_viewed, total_finished,
+                    total_over_pitch, total_under_pitch, total_conversions,
+                    over_pitch_rate, overall_conversion_rate,
+                    amount_brl, amount_usd, raw, updated_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW())
+                 ON CONFLICT (date, player_id, query_key, grouped_field) DO UPDATE SET
+                   total_started           = EXCLUDED.total_started,
+                   total_viewed            = EXCLUDED.total_viewed,
+                   total_finished          = EXCLUDED.total_finished,
+                   total_over_pitch        = EXCLUDED.total_over_pitch,
+                   total_under_pitch       = EXCLUDED.total_under_pitch,
+                   total_conversions       = EXCLUDED.total_conversions,
+                   over_pitch_rate         = EXCLUDED.over_pitch_rate,
+                   overall_conversion_rate = EXCLUDED.overall_conversion_rate,
+                   amount_brl              = EXCLUDED.amount_brl,
+                   amount_usd              = EXCLUDED.amount_usd,
+                   raw                     = EXCLUDED.raw,
+                   updated_at              = NOW()`,
+                [
+                  u.date,
+                  u.player_id,
+                  u.query_key,
+                  u.grouped_field,
+                  u.total_started,
+                  u.total_viewed,
+                  u.total_finished,
+                  u.total_over_pitch,
+                  u.total_under_pitch,
+                  u.total_conversions,
+                  u.over_pitch_rate,
+                  u.overall_conversion_rate,
+                  u.amount_brl,
+                  u.amount_usd,
+                  u.raw,
+                ],
+              );
+            }
             for (const r of rows) {
               await client.query(
                 `INSERT INTO vturb_metrics
@@ -159,8 +243,8 @@ export async function POST(req: Request) {
               );
             }
             await client.query('COMMIT');
-            totalRows += rows.length;
-            send({ type: 'account_done', account: label, rows: rows.length, status: 'ok' });
+            totalRows += rows.length + utmRows.length;
+            send({ type: 'account_done', account: label, rows: rows.length + utmRows.length, status: 'ok' });
           } catch (dbErr: any) {
             await client.query('ROLLBACK');
             errorCount++;

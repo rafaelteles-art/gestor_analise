@@ -392,6 +392,8 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                 { title: 'ROAS', value: rtTotals.roas > 0 ? rtTotals.roas.toFixed(2) + 'x' : '0.00x', color: rtTotals.roas >= 1 ? 'text-amber-500' : 'text-gray-500' },
                 { title: 'VENDAS', value: rtTotals.conversions.toString(), color: 'text-gray-800' },
                 { title: 'CPA', value: formatCurrency(rtTotals.cpa), color: 'text-gray-800' },
+                { title: 'RET. PITCH', value: rtTotals.vturb_over_pitch_rate != null ? formatPercent(rtTotals.vturb_over_pitch_rate) : '—', color: 'text-fuchsia-500' },
+                { title: 'CONV. VTURB', value: rtTotals.vturb_conversion_rate != null ? formatPercent(rtTotals.vturb_conversion_rate) : '—', color: 'text-fuchsia-500' },
             ].map((card, i) => (
                 <div key={i} className="flex-1 bg-white min-w-[150px] p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-center">
                     <h3 className="text-[10px] text-gray-400 font-bold tracking-wider mb-2 uppercase">{card.title}</h3>
@@ -426,7 +428,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
           </div>
 
           {/* Table Header */}
-          <div className="grid grid-cols-10 bg-gray-50 text-[10px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-200">
+          <div className="grid grid-cols-12 bg-gray-50 text-[10px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-200">
             <TableHeader label="Campanha" sortKey="rt_ad" alignLeft={true} colSpan={2} />
             <TableHeader label="Gasto" sortKey="total_spend" />
             <TableHeader label="Receita" sortKey="total_revenue" />
@@ -435,7 +437,9 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
             <TableHeader label="Lucro" sortKey="profit" />
             <TableHeader label="ROAS" sortKey="roas" />
             <TableHeader label="CPM" sortKey="total_spend" />
-            <TableHeader label="CTR" sortKey="total_revenue" /> 
+            <TableHeader label="CTR" sortKey="total_revenue" />
+            <TableHeader label="Ret. Pitch" sortKey="vturb_over_pitch_rate" />
+            <TableHeader label="Conv. VT" sortKey="vturb_conversion_rate" />
             {/* CPM and CTR sorting maps currently follow broad logical rules since real combined avg CPM is complex, standardizing by spend/clicks temporarily */}
           </div>
 
@@ -456,7 +460,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                 <div key={group.rt_ad}>
                     {/* Row level 1 */}
                     <div
-                        className="grid grid-cols-10 text-xs hover:bg-gray-50 transition-colors group relative"
+                        className="grid grid-cols-12 text-xs hover:bg-gray-50 transition-colors group relative"
                     >
                         <div className="col-span-2 px-6 py-3.5 flex items-center gap-3">
                             <div className="flex items-center justify-center w-8 cursor-pointer" onClick={() => toggleRow(group.rt_ad)}>
@@ -486,12 +490,14 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                         <div className={`px-4 py-3.5 text-right font-mono font-bold ${roasColor}`}>{group.roas > 0 ? group.roas.toFixed(2)+'x' : '—'}</div>
                         <div className="px-4 py-3.5 text-right font-mono text-gray-500">{group.meta_cpm > 0 ? formatCurrency(group.meta_cpm) : '—'}</div>
                         <div className="px-4 py-3.5 text-right font-mono text-gray-500">{group.meta_ctr > 0 ? formatPercent(group.meta_ctr) : '—'}</div>
+                        <div className="px-4 py-3.5 text-right font-mono text-fuchsia-500">{group.vturb_over_pitch_rate != null ? formatPercent(group.vturb_over_pitch_rate) : '—'}</div>
+                        <div className="px-4 py-3.5 text-right font-mono text-fuchsia-500">{group.vturb_conversion_rate != null ? formatPercent(group.vturb_conversion_rate) : '—'}</div>
                     </div>
 
                     {/* Meta Campaigns Wrapper */}
                     {isOpen && group.meta_campaigns.length > 0 && (
                     <div className="bg-gray-50/50 border-t border-b border-gray-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]">
-                        <div className="grid grid-cols-10 text-[10px] text-gray-400 font-bold uppercase tracking-wider border-b border-gray-100/50">
+                        <div className="grid grid-cols-12 text-[10px] text-gray-400 font-bold uppercase tracking-wider border-b border-gray-100/50">
                             <div className="col-span-2 px-6 py-2 pl-16">Anúncio Facebook</div>
                             <div className="px-4 py-2 text-right">Gasto FB</div>
                             <div className="px-4 py-2 text-right">Receita RT</div>
@@ -501,6 +507,8 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                             <div className="px-4 py-2 text-right">ROAS Líq</div>
                             <div className="px-4 py-2 text-right">CPM</div>
                             <div className="px-4 py-2 text-right">CTR</div>
+                            <div className="px-4 py-2 text-right">Ret. Pitch</div>
+                            <div className="px-4 py-2 text-right">Conv. VT Camp.</div>
                         </div>
                         {([...group.meta_campaigns].sort((a: any, b: any) => {
           if (!sortConfig) return 0;
@@ -525,7 +533,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                         const mcProfitColor = mc.profit >= 0 ? 'text-emerald-500' : 'text-rose-500';
                         const mcRoasColor = mc.roas >= 1 ? 'text-emerald-500' : mc.roas > 0 ? 'text-amber-500' : 'text-gray-400';
                         return (
-                            <div key={mc.campaign_id + '-' + idx} className="grid grid-cols-10 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-transparent transition-colors">
+                            <div key={mc.campaign_id + '-' + idx} className="grid grid-cols-12 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-transparent transition-colors">
                             <div className="col-span-2 px-6 py-3 pl-16 text-gray-500 break-words whitespace-normal leading-relaxed text-[11px]">
                                 {mc.campaign_name}
                             </div>
@@ -537,6 +545,8 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                             <div className={`px-4 py-3 text-right font-mono font-medium ${mc.revenue > 0 ? mcRoasColor : 'text-gray-400'}`}>{mc.roas > 0 ? mc.roas.toFixed(2)+'x' : '—'}</div>
                             <div className="px-4 py-3 text-right font-mono text-gray-400">{formatCurrency(mc.cpm)}</div>
                             <div className="px-4 py-3 text-right font-mono text-gray-400">{formatPercent(mc.ctr)}</div>
+                            <div className="px-4 py-3 text-right font-mono text-fuchsia-400">{group.vturb_over_pitch_rate != null ? formatPercent(group.vturb_over_pitch_rate) : '—'}</div>
+                            <div className="px-4 py-3 text-right font-mono text-fuchsia-400">{mc.vturb_conversion_rate != null ? formatPercent(mc.vturb_conversion_rate) : '—'}</div>
                             </div>
                         );
                         })}

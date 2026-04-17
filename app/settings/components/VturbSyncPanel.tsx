@@ -101,8 +101,10 @@ async function readNdjsonStream(res: Response, onLine: (line: LogLine) => void) 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Painel vturb
 // ═══════════════════════════════════════════════════════════════════════════════
+type VturbPeriod = 7 | 14 | 30 | 60 | 90 | 'yesterday';
+
 export default function VturbSyncPanel() {
-  const [days, setDays] = useState(30);
+  const [period, setPeriod] = useState<VturbPeriod>(30);
   const [running, setRunning] = useState(false);
   const [lines, setLines] = useState<LogLine[]>([]);
   const [done, setDone] = useState(false);
@@ -112,10 +114,11 @@ export default function VturbSyncPanel() {
   const handleSync = async () => {
     setRunning(true); setDone(false); setLines([]);
     try {
+      const payload = period === 'yesterday' ? { mode: 'yesterday' } : { days: period };
       const res = await fetch('/api/sync/vturb-bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         append({ type: 'error', error: (await res.json().catch(() => ({}))).error ?? res.statusText });
@@ -151,18 +154,25 @@ export default function VturbSyncPanel() {
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-600 font-medium whitespace-nowrap">Período:</span>
           <div className="flex gap-1">
-            {[7, 14, 30, 60, 90].map(d => (
-              <button key={d} onClick={() => setDays(d)} disabled={running}
+            {([7, 14, 30, 60, 90] as const).map(d => (
+              <button key={d} onClick={() => setPeriod(d)} disabled={running}
                 className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-                  days === d ? 'bg-fuchsia-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  period === d ? 'bg-fuchsia-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}
               >{d}d</button>
             ))}
+            <button onClick={() => setPeriod('yesterday')} disabled={running}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
+                period === 'yesterday' ? 'bg-fuchsia-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >Ontem</button>
           </div>
           <button onClick={handleSync} disabled={running}
             className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-fuchsia-600 text-white hover:bg-fuchsia-700 disabled:opacity-50 transition-colors"
           >
-            {running ? <><SpinIcon /> Importando...</> : <><UploadIcon /> Importar {days} dias</>}
+            {running
+              ? <><SpinIcon /> Importando...</>
+              : <><UploadIcon /> {period === 'yesterday' ? 'Importar ontem' : `Importar ${period} dias`}</>}
           </button>
         </div>
 

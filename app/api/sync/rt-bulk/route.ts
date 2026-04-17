@@ -1,24 +1,30 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { getRedtrackApiKey } from '@/lib/config';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 
 /**
  * POST /api/sync/rt-bulk
  *
- * Sincroniza rt_ad e rt_campaign APENAS do dia atual, uma campanha por vez,
- * com delay entre chamadas e retry em caso de 429. Dias anteriores nunca
- * são tocados — ficam preservados no import_cache (backfill histórico é
- * feito offline via backfill_rt.py).
+ * Sincroniza rt_ad e rt_campaign de um único dia (hoje ou ontem), uma campanha
+ * por vez, com delay entre chamadas e retry em caso de 429.
+ *
+ * Body: { mode: 'today' | 'yesterday' }
  *
  * Retorna NDJSON em streaming com eventos `log` para mostrar o que está
  * acontecendo em tempo real na UI.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   const apiKey = await getRedtrackApiKey();
   if (!apiKey) {
     return NextResponse.json({ error: 'REDTRACK_API_KEY não configurada.' }, { status: 500 });
   }
+
+  let mode: 'today' | 'yesterday' = 'today';
+  try {
+    const body = await request.json();
+    if (body.mode === 'yesterday') mode = 'yesterday';
+  } catch {}
 
   const DELAY_BETWEEN_CALLS_MS    = 3000;  // 3s entre chamadas à API RedTrack
   const DELAY_BETWEEN_CAMPAIGNS_MS = 2000; // 2s extra entre campanhas
@@ -26,7 +32,9 @@ export async function POST() {
   const MAX_RETRIES                = 5;
 
   const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const targetDate = mode === 'yesterday'
+    ? format(subDays(new Date(), 1), 'yyyy-MM-dd')
+    : format(new Date(), 'yyyy-MM-dd');
 
   let selectedCampaigns: { campaign_id: string; campaign_name: string }[] = [];
   try {
@@ -92,8 +100,8 @@ export async function POST() {
         throw new Error(`Esgotou ${MAX_RETRIES} tentativas por rate limit em ${tag}`);
       };
 
-      send({ type: 'start', total: selectedCampaigns.length, today });
-      log(`Sincronização iniciada · ${selectedCampaigns.length} campanha(s) · dia ${today}`);
+      send({ type: 'start', total: selectedCampaigns.length, today: targetDate });
+      log(`Sincronização iniciada · ${selectedCampaigns.length} campanha(s) · dia ${targetDate}`);
 
       let synced = 0;
       let errorCount = 0;
@@ -105,34 +113,45 @@ export async function POST() {
         log(`[${idx}/${selectedCampaigns.length}] ${camp.campaign_name}`);
 
         try {
-          log(`  → buscando rt_ad (${today})`);
+          log(`  → buscando rt_ad (${targetDate})`);
           const rtAds = await fetchWithRetry(
             `https://api.redtrack.io/report?api_key=${apiKey}` +
-            `&date_from=${today}&date_to=${today}` +
+            `&date_from=${targetDate}&date_to=${targetDate}` +
             `&tz=America/Sao_Paulo&group=rt_ad&campaign_id=${camp.campaign_id}`,
             'rt_ad'
           );
           log(`  ✓ rt_ad: ${rtAds.length} registros`);
           await delay(DELAY_BETWEEN_CALLS_MS);
 
-          log(`  → buscando rt_campaign (${today})`);
+          log(`  → buscando rt_campaign (${targetDate})`);
           const rtCampaigns = await fetchWithRetry(
             `https://api.redtrack.io/report?api_key=${apiKey}` +
-            `&date_from=${today}&date_to=${today}` +
+            `&date_from=${targetDate}&date_to=${targetDate}` +
             `&tz=America/Sao_Paulo&group=rt_campaign&campaign_id=${camp.campaign_id}`,
             'rt_campaign'
           );
           log(`  ✓ rt_campaign: ${rtCampaigns.length} registros`);
+          await delay(DELAY_BETWEEN_CALLS_MS);
 
-          // Upsert APENAS do dia de hoje — dias anteriores nunca são tocados.
+          log(`  → buscando sub3 (meta_campaign_id) (${targetDate})`);
+          const rtCampById = await fetchWithRetry(
+            `https://api.redtrack.io/report?api_key=${apiKey}` +
+            `&date_from=${targetDate}&date_to=${targetDate}` +
+            `&tz=America/Sao_Paulo&group=sub3&campaign_id=${camp.campaign_id}`,
+            'sub3'
+          );
+          log(`  ✓ sub3: ${rtCampById.length} registros`);
+
+          // Upsert do dia alvo — dias anteriores nunca são tocados.
           await pool.query(
             `INSERT INTO import_cache (cache_key, date_from, date_to, data, synced_at)
-             VALUES ($1, $2, $2, $3, NOW()), ($4, $2, $2, $5, NOW())
+             VALUES ($1, $2, $2, $3, NOW()), ($4, $2, $2, $5, NOW()), ($6, $2, $2, $7, NOW())
              ON CONFLICT (cache_key, date_from, date_to) DO UPDATE SET
                data = EXCLUDED.data, synced_at = NOW()`,
             [
-              `rt_ad:${camp.campaign_id}`,  today, JSON.stringify(rtAds),
-              `rt_camp:${camp.campaign_id}`,       JSON.stringify(rtCampaigns),
+              `rt_ad:${camp.campaign_id}`,      targetDate, JSON.stringify(rtAds),
+              `rt_camp:${camp.campaign_id}`,                JSON.stringify(rtCampaigns),
+              `rt_camp_id:${camp.campaign_id}`,             JSON.stringify(rtCampById),
             ]
           );
           log(`  ✓ cache atualizado`);
@@ -144,6 +163,7 @@ export async function POST() {
             daysFetched: 1,
             rtAds: rtAds.length,
             rtCampaigns: rtCampaigns.length,
+            rtCampIds: rtCampById.length,
             status: 'ok',
           });
         } catch (err: any) {
@@ -159,7 +179,7 @@ export async function POST() {
       }
 
       log(`Concluído · ${synced} ok · ${errorCount} erro(s)`, errorCount > 0 ? 'warn' : 'info');
-      send({ type: 'done', synced, errorCount, today });
+      send({ type: 'done', synced, errorCount, today: targetDate });
       controller.close();
     },
   });

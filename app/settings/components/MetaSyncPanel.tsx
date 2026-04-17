@@ -41,6 +41,9 @@ interface LogLine {
   level?: 'info' | 'warn' | 'error';
   message?: string;
   ts?: number;
+  batch?: number;
+  totalBatches?: number;
+  batchSize?: number;
 }
 
 // ── Helpers UI ────────────────────────────────────────────────────────────────
@@ -154,8 +157,10 @@ async function readNdjsonStream(res: Response, onLine: (line: LogLine) => void) 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Painel Meta
 // ═══════════════════════════════════════════════════════════════════════════════
+type MetaPeriod = 7 | 14 | 30 | 60 | 90 | 'yesterday';
+
 function MetaPanel() {
-  const [days, setDays] = useState(30);
+  const [period, setPeriod] = useState<MetaPeriod>(30);
   const [running, setRunning] = useState(false);
   const [lines, setLines] = useState<LogLine[]>([]);
   const [done, setDone] = useState(false);
@@ -165,10 +170,11 @@ function MetaPanel() {
   const handleSync = async () => {
     setRunning(true); setDone(false); setLines([]);
     try {
+      const payload = period === 'yesterday' ? { mode: 'yesterday' } : { days: period };
       const res = await fetch('/api/sync/meta-bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) { append({ type: 'error', error: (await res.json().catch(() => ({}))).error ?? res.statusText }); return; }
       await readNdjsonStream(res, append);
@@ -184,6 +190,8 @@ function MetaPanel() {
   const doneLine     = lines.find(l => l.type === 'done');
   const progressLine = lines.filter(l => l.type === 'progress').slice(-1)[0];
   const accountLines = lines.filter(l => l.type === 'account_done');
+  const batchStartLine = lines.filter(l => l.type === 'batch_start').slice(-1)[0];
+  const batchDoneLines = lines.filter(l => l.type === 'batch_done');
   const progressPct  = progressLine && startLine
     ? Math.round(((progressLine.index ?? 0) / (startLine.total ?? 1)) * 100) : 0;
 
@@ -192,28 +200,44 @@ function MetaPanel() {
       <div className="flex items-center gap-3">
         <span className="text-xs text-gray-600 font-medium whitespace-nowrap">Período:</span>
         <div className="flex gap-1">
-          {[7, 14, 30, 60, 90].map(d => (
-            <button key={d} onClick={() => setDays(d)} disabled={running}
+          {([7, 14, 30, 60, 90] as const).map(d => (
+            <button key={d} onClick={() => setPeriod(d)} disabled={running}
               className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-                days === d ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                period === d ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
             >{d}d</button>
           ))}
+          <button onClick={() => setPeriod('yesterday')} disabled={running}
+            className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
+              period === 'yesterday' ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >Ontem</button>
         </div>
         <button onClick={handleSync} disabled={running}
           className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
         >
-          {running ? <><SpinIcon /> Importando...</> : <><UploadIcon /> Importar {days} dias</>}
+          {running
+            ? <><SpinIcon /> Importando...</>
+            : <><UploadIcon /> {period === 'yesterday' ? 'Importar ontem' : `Importar ${period} dias`}</>}
         </button>
       </div>
 
       {running && startLine && (
         <div>
           <div className="flex justify-between text-[10px] text-gray-500 mb-1">
-            <span>{progressLine ? `Processando: ${progressLine.account}` : `Iniciando ${startLine.total} contas...`}</span>
+            <span>
+              {batchStartLine
+                ? `Fila ${batchStartLine.batch}/${batchStartLine.totalBatches} (${batchStartLine.batchSize} contas) — ${progressLine?.account ?? 'processando...'}`
+                : `Iniciando ${startLine.total} contas...`}
+            </span>
             <span>{progressPct}%</span>
           </div>
           <ProgressBar pct={progressPct} />
+          {batchStartLine && (
+            <div className="text-[10px] text-gray-400 mt-1">
+              {batchDoneLines.length} de {batchStartLine.totalBatches} filas concluídas
+            </div>
+          )}
         </div>
       )}
 
@@ -281,16 +305,20 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
   };
 
   // ── Sync ──────────────────────────────────────────────────────────────────
-  const [running, setRunning] = useState(false);
+  const [running, setRunning] = useState<false | 'today' | 'yesterday'>(false);
   const [lines, setLines] = useState<LogLine[]>([]);
   const [done, setDone] = useState(false);
 
   const append = (line: LogLine) => setLines(prev => [...prev, line]);
 
-  const handleSync = async () => {
-    setRunning(true); setDone(false); setLines([]);
+  const handleSync = async (mode: 'today' | 'yesterday') => {
+    setRunning(mode); setDone(false); setLines([]);
     try {
-      const res = await fetch('/api/sync/rt-bulk', { method: 'POST' });
+      const res = await fetch('/api/sync/rt-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
       if (!res.ok) { append({ type: 'error', error: (await res.json().catch(() => ({}))).error ?? res.statusText }); return; }
       await readNdjsonStream(res, append);
       setDone(true);
@@ -385,16 +413,23 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       {/* ── Divisor ── */}
       <div className="border-t border-gray-100" />
 
-      {/* ── Botão Sincronizar ── */}
+      {/* ── Botões Sincronizar ── */}
       <div className="flex items-center justify-between gap-4">
         <p className="text-xs text-gray-500">
-          Sincroniza <span className="font-semibold text-gray-700">apenas o dia de hoje</span> no cache, uma campanha por vez, com retry automático em caso de rate limit.
+          Sincroniza <span className="font-semibold text-gray-700">um único dia</span> no cache, uma campanha por vez, com retry automático em caso de rate limit.
         </p>
-        <button onClick={handleSync} disabled={running || selected.length === 0}
-          className="shrink-0 flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {running ? <><SpinIcon /> Sincronizando...</> : <><UploadIcon /> Sincronizar RT</>}
-        </button>
+        <div className="shrink-0 flex items-center gap-2">
+          <button onClick={() => handleSync('today')} disabled={running !== false || selected.length === 0}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {running === 'today' ? <><SpinIcon /> Sincronizando...</> : <><UploadIcon /> Sincronizar hoje</>}
+          </button>
+          <button onClick={() => handleSync('yesterday')} disabled={running !== false || selected.length === 0}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {running === 'yesterday' ? <><SpinIcon /> Sincronizando...</> : <><UploadIcon /> Sincronizar ontem</>}
+          </button>
+        </div>
       </div>
 
       {/* ── Progresso ── */}

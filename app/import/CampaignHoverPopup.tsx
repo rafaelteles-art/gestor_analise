@@ -37,13 +37,12 @@ export default function CampaignHoverPopup({ x, y, groupData, accountId, rtCampa
       }
 
       try {
-        const metaCampaignNames = groupData.meta_campaigns.map((mc: any) => mc.campaign_name);
         const res = await fetch('/api/history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             metaAccountId: accountId,
-            metaCampaignNames: metaCampaignNames,
+            rtAd: groupData.rt_ad,
             rtCampaignId: rtCampaignId,
           })
         });
