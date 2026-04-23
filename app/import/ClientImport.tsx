@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import Select from 'react-select';
 import CampaignHoverPopup from './CampaignHoverPopup';
 import { preloadHistoryBatch } from './hoverCache';
+import { analyzeAccounts, CreativeDiagnostic } from '../analise/diagnostics';
 
 interface AdAccount {
   account_id: string;
@@ -50,16 +51,16 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
 
   // Hover Popup State
   const [hoverTimeoutId, setHoverTimeoutId] = useState<any>(null);
-  const [hoverData, setHoverData] = useState<{ x: number, y: number, group: any } | null>(null);
+  const [hoverData, setHoverData] = useState<{ x: number, y: number, group: any, accountId: string } | null>(null);
 
-  const handleMouseEnterRow = (e: React.MouseEvent, group: any) => {
+  const handleMouseEnterRow = (e: React.MouseEvent, group: any, accId: string) => {
     const x = e.clientX;
     const y = e.clientY;
     if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
-    
+
     // Pequeno delay pra nao bugar quando o mouse passa voando
     const tid = setTimeout(() => {
-        setHoverData({ x, y, group });
+        setHoverData({ x, y, group, accountId: accId });
     }, 400);
     setHoverTimeoutId(tid);
   };
@@ -248,6 +249,33 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
       preloadHistoryBatch(accId, selectedRtCampaignId, rtAds);
     }
   }, [importResults, selectedAccountIds, selectedRtCampaignId]);
+
+  // Diagnóstico: roda o motor da /analise com os mesmos dados do dashboard
+  // para popular chips de inteligência no hover do rt_ad.
+  const diagnosticByAccAd = useMemo(() => {
+    const map: Record<string, Record<string, CreativeDiagnostic>> = {};
+    if (importResults.length === 0 || perAccountTotals.length === 0) return map;
+    try {
+      const accTotals = perAccountTotals.map((t: any) => ({
+        account_id: t.account_id,
+        account_name: t.account_name,
+        cost: t.cost,
+        revenue: t.revenue,
+        profit: t.profit,
+        conversions: t.conversions,
+        roas: t.roas,
+        cpa: t.cpa,
+      }));
+      const diags = analyzeAccounts(importResults as any, accTotals);
+      for (const d of diags) {
+        map[d.account_id] = {};
+        for (const c of d.creatives) map[d.account_id][c.rt_ad] = c;
+      }
+    } catch (e) {
+      console.warn('[Diagnostics]', e);
+    }
+    return map;
+  }, [importResults, perAccountTotals]);
 
   const toggleRow = (rtAd: string) => {
     setExpandedRows(prev => {
@@ -587,9 +615,9 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
                                 </div>
                             </div>
-                            <span 
+                            <span
                                 className="font-bold text-gray-800 cursor-help"
-                                onMouseEnter={(e) => handleMouseEnterRow(e, group)}
+                                onMouseEnter={(e) => handleMouseEnterRow(e, group, accId)}
                                 onMouseLeave={handleMouseLeaveRow}
                             >
                                 {group.rt_ad}
@@ -680,12 +708,13 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
 
     {/* Hover Popup Overlay Render */}
     {hoverData && (
-        <CampaignHoverPopup 
+        <CampaignHoverPopup
            x={hoverData.x}
            y={hoverData.y}
            groupData={hoverData.group}
-           accountId={hoverData.group?.meta_campaigns?.[0]?.account_id || selectedAccountIds[0] || ''}
+           accountId={hoverData.accountId}
            rtCampaignId={selectedRtCampaignId}
+           diagnostic={diagnosticByAccAd[hoverData.accountId]?.[hoverData.group?.rt_ad] ?? null}
            onMouseEnter={cancelMouseLeave}
            onMouseLeave={handleMouseLeaveRow}
         />
