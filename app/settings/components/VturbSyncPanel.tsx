@@ -101,20 +101,29 @@ async function readNdjsonStream(res: Response, onLine: (line: LogLine) => void) 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Painel vturb
 // ═══════════════════════════════════════════════════════════════════════════════
-type VturbPeriod = 7 | 14 | 30 | 60 | 90 | 'yesterday';
+type VturbPeriod = 7 | 14 | 30 | 60 | 90 | 'yesterday' | 'range';
 
 export default function VturbSyncPanel() {
   const [period, setPeriod] = useState<VturbPeriod>(30);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const weekAgoStr = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const [rangeFrom, setRangeFrom] = useState(weekAgoStr);
+  const [rangeTo, setRangeTo] = useState(todayStr);
   const [running, setRunning] = useState(false);
   const [lines, setLines] = useState<LogLine[]>([]);
   const [done, setDone] = useState(false);
 
   const append = (line: LogLine) => setLines(prev => [...prev, line]);
 
+  const rangeValid = period !== 'range' || (!!rangeFrom && !!rangeTo && rangeFrom <= rangeTo);
+
   const handleSync = async () => {
     setRunning(true); setDone(false); setLines([]);
     try {
-      const payload = period === 'yesterday' ? { mode: 'yesterday' } : { days: period };
+      const payload =
+        period === 'yesterday' ? { mode: 'yesterday' } :
+        period === 'range'     ? { mode: 'range', dateFrom: rangeFrom, dateTo: rangeTo } :
+                                 { days: period };
       const res = await fetch('/api/sync/vturb-bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -151,9 +160,9 @@ export default function VturbSyncPanel() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <span className="text-xs text-gray-600 font-medium whitespace-nowrap">Período:</span>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {([7, 14, 30, 60, 90] as const).map(d => (
               <button key={d} onClick={() => setPeriod(d)} disabled={running}
                 className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
@@ -166,15 +175,46 @@ export default function VturbSyncPanel() {
                 period === 'yesterday' ? 'bg-fuchsia-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
             >Ontem</button>
+            <button onClick={() => setPeriod('range')} disabled={running}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
+                period === 'range' ? 'bg-fuchsia-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >Datas específicas</button>
           </div>
-          <button onClick={handleSync} disabled={running}
-            className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-fuchsia-600 text-white hover:bg-fuchsia-700 disabled:opacity-50 transition-colors"
+          <button onClick={handleSync} disabled={running || !rangeValid}
+            className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-fuchsia-600 text-white hover:bg-fuchsia-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {running
               ? <><SpinIcon /> Importando...</>
-              : <><UploadIcon /> {period === 'yesterday' ? 'Importar ontem' : `Importar ${period} dias`}</>}
+              : <><UploadIcon /> {
+                  period === 'yesterday' ? 'Importar ontem' :
+                  period === 'range'     ? 'Importar datas' :
+                                           `Importar ${period} dias`
+                }</>}
           </button>
         </div>
+
+        {period === 'range' && (
+          <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-gray-500 font-medium">De</label>
+              <input type="date" value={rangeFrom} max={todayStr}
+                onChange={e => setRangeFrom(e.target.value)} disabled={running}
+                className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none disabled:opacity-50"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-gray-500 font-medium">Até</label>
+              <input type="date" value={rangeTo} max={todayStr}
+                onChange={e => setRangeTo(e.target.value)} disabled={running}
+                className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none disabled:opacity-50"
+              />
+            </div>
+            {!rangeValid && (
+              <span className="text-[11px] text-rose-500 font-medium">Intervalo inválido</span>
+            )}
+          </div>
+        )}
 
         {running && startLine && (
           <div>

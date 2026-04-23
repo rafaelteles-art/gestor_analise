@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { format, subDays } from 'date-fns';
 import Select from 'react-select';
 import CampaignHoverPopup from './CampaignHoverPopup';
+import { preloadHistoryBatch } from './hoverCache';
 
 interface AdAccount {
   account_id: string;
@@ -28,7 +29,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
   const sortedAccounts = [...dbAccounts].sort((a, b) => a.account_name.localeCompare(b.account_name));
   const sortedRtCampaigns = [...rtCampaigns].sort((a, b) => a.campaign_name.localeCompare(b.campaign_name));
 
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [selectedRtCampaignId, setSelectedRtCampaignId] = useState<string>('');
 
   const [dateRangeFilter, setDateRangeFilter] = useState<'today'|'yesterday'|'7d'|'14d'|'30d'|'custom'>('today');
@@ -39,6 +40,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
   const [isSyncingToday, setIsSyncingToday] = useState(false);
   const [importResults, setImportResults] = useState<any[]>([]);
   const [rtTotals, setRtTotals] = useState<any>(null);
+  const [perAccountTotals, setPerAccountTotals] = useState<any[]>([]);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [tableSearch, setTableSearch] = useState('');
@@ -75,7 +77,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
 
   // Seta por padrão os ultimos selecionados do localStorage, ou então o primeiro caso
   useEffect(() => {
-    let initialAccountId = sortedAccounts.length > 0 ? sortedAccounts[0].account_id : '';
+    let initialAccountIds: string[] = sortedAccounts.length > 0 ? [sortedAccounts[0].account_id] : [];
     let initialRtCampaignId = sortedRtCampaigns.length > 0 ? sortedRtCampaigns[0].campaign_id : '';
     let initialDateRange = 'today';
     const today = new Date();
@@ -87,8 +89,14 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
         const savedStr = localStorage.getItem('dopscale_prefs');
         if (savedStr) {
             const saved = JSON.parse(savedStr);
-            if (saved.accountId && sortedAccounts.some(a => a.account_id === saved.accountId)) {
-                initialAccountId = saved.accountId;
+            // Novo formato: accountIds (array). Fallback para accountId legado (string).
+            if (Array.isArray(saved.accountIds)) {
+                const valid = saved.accountIds.filter((id: string) =>
+                    sortedAccounts.some(a => a.account_id === id)
+                );
+                if (valid.length > 0) initialAccountIds = valid;
+            } else if (saved.accountId && sortedAccounts.some(a => a.account_id === saved.accountId)) {
+                initialAccountIds = [saved.accountId];
             }
             if (saved.rtCampaignId && sortedRtCampaigns.some(c => c.campaign_id === saved.rtCampaignId)) {
                 initialRtCampaignId = saved.rtCampaignId;
@@ -115,7 +123,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
         }
     } catch(e) {}
 
-    setSelectedAccountId(initialAccountId);
+    setSelectedAccountIds(initialAccountIds);
     setSelectedRtCampaignId(initialRtCampaignId);
     setDateRangeFilter(initialDateRange as any);
     setDateFrom(initialDateFrom);
@@ -125,10 +133,10 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
 
   // Salvar no storage sempre que os filtros principais mudarem
   useEffect(() => {
-    if (!selectedAccountId || !selectedRtCampaignId) return;
+    if (selectedAccountIds.length === 0 || !selectedRtCampaignId) return;
     try {
         localStorage.setItem('dopscale_prefs', JSON.stringify({
-            accountId: selectedAccountId,
+            accountIds: selectedAccountIds,
             rtCampaignId: selectedRtCampaignId,
             dateRange: dateRangeFilter,
             dateFrom: dateRangeFilter === 'custom' ? dateFrom : null,
@@ -136,7 +144,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
             sortConfig: sortConfig
         }));
     } catch(e) {}
-  }, [selectedAccountId, selectedRtCampaignId, dateRangeFilter, dateFrom, dateTo, sortConfig]);
+  }, [selectedAccountIds, selectedRtCampaignId, dateRangeFilter, dateFrom, dateTo, sortConfig]);
 
   const handleDateShortcut = (range: 'today'|'yesterday'|'7d'|'14d'|'30d') => {
     setDateRangeFilter(range);
@@ -164,11 +172,11 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
   };
 
   const handleImport = async () => {
-    if (!selectedAccountId || !selectedRtCampaignId || !dateFrom || !dateTo) return;
+    if (selectedAccountIds.length === 0 || !selectedRtCampaignId || !dateFrom || !dateTo) return;
 
     setIsImporting(true);
     try {
-      const acc = sortedAccounts.find(a => a.account_id === selectedAccountId);
+      const accs = sortedAccounts.filter(a => selectedAccountIds.includes(a.account_id));
       const camp = sortedRtCampaigns.find(c => c.campaign_id === selectedRtCampaignId);
 
       const response = await fetch('/api/import', {
@@ -177,7 +185,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
         body: JSON.stringify({
           dateFrom,
           dateTo,
-          accounts: acc ? [acc] : [],
+          accounts: accs,
           rtCampaigns: camp ? [camp] : [],
           filterRegex: '',
         })
@@ -188,6 +196,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
 
       setImportResults(data.data || []);
       setRtTotals(data.rt_totals || null);
+      setPerAccountTotals(data.per_account_totals || []);
       setExchangeRate(data.exchange_rate ?? null);
       setExpandedRows(new Set());
     } catch (error: any) {
@@ -199,16 +208,21 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
   };
 
   const handleSyncToday = async () => {
-    if (!selectedAccountId || !selectedRtCampaignId) return;
+    if (selectedAccountIds.length === 0 || !selectedRtCampaignId) return;
     setIsSyncingToday(true);
     try {
-      const response = await fetch('/api/import/sync-today', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: selectedAccountId, rtCampaignId: selectedRtCampaignId }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      // Sincroniza em paralelo para todas as contas selecionadas
+      const results = await Promise.all(selectedAccountIds.map(async (accId) => {
+        const response = await fetch('/api/import/sync-today', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accountId: accId, rtCampaignId: selectedRtCampaignId }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(`${accId}: ${data.error}`);
+        return data;
+      }));
+      console.log(`[SyncToday] ${results.length} contas sincronizadas`);
       // Recarrega a tabela com os dados frescos do banco
       await handleImport();
     } catch (error: any) {
@@ -223,7 +237,17 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
   useEffect(() => {
     handleImport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccountId, selectedRtCampaignId, dateFrom, dateTo]);
+  }, [selectedAccountIds, selectedRtCampaignId, dateFrom, dateTo]);
+
+  // Pré-carrega o histórico de hover pra todos os rt_ads visíveis,
+  // assim o popup abre instantâneo (cache hit). Uma chamada por conta.
+  useEffect(() => {
+    if (selectedAccountIds.length === 0 || !selectedRtCampaignId || importResults.length === 0) return;
+    const rtAds = importResults.map((g: any) => g.rt_ad).filter(Boolean);
+    for (const accId of selectedAccountIds) {
+      preloadHistoryBatch(accId, selectedRtCampaignId, rtAds);
+    }
+  }, [importResults, selectedAccountIds, selectedRtCampaignId]);
 
   const toggleRow = (rtAd: string) => {
     setExpandedRows(prev => {
@@ -244,12 +268,64 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
         : base + "text-gray-600 hover:bg-gray-100 border border-transparent";
   };
 
-  // Filtrar tabela principal
-  const filteredResults = importResults.filter(group => {
-    if (!tableSearch) return true;
-    return group.rt_ad.toLowerCase().includes(tableSearch.toLowerCase()) || 
-           group.meta_campaigns.some((mc: any) => mc.campaign_name.toLowerCase().includes(tableSearch.toLowerCase()));
-  });
+  // Filtro + ordenação aplicados por conta. Cada seção chama isto com seus groups.
+  const filterAndSortGroups = (groups: any[]) => {
+    const filtered = groups.filter(group => {
+      if (!tableSearch) return true;
+      return group.rt_ad.toLowerCase().includes(tableSearch.toLowerCase()) ||
+             group.meta_campaigns.some((mc: any) => mc.campaign_name.toLowerCase().includes(tableSearch.toLowerCase()));
+    });
+    return [...filtered].sort((a, b) => {
+      if (!sortConfig) return 0;
+      const { key, direction } = sortConfig;
+      let valA = a[key] ?? 0;
+      let valB = b[key] ?? 0;
+      if (key === 'rt_ad') {
+        valA = String(valA).toLowerCase();
+        valB = String(valB).toLowerCase();
+      }
+      if (valA < valB) return direction === 'asc' ? -1 : 1;
+      if (valA > valB) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  // Reagrupa finalReport para UMA conta específica: mantém só as meta_campaigns
+  // dessa conta e recalcula os rollups do rt_ad (cost/revenue/roas/cpa/etc)
+  // a partir apenas dessas campanhas. Descarta rt_ads que não têm campanhas
+  // na conta em questão.
+  const getAccountGroups = (accId: string): any[] => {
+    return importResults
+      .map((g: any) => {
+        const mcs = g.meta_campaigns.filter((mc: any) => mc.account_id === accId);
+        if (mcs.length === 0) return null;
+        const totalSpend       = mcs.reduce((s: number, c: any) => s + c.spend, 0);
+        const totalRevenue     = mcs.reduce((s: number, c: any) => s + c.revenue, 0);
+        const totalConversions = mcs.reduce((s: number, c: any) => s + c.conversions, 0);
+        const totalImpressions = mcs.reduce((s: number, c: any) => s + c.impressions, 0);
+        const totalClicks      = mcs.reduce((s: number, c: any) => s + c.clicks, 0);
+        const avgCpm = totalImpressions > 0
+          ? mcs.reduce((s: number, c: any) => s + c.cpm * c.impressions, 0) / totalImpressions : 0;
+        const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+        return {
+          rt_ad:             g.rt_ad,
+          cost:              totalSpend,
+          total_revenue:     totalRevenue,
+          total_conversions: totalConversions,
+          cpa:               totalConversions > 0 ? totalSpend / totalConversions : 0,
+          profit:            totalRevenue - totalSpend,
+          roas:              totalSpend > 0 ? totalRevenue / totalSpend : 0,
+          meta_cpm:          avgCpm,
+          meta_ctr:          avgCtr,
+          meta_impressions:  totalImpressions,
+          meta_clicks:       totalClicks,
+          meta_campaigns:    mcs,
+          vturb_over_pitch_rate: g.vturb_over_pitch_rate,
+          vturb_conversion_rate: g.vturb_conversion_rate,
+        };
+      })
+      .filter(Boolean);
+  };
 
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'desc'; // Prioriza os maiores na primeira clicada (relevante para lucro/receita)
@@ -258,24 +334,6 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
     }
     setSortConfig({ key, direction });
   };
-
-  const sortedFilteredResults = [...filteredResults].sort((a, b) => {
-      if (!sortConfig) return 0;
-      const { key, direction } = sortConfig;
-      
-      let valA = a[key] ?? 0;
-      let valB = b[key] ?? 0;
-
-      // Lidando com formato string no Nome do Anúncio
-      if (key === 'rt_ad') {
-          valA = String(valA).toLowerCase();
-          valB = String(valB).toLowerCase();
-      }
-
-      if (valA < valB) return direction === 'asc' ? -1 : 1;
-      if (valA > valB) return direction === 'asc' ? 1 : -1;
-      return 0;
-  });
 
   const TableHeader = ({ label, sortKey, alignLeft = false, colSpan = 1 }: any) => {
       const isActive = sortConfig?.key === sortKey;
@@ -312,13 +370,17 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                 />
             </div>
 
-            <div className="min-w-[250px]">
+            <div className="min-w-[320px]">
                 <Select
                     instanceId="select-meta-account"
+                    isMulti
+                    closeMenuOnSelect={false}
                     options={sortedAccounts.map(a => ({ value: a.account_id, label: a.account_name }))}
-                    value={sortedAccounts.map(a => ({ value: a.account_id, label: a.account_name })).find(o => o.value === selectedAccountId) || null}
-                    onChange={(selected: any) => setSelectedAccountId(selected?.value || '')}
-                    placeholder="Selecione Meta Ads"
+                    value={sortedAccounts
+                        .filter(a => selectedAccountIds.includes(a.account_id))
+                        .map(a => ({ value: a.account_id, label: a.account_name }))}
+                    onChange={(selected: any) => setSelectedAccountIds((selected || []).map((o: any) => o.value))}
+                    placeholder="Selecione contas Meta"
                     className="text-sm rounded-lg"
                     styles={{ control: (base) => ({ ...base, minHeight: '38px', borderRadius: '0.5rem', borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }) }}
                 />
@@ -409,17 +471,73 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
         </div>
       )}
 
-      {/* 3. Table */}
-      <div className="bg-white border text-gray-800 border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col mt-2">
-          
+      {/* 3. Uma tabela por conta selecionada, com o resumo da conta no topo da seção */}
+      {importResults.length === 0 && !isImporting && (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-12 text-center text-gray-400 text-sm">
+            Nenhum resultado encontrado para o período selecionado.
+        </div>
+      )}
+
+      {selectedAccountIds.map((accId) => {
+        const accName = sortedAccounts.find(a => a.account_id === accId)?.account_name ?? accId;
+        const accTotals = perAccountTotals.find((t: any) => t.account_id === accId);
+        const accGroups = getAccountGroups(accId);
+        const accSorted = filterAndSortGroups(accGroups);
+        const accProfit = accTotals?.profit ?? 0;
+        const accRoas = accTotals?.roas ?? 0;
+        const accProfitColor = accProfit >= 0 ? 'text-emerald-500' : 'text-rose-500';
+        const accRoasColor = accRoas >= 1 ? 'text-emerald-500' : accRoas > 0 ? 'text-amber-500' : 'text-gray-400';
+
+        return (
+        <div key={accId} className="bg-white border text-gray-800 border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+
+          {/* Account Header + Summary */}
+          <div className="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-indigo-50/40 to-transparent flex flex-wrap items-center gap-x-8 gap-y-2">
+            <div className="flex items-center gap-2 min-w-[200px]">
+              <div className="w-1.5 h-6 bg-indigo-500 rounded-sm" />
+              <div>
+                <div className="text-[10px] text-gray-400 font-bold tracking-wider uppercase">Conta</div>
+                <div className="text-sm font-bold text-gray-800 truncate max-w-[280px]" title={accName}>{accName}</div>
+              </div>
+            </div>
+            {accTotals && (
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs ml-auto">
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Gasto</span>
+                  <span className="font-mono font-semibold text-rose-500">{formatCurrency(accTotals.cost)}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Receita</span>
+                  <span className="font-mono font-semibold text-gray-800">{formatCurrency(accTotals.revenue)}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Lucro</span>
+                  <span className={`font-mono font-bold ${accProfitColor}`}>{formatCurrency(accTotals.profit)}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">ROAS</span>
+                  <span className={`font-mono font-bold ${accRoasColor}`}>{accTotals.roas > 0 ? accTotals.roas.toFixed(2)+'x' : '—'}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Vendas</span>
+                  <span className="font-mono font-semibold text-gray-800">{formatNumber(accTotals.conversions)}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">CPA</span>
+                  <span className="font-mono font-semibold text-gray-800">{accTotals.cpa > 0 ? formatCurrency(accTotals.cpa) : '—'}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Table Toolbar */}
           <div className="p-4 border-b border-gray-100 flex items-center gap-4 bg-white">
-              <span className="text-xs text-gray-400 font-semibold">{filteredResults.length} campanhas</span>
+              <span className="text-xs text-gray-400 font-semibold">{accSorted.length} campanhas</span>
               <div className="relative">
                   <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                  <input 
-                      type="text" 
-                      placeholder="Filtrar campanha..." 
+                  <input
+                      type="text"
+                      placeholder="Filtrar campanha..."
                       className="pl-9 pr-4 py-1.5 border border-gray-200 rounded-md text-xs w-64 outline-none focus:border-indigo-500 bg-gray-50"
                       value={tableSearch}
                       onChange={e => setTableSearch(e.target.value)}
@@ -440,30 +558,30 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
             <TableHeader label="CTR" sortKey="total_revenue" />
             <TableHeader label="Ret. Pitch" sortKey="vturb_over_pitch_rate" />
             <TableHeader label="Conv. VT" sortKey="vturb_conversion_rate" />
-            {/* CPM and CTR sorting maps currently follow broad logical rules since real combined avg CPM is complex, standardizing by spend/clicks temporarily */}
           </div>
 
           {/* Table Body */}
-          {importResults.length === 0 && !isImporting && (
-                <div className="p-12 text-center text-gray-400 text-sm">
-                    Nenhum resultado encontrado para o período selecionado.
-                </div>
+          {accSorted.length === 0 && (
+            <div className="p-8 text-center text-gray-400 text-xs">
+              Sem campanhas desta conta no período.
+            </div>
           )}
 
           <div className="divide-y divide-gray-100">
-            {sortedFilteredResults.map((group: any) => {
-                const isOpen = expandedRows.has(group.rt_ad);
+            {accSorted.map((group: any) => {
+                const expandKey = `${accId}::${group.rt_ad}`;
+                const isOpen = expandedRows.has(expandKey);
                 const profitColor = group.profit >= 0 ? 'text-emerald-500' : 'text-rose-500';
                 const roasColor = group.roas >= 1 ? 'text-emerald-500' : group.roas > 0 ? 'text-amber-500' : 'text-gray-400';
 
                 return (
-                <div key={group.rt_ad}>
+                <div key={expandKey}>
                     {/* Row level 1 */}
                     <div
                         className="grid grid-cols-12 text-xs hover:bg-gray-50 transition-colors group relative"
                     >
                         <div className="col-span-2 px-6 py-3.5 flex items-center gap-3">
-                            <div className="flex items-center justify-center w-8 cursor-pointer" onClick={() => toggleRow(group.rt_ad)}>
+                            <div className="flex items-center justify-center w-8 cursor-pointer" onClick={() => toggleRow(expandKey)}>
                                 {/* Toggle Arrow */}
                                 <div className={`w-5 h-5 flex items-center justify-center rounded bg-gray-100 text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors ${isOpen ? 'rotate-90' : ''}`}>
                                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
@@ -545,7 +663,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                             <div className={`px-4 py-3 text-right font-mono font-medium ${mc.revenue > 0 ? mcRoasColor : 'text-gray-400'}`}>{mc.roas > 0 ? mc.roas.toFixed(2)+'x' : '—'}</div>
                             <div className="px-4 py-3 text-right font-mono text-gray-400">{formatCurrency(mc.cpm)}</div>
                             <div className="px-4 py-3 text-right font-mono text-gray-400">{formatPercent(mc.ctr)}</div>
-                            <div className="px-4 py-3 text-right font-mono text-fuchsia-400">{group.vturb_over_pitch_rate != null ? formatPercent(group.vturb_over_pitch_rate) : '—'}</div>
+                            <div className="px-4 py-3 text-right font-mono text-fuchsia-400">{mc.vturb_over_pitch_rate != null ? formatPercent(mc.vturb_over_pitch_rate) : '—'}</div>
                             <div className="px-4 py-3 text-right font-mono text-fuchsia-400">{mc.vturb_conversion_rate != null ? formatPercent(mc.vturb_conversion_rate) : '—'}</div>
                             </div>
                         );
@@ -556,7 +674,9 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                 );
             })}
           </div>
-      </div>
+        </div>
+        );
+      })}
 
     {/* Hover Popup Overlay Render */}
     {hoverData && (
@@ -564,7 +684,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
            x={hoverData.x}
            y={hoverData.y}
            groupData={hoverData.group}
-           accountId={selectedAccountId}
+           accountId={hoverData.group?.meta_campaigns?.[0]?.account_id || selectedAccountIds[0] || ''}
            rtCampaignId={selectedRtCampaignId}
            onMouseEnter={cancelMouseLeave}
            onMouseLeave={handleMouseLeaveRow}

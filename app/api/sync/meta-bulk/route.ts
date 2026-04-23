@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchMetaMetricsPerDay } from '@/lib/meta';
-import { format, subDays } from 'date-fns';
+import { format, subDays, parseISO, isValid, differenceInCalendarDays } from 'date-fns';
 
 // Aumenta o limite de tempo para ambientes Vercel Pro/Enterprise
 export const maxDuration = 300;
@@ -15,7 +15,9 @@ const BATCH_SIZE = 10; // contas processadas por fila (lote)
  * as contas Meta selecionadas (is_selected = true) e grava em meta_ads_metrics.
  *
  * Body (opcional):
- *   { days?: number }   — quantos dias retroativos buscar (máx. 90, padrão: 30)
+ *   { mode: 'yesterday' }                              — ontem
+ *   { days?: number }                                  — últimos N dias (1..90, padrão 30)
+ *   { mode: 'range', dateFrom: 'YYYY-MM-DD', dateTo }  — intervalo específico (máx. 90 dias)
  *
  * Retorna progresso em streaming JSON (NDJSON) para que a UI mostre o andamento
  * conta a conta, sem timeout.
@@ -23,17 +25,36 @@ const BATCH_SIZE = 10; // contas processadas por fila (lote)
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const mode: string = body.mode ?? 'range';
-  const isYesterday = mode === 'yesterday';
-  const days: number = isYesterday
-    ? 1
-    : Math.min(Math.max(parseInt(body.days ?? '30', 10), 1), 90);
 
-  const dateTo   = isYesterday
-    ? format(subDays(new Date(), 1), 'yyyy-MM-dd')
-    : format(new Date(), 'yyyy-MM-dd');
-  const dateFrom = isYesterday
-    ? dateTo
-    : format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
+  let dateFrom: string;
+  let dateTo: string;
+  let days: number;
+
+  if (mode === 'range') {
+    const from = parseISO(String(body.dateFrom ?? ''));
+    const to   = parseISO(String(body.dateTo   ?? ''));
+    if (!isValid(from) || !isValid(to)) {
+      return NextResponse.json({ error: 'dateFrom/dateTo inválidos (use YYYY-MM-DD).' }, { status: 400 });
+    }
+    if (from > to) {
+      return NextResponse.json({ error: 'dateFrom deve ser ≤ dateTo.' }, { status: 400 });
+    }
+    const span = differenceInCalendarDays(to, from);
+    if (span > 90) {
+      return NextResponse.json({ error: 'Intervalo máximo: 90 dias.' }, { status: 400 });
+    }
+    dateFrom = format(from, 'yyyy-MM-dd');
+    dateTo   = format(to,   'yyyy-MM-dd');
+    days     = span + 1;
+  } else if (mode === 'yesterday') {
+    dateTo   = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+    dateFrom = dateTo;
+    days     = 1;
+  } else {
+    days     = Math.min(Math.max(parseInt(body.days ?? '30', 10), 1), 90);
+    dateTo   = format(new Date(), 'yyyy-MM-dd');
+    dateFrom = format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
+  }
 
   // Busca todas as contas selecionadas
   let accounts: { account_id: string; account_name: string; access_token: string }[] = [];

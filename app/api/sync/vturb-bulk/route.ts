@@ -7,7 +7,7 @@ import {
   fetchVturbPlayerUtmDaily,
   VturbUtmDailyMetric,
 } from '@/lib/vturb';
-import { format, subDays } from 'date-fns';
+import { format, subDays, parseISO, isValid, differenceInCalendarDays } from 'date-fns';
 
 export const maxDuration = 300;
 
@@ -70,22 +70,44 @@ async function ensureVturbTable() {
  * (padrão: 30) e grava em vturb_metrics. Retorna progresso em streaming
  * NDJSON, no mesmo formato de /api/sync/meta-bulk.
  *
- * Body (opcional): { days?: number }  — 1..90, padrão 30
+ * Body (opcional):
+ *   { mode: 'yesterday' }                              — ontem
+ *   { days?: number }                                  — últimos N dias (1..90, padrão 30)
+ *   { mode: 'range', dateFrom: 'YYYY-MM-DD', dateTo }  — intervalo específico (máx. 90 dias)
  */
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const mode: string = body.mode ?? 'range';
-  const isYesterday = mode === 'yesterday';
-  const days: number = isYesterday
-    ? 1
-    : Math.min(Math.max(parseInt(body.days ?? '30', 10), 1), 90);
 
-  const dateTo   = isYesterday
-    ? format(subDays(new Date(), 1), 'yyyy-MM-dd')
-    : format(new Date(), 'yyyy-MM-dd');
-  const dateFrom = isYesterday
-    ? dateTo
-    : format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
+  let dateFrom: string;
+  let dateTo: string;
+  let days: number;
+
+  if (mode === 'range') {
+    const from = parseISO(String(body.dateFrom ?? ''));
+    const to   = parseISO(String(body.dateTo   ?? ''));
+    if (!isValid(from) || !isValid(to)) {
+      return NextResponse.json({ error: 'dateFrom/dateTo inválidos (use YYYY-MM-DD).' }, { status: 400 });
+    }
+    if (from > to) {
+      return NextResponse.json({ error: 'dateFrom deve ser ≤ dateTo.' }, { status: 400 });
+    }
+    const span = differenceInCalendarDays(to, from);
+    if (span > 90) {
+      return NextResponse.json({ error: 'Intervalo máximo: 90 dias.' }, { status: 400 });
+    }
+    dateFrom = format(from, 'yyyy-MM-dd');
+    dateTo   = format(to,   'yyyy-MM-dd');
+    days     = span + 1;
+  } else if (mode === 'yesterday') {
+    dateTo   = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+    dateFrom = dateTo;
+    days     = 1;
+  } else {
+    days     = Math.min(Math.max(parseInt(body.days ?? '30', 10), 1), 90);
+    dateTo   = format(new Date(), 'yyyy-MM-dd');
+    dateFrom = format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
+  }
 
   const token = await getVturbApiToken();
   if (!token) {
@@ -133,24 +155,28 @@ export async function POST(req: Request) {
         const label = player.name || player.id;
         console.log(`[vturb-bulk] player "${label}" → pitch_time=${player.pitch_time}, video_duration=${player.video_duration}`);
         try {
-          const [rows, utmRows] = await Promise.all([
-            fetchVturbPlayerDaily(token, player, dateFrom, dateTo),
-            fetchVturbPlayerUtmDaily(
+          // Fase 1 (probe): sessions/stats_by_day — verifica se houve reproduções no período.
+          const rows = await fetchVturbPlayerDaily(token, player, dateFrom, dateTo);
+          const totalStarted = rows.reduce((sum, r) => sum + (r.total_started || 0), 0);
+
+          // Sem reproduções → não gasta a segunda requisição (UTM).
+          if (totalStarted === 0) {
+            send({ type: 'account_done', account: label, rows: 0, status: 'empty' });
+            return;
+          }
+
+          // Fase 2 (full): dados detalhados por UTM, só pra players com reproduções.
+          let utmRows: VturbUtmDailyMetric[] = [];
+          try {
+            utmRows = await fetchVturbPlayerUtmDaily(
               token,
               player,
               ['utm_content', 'utm_campaign', 'rtkcmpid'],
               dateFrom,
               dateTo,
-            ).catch((e) => {
-              // Se falhar (e.g. endpoint indisponível pra esse player), não aborta o player inteiro.
-              console.warn(`[vturb-bulk] utm fetch falhou p/ ${label}: ${e?.message}`);
-              return [] as VturbUtmDailyMetric[];
-            }),
-          ]);
-
-          if (rows.length === 0 && utmRows.length === 0) {
-            send({ type: 'account_done', account: label, rows: 0, status: 'empty' });
-            return;
+            );
+          } catch (e: any) {
+            console.warn(`[vturb-bulk] utm fetch falhou p/ ${label}: ${e?.message}`);
           }
 
           const client = await pool.connect();

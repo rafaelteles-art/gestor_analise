@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { getUsdToBrl } from '@/lib/usd-brl';
+import { getVturbApiToken } from '@/lib/config';
+import { buildVturbCampaignMap, normalizeCampaignName, VturbAggregatedCampaign } from '@/lib/vturb';
 
 // ============================================================
 // COMBINADORES — agregam entradas diárias do import_cache
@@ -119,27 +121,12 @@ export async function POST(req: NextRequest) {
       }));
     }));
 
-    // 2.1. vturb: identifica players vinculados à campanha RT selecionada via rtkcmpid.
-    const vturbLinkedPlayersPromise = pool.query(
-      `SELECT DISTINCT player_id
-       FROM vturb_utm_metrics
-       WHERE query_key = 'rtkcmpid'
-         AND grouped_field = ANY($3)
-         AND date >= $1 AND date <= $2`,
-      [dateFrom, dateTo, rtCampaignIds]
-    );
-
-    // 2.2. vturb: stats por player de vturb_metrics (pitch vem do raw JSONB).
-    const vturbPlayerStatsPromise = pool.query(
-      `SELECT player_id,
-         SUM(total_started)                      AS total_started,
-         SUM(conversions)                        AS total_conversions,
-         SUM((raw->>'total_over_pitch')::bigint) AS total_over_pitch
-       FROM vturb_metrics
-       WHERE date >= $1 AND date <= $2
-       GROUP BY player_id`,
-      [dateFrom, dateTo]
-    );
+    // 2.1. vturb: busca live por (dateFrom, dateTo) seguindo o fluxo do doc:
+    //   /players/list → /events/total_by_company_players (filtro ativos)
+    //   → /traffic_origin/stats (totais por utm_campaign por player)
+    //   → agrega por campaign_id (extraído de "nome|campaign_id")
+    // Cache interno em memória, TTL 10min.
+    const vturbTokenPromise = getVturbApiToken();
 
     // 3. RedTrack rt_ad, rt_campaign e rt_camp_id (sub3=Meta campaign_id)
     const [rtAdResult, rtCampResult, rtCampIdResult, usdToBrl] = await Promise.all([
@@ -175,53 +162,32 @@ export async function POST(req: NextRequest) {
     const rtCampaignsReport: any[] = combineDailyRtCamp(rtCampResult.rows);
     const rtByMetaId = combineDailyRtCampById(rtCampIdResult.rows);
 
-    // vturb: aguarda as duas queries (linked players + stats por player)
-    const [vturbLinkedPlayers, vturbPlayerStats] = await Promise.all([
-      vturbLinkedPlayersPromise,
-      vturbPlayerStatsPromise,
-    ]);
+    // vturb: live fetch por (dateFrom, dateTo) — doc vturb-retencao-por-campanha.md.
+    const vturbToken = await vturbTokenPromise;
+    const vturbByCampaignName: Record<string, VturbAggregatedCampaign> = vturbToken
+      ? await buildVturbCampaignMap(vturbToken, dateFrom, dateTo).catch((e) => {
+          console.warn('[Import] buildVturbCampaignMap falhou:', e?.message ?? e);
+          return {};
+        })
+      : {};
 
-    // Players vinculados à campanha RT selecionada via rtkcmpid
-    const linkedPlayerIds = new Set<string>(
-      vturbLinkedPlayers.rows.map((r: any) => r.player_id)
-    );
-
-    // Agrega stats dos players vinculados: pitch (over_pitch), plays (started), conversões
-    let vturbTotalStarted = 0;
-    let vturbTotalOverPitch = 0;
-    let vturbTotalConversions = 0;
-
-    for (const r of vturbPlayerStats.rows) {
-      if (!linkedPlayerIds.has(r.player_id)) continue;
-      vturbTotalStarted     += Number(r.total_started)     || 0;
-      vturbTotalOverPitch   += Number(r.total_over_pitch)  || 0;
-      vturbTotalConversions += Number(r.total_conversions)  || 0;
-    }
-
-    // Retenção = pessoas no pitch / plays únicos
-    // Conversão VT = conversões / plays únicos
-    const vturbRetention = vturbTotalStarted > 0
-      ? (vturbTotalOverPitch / vturbTotalStarted) * 100 : null;
-    const vturbConvRate = vturbTotalStarted > 0
-      ? (vturbTotalConversions / vturbTotalStarted) * 100 : null;
-
-    console.log(`[DB] vturb rtkcmpid: ${linkedPlayerIds.size} players | started=${vturbTotalStarted} | over_pitch=${vturbTotalOverPitch} | conv=${vturbTotalConversions}`);
+    console.log(`[vturb] ${Object.keys(vturbByCampaignName).length} campanhas agregadas`);
     console.log(`[DB] RT rt_ad: ${rtAds.length} | RT rt_camp: ${rtCampaignsReport.length} | RT rt_camp_id (sub3): ${rtByMetaId.size}`);
 
     // ============================================================
     // PROCESSAMENTO (igual ao original)
     // ============================================================
 
-    // Agrupa campanhas do Meta pelo nome (soma gastos/cliques/impressões duplicados).
-    // Mantém a lista de TODOS os campaign_ids que compartilham o nome — Meta com
-    // frequência tem várias campanhas idênticas (escalas de ABO), e cada uma tem seu
-    // próprio sub3 no RedTrack. Sem isso, o lookup por sub3 pega só a fatia da
-    // primeira campaign_id e perde a receita das demais.
+    // Agrupa campanhas do Meta por account_id + nome. Mantém a lista de TODOS os
+    // campaign_ids que compartilham o nome dentro de UMA conta — Meta com frequência
+    // tem várias campanhas idênticas (escalas de ABO), cada uma com seu próprio sub3
+    // no RedTrack. A chave inclui account_id para não colapsar campanhas homônimas
+    // entre contas diferentes (necessário para per-account totals).
     const metaMap = new Map<string, any>();
     metaResults.forEach((mc: any) => {
-      const name = mc.campaign_name;
-      if (metaMap.has(name)) {
-        const existing = metaMap.get(name);
+      const key = `${mc.account_id}::${mc.campaign_name}`;
+      if (metaMap.has(key)) {
+        const existing = metaMap.get(key);
         existing.spend       += mc.spend;
         existing.impressions += mc.impressions;
         existing.clicks      += mc.clicks;
@@ -229,7 +195,7 @@ export async function POST(req: NextRequest) {
           existing.campaign_ids.push(mc.campaign_id);
         }
       } else {
-        metaMap.set(name, { ...mc, campaign_ids: [mc.campaign_id] });
+        metaMap.set(key, { ...mc, campaign_ids: [mc.campaign_id] });
       }
     });
 
@@ -296,6 +262,12 @@ export async function POST(req: NextRequest) {
       return findRtCamp(mc.campaign_name);
     };
 
+    // Lookup vturb por NOME de campanha (normalizado): o utm_campaign dos ads
+    // contém só o nome, e o vturb codifica espaços como `+`. Ambos os lados
+    // passam por normalizeCampaignName (lower/trim, + → espaço).
+    const findVturbCampaign = (metaCampaignName: string) =>
+      vturbByCampaignName[normalizeCampaignName(metaCampaignName)] ?? null;
+
     // Motor de cruzamento
     const finalReport = cleanRtAds.map((rtItem: any) => {
       const escapedAd = rtItem.rt_ad.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -310,7 +282,12 @@ export async function POST(req: NextRequest) {
         const rtRevenue   = rtCamp ? parseFloat(rtCamp.total_revenue || '0') : 0;
         const rtConversions = rtCamp ? parseInt(rtCamp.convtype2 || '0', 10) : 0;
 
+        // Vturb por campanha: match por nome (utm_campaign = nome com `+` no
+        // lugar dos espaços). Totais brutos guardados pra agregar no grupo/total.
+        const vtCamp = findVturbCampaign(mc.campaign_name);
+
         return {
+          account_id:    mc.account_id,
           campaign_id:   mc.campaign_id,
           campaign_name: mc.campaign_name,
           spend:         spendBrl,
@@ -323,7 +300,14 @@ export async function POST(req: NextRequest) {
           cpa:           rtConversions > 0 ? spendBrl / rtConversions : 0,
           profit:        rtRevenue - spendBrl,
           roas:          spendBrl > 0 ? rtRevenue / spendBrl : 0,
-          vturb_conversion_rate: vturbConvRate,
+          vturb_over_pitch_rate: vtCamp?.over_pitch_rate ?? null,
+          vturb_conversion_rate: vtCamp?.conversion_rate ?? null,
+          // Totais brutos pra agregar no nível do anúncio (grupo) e totais.
+          vturb_total_viewed:      vtCamp?.total_viewed      ?? 0,
+          vturb_total_viewed_uniq: vtCamp?.total_viewed_uniq ?? 0,
+          vturb_total_started:     vtCamp?.total_started     ?? 0,
+          vturb_total_over_pitch:  vtCamp?.total_over_pitch  ?? 0,
+          vturb_total_conversions: vtCamp?.total_conversions ?? 0,
         };
       });
 
@@ -335,6 +319,23 @@ export async function POST(req: NextRequest) {
       const avgCpm = totalImpressions > 0
         ? enrichedCampaigns.reduce((s, c) => s + (c.cpm * c.impressions), 0) / totalImpressions : 0;
       const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+
+      // Agrega vturb no nível do grupo (rt_ad) somando totais brutos das campanhas.
+      //   over_pitch_rate_ad = Σ over_pitch  / Σ started        (retenção no pitch)
+      //   conversion_rate_ad = Σ conversions / Σ viewed_uniq    (conversão real)
+      const vtGroup = enrichedCampaigns.reduce(
+        (acc, mc) => {
+          acc.viewed      += mc.vturb_total_viewed;
+          acc.viewed_uniq += mc.vturb_total_viewed_uniq;
+          acc.started     += mc.vturb_total_started;
+          acc.over_pitch  += mc.vturb_total_over_pitch;
+          acc.conversions += mc.vturb_total_conversions;
+          return acc;
+        },
+        { viewed: 0, viewed_uniq: 0, started: 0, over_pitch: 0, conversions: 0 },
+      );
+      const groupRetention = vtGroup.started     > 0 ? (vtGroup.over_pitch  / vtGroup.started)     * 100 : null;
+      const groupConvRate  = vtGroup.viewed_uniq > 0 ? (vtGroup.conversions / vtGroup.viewed_uniq) * 100 : null;
 
       return {
         rt_ad:             rtItem.rt_ad,
@@ -349,12 +350,30 @@ export async function POST(req: NextRequest) {
         meta_impressions:  totalImpressions,
         meta_clicks:       totalClicks,
         meta_campaigns:    enrichedCampaigns,
-        vturb_over_pitch_rate: vturbRetention,
-        vturb_conversion_rate: vturbConvRate,
+        vturb_over_pitch_rate: groupRetention,
+        vturb_conversion_rate: groupConvRate,
+        // Totais brutos pra agregar nos totais gerais.
+        vturb_total_viewed:      vtGroup.viewed,
+        vturb_total_viewed_uniq: vtGroup.viewed_uniq,
+        vturb_total_started:     vtGroup.started,
+        vturb_total_over_pitch:  vtGroup.over_pitch,
+        vturb_total_conversions: vtGroup.conversions,
       };
     }).filter(Boolean);
 
-    // Totais gerais
+    // Totais gerais — soma os totais brutos vturb de cada grupo e recalcula taxas.
+    const vtTot = (finalReport as any[]).reduce(
+      (acc, g) => {
+        acc.viewed      += g.vturb_total_viewed      || 0;
+        acc.viewed_uniq += g.vturb_total_viewed_uniq || 0;
+        acc.started     += g.vturb_total_started     || 0;
+        acc.over_pitch  += g.vturb_total_over_pitch  || 0;
+        acc.conversions += g.vturb_total_conversions || 0;
+        return acc;
+      },
+      { viewed: 0, viewed_uniq: 0, started: 0, over_pitch: 0, conversions: 0 },
+    );
+
     const totals: any = {
       cost:        finalReport.reduce((s: number, g: any) => s + g.cost, 0),
       revenue:     finalReport.reduce((s: number, g: any) => s + g.total_revenue, 0),
@@ -362,11 +381,54 @@ export async function POST(req: NextRequest) {
       conversions: finalReport.reduce((s: number, g: any) => s + g.total_conversions, 0),
       roas: 0,
       cpa: 0,
-      vturb_over_pitch_rate: vturbRetention,
-      vturb_conversion_rate: vturbConvRate,
+      vturb_over_pitch_rate: vtTot.started     > 0 ? (vtTot.over_pitch  / vtTot.started)     * 100 : null,
+      vturb_conversion_rate: vtTot.viewed_uniq > 0 ? (vtTot.conversions / vtTot.viewed_uniq) * 100 : null,
     };
     totals.roas = totals.cost > 0 ? totals.revenue / totals.cost : 0;
     totals.cpa  = totals.conversions > 0 ? totals.cost / totals.conversions : 0;
+
+    // Totais por conta — soma por account_id cada enriched campaign do finalReport.
+    // Inclui todas as contas selecionadas (mesmo com 0 resultados) para o front
+    // renderizar uma linha estável por conta.
+    const accountNameById = new Map<string, string>();
+    accounts.forEach((acc: any) => {
+      const id = acc.account_id || acc.id;
+      accountNameById.set(id, acc.account_name || id);
+    });
+
+    const perAccountMap = new Map<string, any>();
+    accountNameById.forEach((name, id) => {
+      perAccountMap.set(id, {
+        account_id: id,
+        account_name: name,
+        cost: 0, revenue: 0, profit: 0, conversions: 0, roas: 0, cpa: 0,
+      });
+    });
+
+    for (const group of finalReport as any[]) {
+      for (const c of group.meta_campaigns) {
+        const aid = c.account_id;
+        if (!aid) continue;
+        let t = perAccountMap.get(aid);
+        if (!t) {
+          t = {
+            account_id: aid,
+            account_name: accountNameById.get(aid) || aid,
+            cost: 0, revenue: 0, profit: 0, conversions: 0, roas: 0, cpa: 0,
+          };
+          perAccountMap.set(aid, t);
+        }
+        t.cost        += c.spend;
+        t.revenue     += c.revenue;
+        t.profit      += (c.revenue - c.spend);
+        t.conversions += c.conversions;
+      }
+    }
+    perAccountMap.forEach(t => {
+      t.roas = t.cost > 0 ? t.revenue / t.cost : 0;
+      t.cpa  = t.conversions > 0 ? t.cost / t.conversions : 0;
+    });
+    const perAccountTotals = Array.from(perAccountMap.values());
 
     console.log(`[Import] Resultado: ${finalReport.length} rt_ads | Gasto: R$${totals.cost.toFixed(0)} | Receita: R$${totals.revenue.toFixed(0)} | Vendas: ${totals.conversions}`);
 
@@ -374,6 +436,7 @@ export async function POST(req: NextRequest) {
       success: true,
       data: finalReport,
       rt_totals: totals,
+      per_account_totals: perAccountTotals,
       exchange_rate: usdToBrl,
     });
 

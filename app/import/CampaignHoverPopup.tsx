@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-
-const globalHoverCache: Record<string, any> = {};
+import { globalHoverCache, cacheKey } from './hoverCache';
 
 interface PopupProps {
   x: number;
@@ -25,12 +24,12 @@ export default function CampaignHoverPopup({ x, y, groupData, accountId, rtCampa
     let mounted = true;
 
     async function fetchHistory() {
-      const cacheKey = `${groupData.rt_ad}_${accountId}_${rtCampaignId}`;
-      
-      // Serve do cache imediatamente se existir
-      if (globalHoverCache[cacheKey]) {
+      const key = cacheKey(groupData.rt_ad, accountId, rtCampaignId);
+
+      // Serve do cache imediatamente se existir (preload do ClientImport)
+      if (globalHoverCache[key]) {
         if (mounted) {
-          setHistory(globalHoverCache[cacheKey]);
+          setHistory(globalHoverCache[key]);
           setLoading(false);
         }
         return;
@@ -49,7 +48,7 @@ export default function CampaignHoverPopup({ x, y, groupData, accountId, rtCampa
         const d = await res.json();
         if (mounted) {
           setHistory(d.data);
-          globalHoverCache[cacheKey] = d.data; // Salva pra proxima
+          globalHoverCache[key] = d.data;
           setLoading(false);
         }
       } catch (e) {

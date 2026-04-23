@@ -4,17 +4,8 @@ import { format, subDays } from 'date-fns';
 import { getUsdToBrl } from '@/lib/usd-brl';
 
 // ============================================================
-// COMBINADORES — espelham /api/import mas recebem linhas já
-// filtradas pelo range desejado (filtragem feita no handler).
+// COMBINADORES — idênticos ao /api/import
 // ============================================================
-
-function combineDailyRtAd(rows: { data: any[] }[]): { rt_ad: string }[] {
-  const seen = new Set<string>();
-  for (const row of rows)
-    for (const entry of (row.data || []))
-      if (entry.rt_ad) seen.add(entry.rt_ad);
-  return Array.from(seen).map(rt_ad => ({ rt_ad }));
-}
 
 function combineDailyRtCamp(
   rows: { data: any[] }[]
@@ -53,16 +44,29 @@ function combineDailyRtCampById(
   return map;
 }
 
+function buildRtAdRegex(rtAd: string): RegExp {
+  const escapedAd = rtAd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[^a-zA-Z0-9_.])` + escapedAd + `(?:[^a-zA-Z0-9_.]|$)`, 'i');
+}
+
 // ============================================================
-// ROUTE HANDLER
-// Replica exatamente o cruzamento do /api/import, por range,
-// e depois isola o rt_ad do grupo em questão.
+// ROUTE HANDLER (batch)
+// Aceita rtAds: string[] (preferido, batch) ou rtAd: string (compat).
+// - batch → { data: { [rtAd]: { [range]: {...} } } }
+// - single → { data: { [range]: {...} } }
+// Uma única busca ao banco, processamento por range compartilhado
+// entre todos os rt_ads.
 // ============================================================
 export async function POST(req: NextRequest) {
   try {
-    const { metaAccountId, rtAd, rtCampaignId } = await req.json();
+    const body = await req.json();
+    const { metaAccountId, rtCampaignId } = body;
+    const rtAds: string[] = Array.isArray(body.rtAds)
+      ? body.rtAds.filter((x: any) => typeof x === 'string' && x.length > 0)
+      : (typeof body.rtAd === 'string' ? [body.rtAd] : []);
+    const isBatch = Array.isArray(body.rtAds);
 
-    if (!metaAccountId || !rtCampaignId || !rtAd) {
+    if (!metaAccountId || !rtCampaignId || rtAds.length === 0) {
       return NextResponse.json({ error: 'Parâmetros insuficientes' }, { status: 400 });
     }
 
@@ -79,17 +83,9 @@ export async function POST(req: NextRequest) {
     ];
 
     // ============================================================
-    // BUSCA — tudo dos últimos 30d de uma vez, filtra por range depois
+    // BUSCA — uma vez só, independente de quantos rt_ads
     // ============================================================
-    const [rtAdResult, rtCampResult, rtCampIdResult, metaRes, usdToBrl] = await Promise.all([
-      pool.query(
-        `SELECT to_char(date_from, 'YYYY-MM-DD') AS date_from, data FROM import_cache
-         WHERE cache_key = $1
-           AND date_from >= $2
-           AND date_from = date_to
-         ORDER BY date_from`,
-        [`rt_ad:${rtCampaignId}`, d29ago]
-      ),
+    const [rtCampResult, rtCampIdResult, metaRes, usdToBrl] = await Promise.all([
       pool.query(
         `SELECT to_char(date_from, 'YYYY-MM-DD') AS date_from, data FROM import_cache
          WHERE cache_key = $1
@@ -122,24 +118,20 @@ export async function POST(req: NextRequest) {
       getUsdToBrl(today),
     ]);
 
-    // Regex exato pro rt_ad (igual /api/import)
-    const escapedAd = rtAd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const exactMatchRegex = new RegExp(`(?:^|[^a-zA-Z0-9_.])` + escapedAd + `(?:[^a-zA-Z0-9_.]|$)`, 'i');
+    // Pré-compila regex por rt_ad
+    const rtAdRegexes = rtAds.map(ad => ({ rtAd: ad, regex: buildRtAdRegex(ad) }));
+
+    // Inicializa estrutura de saída
+    const perRtAd: Record<string, Record<string, any>> = {};
+    for (const ad of rtAds) perRtAd[ad] = {};
 
     // ============================================================
-    // Processa cada range
+    // Processa cada range: maps RT/Meta construídos UMA vez por range,
+    // depois itera rt_ads pra aplicar o regex e somar.
     // ============================================================
-    const finalData: Record<string, any> = {};
-
     for (const { label, dateFrom } of RANGES) {
-      // RT — filtra linhas por dateFrom
-      const rtAdRows     = rtAdResult.rows.filter((r: any)     => r.date_from >= dateFrom);
       const rtCampRows   = rtCampResult.rows.filter((r: any)   => r.date_from >= dateFrom);
       const rtCampIdRows = rtCampIdResult.rows.filter((r: any) => r.date_from >= dateFrom);
-
-      // Confirma que o rt_ad existe no range (se não, tudo zero)
-      const rtAdsInRange = combineDailyRtAd(rtAdRows);
-      const hasRtAd      = rtAdsInRange.some((x: any) => x.rt_ad === rtAd);
 
       const rtCampaignsReport = combineDailyRtCamp(rtCampRows);
       const rtByMetaId        = combineDailyRtCampById(rtCampIdRows);
@@ -164,54 +156,81 @@ export async function POST(req: NextRequest) {
           total_revenue: String(matches.reduce((s, c) => s + parseFloat(c.total_revenue || '0'), 0)),
         };
       };
-      const findRevenue = (mc: { campaign_id: string; campaign_name: string }) => {
-        const byId = rtByMetaId.get(mc.campaign_id);
-        if (byId) return { total_revenue: String(byId.total_revenue), convtype2: String(byId.convtype2) };
+
+      // Igual ao /api/import: soma sub3 de TODAS as campaign_ids que compartilham
+      // o mesmo nome (ABO scale no Meta cria várias campanhas com nome idêntico,
+      // cada uma com seu próprio sub3 no RT). Fallback por nome só se nenhuma id bateu.
+      const findRevenue = (mc: { campaign_ids: string[]; campaign_name: string }) => {
+        let totalRev = 0, totalConv = 0, anyHit = false;
+        for (const id of mc.campaign_ids) {
+          const byId = rtByMetaId.get(id);
+          if (byId) {
+            anyHit = true;
+            totalRev  += byId.total_revenue;
+            totalConv += byId.convtype2;
+          }
+        }
+        if (anyHit) return { total_revenue: String(totalRev), convtype2: String(totalConv) };
         return findRtCamp(mc.campaign_name);
       };
 
-      // Meta — agrega por campaign no range (toda a conta, igual /api/import)
-      const metaByCampaign = new Map<string, { campaign_id: string; campaign_name: string; spend: number; impressions: number; clicks: number }>();
+      // Meta — agrega por campaign_name (toda a conta, igual /api/import)
+      const metaMap = new Map<string, { campaign_ids: string[]; campaign_name: string; spend: number; impressions: number; clicks: number }>();
       for (const row of metaRes.rows) {
         if (row.date < dateFrom) continue;
-        const key = row.campaign_name;
-        const cur = metaByCampaign.get(key) ?? {
-          campaign_id:   row.campaign_id,
-          campaign_name: row.campaign_name,
-          spend: 0, impressions: 0, clicks: 0,
-        };
-        cur.spend       += row.spend;
-        cur.impressions += row.impressions;
-        cur.clicks      += row.clicks;
-        metaByCampaign.set(key, cur);
-      }
-
-      // Filtra Meta campaigns pelo regex do rt_ad e cruza
-      let totalSpend = 0, totalRevenue = 0, totalConversions = 0;
-      if (hasRtAd) {
-        for (const mc of metaByCampaign.values()) {
-          if (!exactMatchRegex.test(mc.campaign_name)) continue;
-          const spendBrl = mc.spend * usdToBrl;
-          const rtCamp   = findRevenue({ campaign_id: mc.campaign_id, campaign_name: mc.campaign_name });
-          const rev      = rtCamp ? parseFloat(rtCamp.total_revenue || '0') : 0;
-          const conv     = rtCamp ? parseInt(rtCamp.convtype2 || '0', 10) : 0;
-          totalSpend       += spendBrl;
-          totalRevenue     += rev;
-          totalConversions += conv;
+        const name = row.campaign_name;
+        if (metaMap.has(name)) {
+          const existing = metaMap.get(name)!;
+          existing.spend       += row.spend;
+          existing.impressions += row.impressions;
+          existing.clicks      += row.clicks;
+          if (!existing.campaign_ids.includes(row.campaign_id)) {
+            existing.campaign_ids.push(row.campaign_id);
+          }
+        } else {
+          metaMap.set(name, {
+            campaign_ids:  [row.campaign_id],
+            campaign_name: row.campaign_name,
+            spend:         row.spend,
+            impressions:   row.impressions,
+            clicks:        row.clicks,
+          });
         }
       }
 
-      finalData[label] = {
-        cost:    totalSpend,
-        revenue: totalRevenue,
-        profit:  totalRevenue - totalSpend,
-        roas:    totalSpend > 0 ? totalRevenue / totalSpend : 0,
-        sales:   totalConversions,
-        cpa:     totalConversions > 0 ? totalSpend / totalConversions : 0,
-      };
+      // Pré-computa enriched revenue por mc (evita re-lookup entre rt_ads)
+      const metaEnriched = Array.from(metaMap.values()).map(mc => {
+        const spendBrl = mc.spend * usdToBrl;
+        const rtCamp   = findRevenue(mc);
+        const rev      = rtCamp ? parseFloat(rtCamp.total_revenue || '0') : 0;
+        const conv     = rtCamp ? parseInt(rtCamp.convtype2 || '0', 10) : 0;
+        return { campaign_name: mc.campaign_name, spendBrl, rev, conv };
+      });
+
+      // Por rt_ad: filtra Meta pelo regex e soma
+      for (const { rtAd, regex } of rtAdRegexes) {
+        let totalSpend = 0, totalRevenue = 0, totalConversions = 0;
+        for (const mc of metaEnriched) {
+          if (!regex.test(mc.campaign_name)) continue;
+          totalSpend       += mc.spendBrl;
+          totalRevenue     += mc.rev;
+          totalConversions += mc.conv;
+        }
+        perRtAd[rtAd][label] = {
+          cost:    totalSpend,
+          revenue: totalRevenue,
+          profit:  totalRevenue - totalSpend,
+          roas:    totalSpend > 0 ? totalRevenue / totalSpend : 0,
+          sales:   totalConversions,
+          cpa:     totalConversions > 0 ? totalSpend / totalConversions : 0,
+        };
+      }
     }
 
-    return NextResponse.json({ data: finalData });
+    if (isBatch) {
+      return NextResponse.json({ data: perRtAd });
+    }
+    return NextResponse.json({ data: perRtAd[rtAds[0]] });
 
   } catch (error: any) {
     console.error('[History Error]', error);
