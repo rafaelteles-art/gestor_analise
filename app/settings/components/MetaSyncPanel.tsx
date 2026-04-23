@@ -333,13 +333,21 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
     });
   };
 
+  // A rota /api/accounts/sync responde em NDJSON; drena o stream e olha o último evento.
   const scanCampaigns = async () => {
     setIsScanningCamps(true);
     try {
       const res = await fetch('/api/accounts/sync');
-      const data = await res.json();
-      if (data.success) window.location.reload();
-      else alert('Erro: ' + data.error);
+      if (!res.ok) { alert('Erro: HTTP ' + res.status); return; }
+      let last: LogLine | null = null;
+      await readNdjsonStream(res, (line) => { last = line; });
+      if (last && (last as LogLine).type === 'done' && (last as any).success) {
+        window.location.reload();
+      } else if (last && (last as LogLine).type === 'error') {
+        alert('Erro: ' + ((last as LogLine).error ?? 'desconhecido'));
+      } else {
+        alert('Erro: resposta inesperada do servidor.');
+      }
     } catch (e: any) { alert('Erro de rede: ' + (e?.message ?? String(e))); }
     finally { setIsScanningCamps(false); }
   };

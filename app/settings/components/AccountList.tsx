@@ -78,18 +78,46 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
   };
 
   // ── Scan contas novas ─────────────────────────────────────────────────────
+  // A rota /api/accounts/sync responde em NDJSON (um JSON por linha).
+  // Drenamos o stream inteiro e olhamos o último evento (done | error).
   const syncAccounts = async () => {
     setIsSyncing(true);
     try {
       const res = await fetch('/api/accounts/sync');
-      const data = await res.json();
-      if (data.success) {
-        window.location.reload();
-      } else {
-        alert('Erro ao sincronizar: ' + data.error);
+      if (!res.ok || !res.body) {
+        alert('Erro ao sincronizar: HTTP ' + res.status);
+        return;
       }
-    } catch {
-      alert('Erro de rede.');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let lastEvent: any = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n');
+        buffer = parts.pop() ?? '';
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          try { lastEvent = JSON.parse(part); } catch { /* ignora linha malformada */ }
+        }
+      }
+      if (buffer.trim()) {
+        try { lastEvent = JSON.parse(buffer); } catch { /* ignora resto malformado */ }
+      }
+
+      if (lastEvent?.type === 'done' && lastEvent?.success) {
+        window.location.reload();
+      } else if (lastEvent?.type === 'error') {
+        alert('Erro ao sincronizar: ' + (lastEvent.error ?? 'desconhecido'));
+      } else {
+        alert('Erro ao sincronizar: resposta inesperada do servidor.');
+      }
+    } catch (e: any) {
+      alert('Erro de rede: ' + (e?.message ?? String(e)));
     } finally {
       setIsSyncing(false);
     }
