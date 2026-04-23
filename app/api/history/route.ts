@@ -4,49 +4,34 @@ import { format, subDays } from 'date-fns';
 import { getUsdToBrl } from '@/lib/usd-brl';
 
 // ============================================================
-// COMBINADORES — idênticos ao /api/import
+// Regex por rt_ad — igual ao /api/import
 // ============================================================
-
-function combineDailyRtCamp(
-  rows: { data: any[] }[]
-): { rt_campaign: string; total_revenue: string; convtype2: string }[] {
-  const map = new Map<string, { total_revenue: number; convtype2: number }>();
-  for (const row of rows) {
-    for (const entry of (row.data || [])) {
-      if (!entry.rt_campaign) continue;
-      const cur = map.get(entry.rt_campaign) ?? { total_revenue: 0, convtype2: 0 };
-      cur.total_revenue += parseFloat(entry.total_revenue || '0');
-      cur.convtype2     += parseInt(entry.convtype2 || '0', 10);
-      map.set(entry.rt_campaign, cur);
-    }
-  }
-  return Array.from(map.entries()).map(([rt_campaign, v]) => ({
-    rt_campaign,
-    total_revenue: String(v.total_revenue),
-    convtype2:     String(v.convtype2),
-  }));
-}
-
-function combineDailyRtCampById(
-  rows: { data: any[] }[]
-): Map<string, { total_revenue: number; convtype2: number }> {
-  const map = new Map<string, { total_revenue: number; convtype2: number }>();
-  for (const row of rows) {
-    for (const entry of (row.data || [])) {
-      const metaId = entry.sub3;
-      if (!metaId) continue;
-      const cur = map.get(metaId) ?? { total_revenue: 0, convtype2: 0 };
-      cur.total_revenue += parseFloat(entry.total_revenue || '0');
-      cur.convtype2     += parseInt(entry.convtype2 || '0', 10);
-      map.set(metaId, cur);
-    }
-  }
-  return map;
-}
-
 function buildRtAdRegex(rtAd: string): RegExp {
   const escapedAd = rtAd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`(?:^|[^a-zA-Z0-9_.])` + escapedAd + `(?:[^a-zA-Z0-9_.]|$)`, 'i');
+}
+
+type AggRow = {
+  date: string;
+  key: string;
+  total_revenue: number;
+  convtype2: number;
+};
+
+// Agrega rows unnested por chave, filtrando por date >= dateFrom.
+function aggregateByKey(rows: AggRow[], dateFrom: string): Map<string, { total_revenue: number; convtype2: number }> {
+  const map = new Map<string, { total_revenue: number; convtype2: number }>();
+  for (const r of rows) {
+    if (r.date < dateFrom) continue;
+    const cur = map.get(r.key);
+    if (cur) {
+      cur.total_revenue += r.total_revenue;
+      cur.convtype2     += r.convtype2;
+    } else {
+      map.set(r.key, { total_revenue: r.total_revenue, convtype2: r.convtype2 });
+    }
+  }
+  return map;
 }
 
 // ============================================================
@@ -54,8 +39,10 @@ function buildRtAdRegex(rtAd: string): RegExp {
 // Aceita rtAds: string[] (preferido, batch) ou rtAd: string (compat).
 // - batch → { data: { [rtAd]: { [range]: {...} } } }
 // - single → { data: { [range]: {...} } }
-// Uma única busca ao banco, processamento por range compartilhado
-// entre todos os rt_ads.
+//
+// Memory-efficient: unnest JSONB no Postgres e retorna só os 4 campos
+// necessários (date, chave, total_revenue, convtype2). Evita carregar
+// arrays JSONB grandes no heap do Node.
 // ============================================================
 export async function POST(req: NextRequest) {
   try {
@@ -83,23 +70,37 @@ export async function POST(req: NextRequest) {
     ];
 
     // ============================================================
-    // BUSCA — uma vez só, independente de quantos rt_ads
+    // BUSCA — unnest em SQL, rows planas e compactas
     // ============================================================
-    const [rtCampResult, rtCampIdResult, metaRes, usdToBrl] = await Promise.all([
-      pool.query(
-        `SELECT to_char(date_from, 'YYYY-MM-DD') AS date_from, data FROM import_cache
-         WHERE cache_key = $1
-           AND date_from >= $2
-           AND date_from = date_to
-         ORDER BY date_from`,
+    const [rtCampFlat, rtCampIdFlat, metaRes, usdToBrl] = await Promise.all([
+      pool.query<AggRow>(
+        `SELECT
+           to_char(ic.date_from, 'YYYY-MM-DD')                           AS date,
+           entry->>'rt_campaign'                                         AS key,
+           COALESCE(NULLIF(entry->>'total_revenue', '')::float, 0)       AS total_revenue,
+           COALESCE(NULLIF(entry->>'convtype2',     '')::int,   0)       AS convtype2
+         FROM import_cache ic,
+              jsonb_array_elements(ic.data) entry
+         WHERE ic.cache_key = $1
+           AND ic.date_from >= $2
+           AND ic.date_from = ic.date_to
+           AND entry->>'rt_campaign' IS NOT NULL
+           AND entry->>'rt_campaign' <> ''`,
         [`rt_camp:${rtCampaignId}`, d29ago]
       ),
-      pool.query(
-        `SELECT to_char(date_from, 'YYYY-MM-DD') AS date_from, data FROM import_cache
-         WHERE cache_key = $1
-           AND date_from >= $2
-           AND date_from = date_to
-         ORDER BY date_from`,
+      pool.query<AggRow>(
+        `SELECT
+           to_char(ic.date_from, 'YYYY-MM-DD')                           AS date,
+           entry->>'sub3'                                                AS key,
+           COALESCE(NULLIF(entry->>'total_revenue', '')::float, 0)       AS total_revenue,
+           COALESCE(NULLIF(entry->>'convtype2',     '')::int,   0)       AS convtype2
+         FROM import_cache ic,
+              jsonb_array_elements(ic.data) entry
+         WHERE ic.cache_key = $1
+           AND ic.date_from >= $2
+           AND ic.date_from = ic.date_to
+           AND entry->>'sub3' IS NOT NULL
+           AND entry->>'sub3' <> ''`,
         [`rt_camp_id:${rtCampaignId}`, d29ago]
       ),
       pool.query(
@@ -118,6 +119,9 @@ export async function POST(req: NextRequest) {
       getUsdToBrl(today),
     ]);
 
+    const rtCampRows   = rtCampFlat.rows;
+    const rtCampIdRows = rtCampIdFlat.rows;
+
     // Pré-compila regex por rt_ad
     const rtAdRegexes = rtAds.map(ad => ({ rtAd: ad, regex: buildRtAdRegex(ad) }));
 
@@ -130,31 +134,22 @@ export async function POST(req: NextRequest) {
     // depois itera rt_ads pra aplicar o regex e somar.
     // ============================================================
     for (const { label, dateFrom } of RANGES) {
-      const rtCampRows   = rtCampResult.rows.filter((r: any)   => r.date_from >= dateFrom);
-      const rtCampIdRows = rtCampIdResult.rows.filter((r: any) => r.date_from >= dateFrom);
-
-      const rtCampaignsReport = combineDailyRtCamp(rtCampRows);
-      const rtByMetaId        = combineDailyRtCampById(rtCampIdRows);
-
-      const rtCampByName = new Map<string, any>();
-      rtCampaignsReport.forEach((rc: any) => {
-        if (rc.rt_campaign) rtCampByName.set(rc.rt_campaign, rc);
-      });
+      const rtCampByName = aggregateByKey(rtCampRows,   dateFrom);
+      const rtByMetaId   = aggregateByKey(rtCampIdRows, dateFrom);
 
       const findRtCamp = (metaCampaignName: string) => {
         const metaLower = metaCampaignName.toLowerCase();
-        const matches: any[] = [];
+        let totalRev = 0, totalConv = 0, found = false;
         for (const [rtName, rtCamp] of rtCampByName) {
           const isExact   = rtName === metaCampaignName;
           const isPartial = rtName.length > 10 && metaLower.includes(rtName.toLowerCase());
-          if (isExact || isPartial) matches.push(rtCamp);
+          if (isExact || isPartial) {
+            totalRev  += rtCamp.total_revenue;
+            totalConv += rtCamp.convtype2;
+            found = true;
+          }
         }
-        if (matches.length === 0) return null;
-        if (matches.length === 1) return matches[0];
-        return {
-          convtype2:     String(matches.reduce((s, c) => s + parseInt(c.convtype2    || '0', 10), 0)),
-          total_revenue: String(matches.reduce((s, c) => s + parseFloat(c.total_revenue || '0'), 0)),
-        };
+        return found ? { total_revenue: totalRev, convtype2: totalConv } : null;
       };
 
       // Igual ao /api/import: soma sub3 de TODAS as campaign_ids que compartilham
@@ -170,42 +165,42 @@ export async function POST(req: NextRequest) {
             totalConv += byId.convtype2;
           }
         }
-        if (anyHit) return { total_revenue: String(totalRev), convtype2: String(totalConv) };
+        if (anyHit) return { total_revenue: totalRev, convtype2: totalConv };
         return findRtCamp(mc.campaign_name);
       };
 
       // Meta — agrega por campaign_name (toda a conta, igual /api/import)
-      const metaMap = new Map<string, { campaign_ids: string[]; campaign_name: string; spend: number; impressions: number; clicks: number }>();
+      const metaMap = new Map<string, { campaign_ids: string[]; campaign_name: string; spend: number }>();
       for (const row of metaRes.rows) {
         if (row.date < dateFrom) continue;
         const name = row.campaign_name;
-        if (metaMap.has(name)) {
-          const existing = metaMap.get(name)!;
-          existing.spend       += row.spend;
-          existing.impressions += row.impressions;
-          existing.clicks      += row.clicks;
+        const existing = metaMap.get(name);
+        if (existing) {
+          existing.spend += row.spend;
           if (!existing.campaign_ids.includes(row.campaign_id)) {
             existing.campaign_ids.push(row.campaign_id);
           }
         } else {
           metaMap.set(name, {
             campaign_ids:  [row.campaign_id],
-            campaign_name: row.campaign_name,
+            campaign_name: name,
             spend:         row.spend,
-            impressions:   row.impressions,
-            clicks:        row.clicks,
           });
         }
       }
 
       // Pré-computa enriched revenue por mc (evita re-lookup entre rt_ads)
-      const metaEnriched = Array.from(metaMap.values()).map(mc => {
+      const metaEnriched: { campaign_name: string; spendBrl: number; rev: number; conv: number }[] = [];
+      for (const mc of metaMap.values()) {
         const spendBrl = mc.spend * usdToBrl;
         const rtCamp   = findRevenue(mc);
-        const rev      = rtCamp ? parseFloat(rtCamp.total_revenue || '0') : 0;
-        const conv     = rtCamp ? parseInt(rtCamp.convtype2 || '0', 10) : 0;
-        return { campaign_name: mc.campaign_name, spendBrl, rev, conv };
-      });
+        metaEnriched.push({
+          campaign_name: mc.campaign_name,
+          spendBrl,
+          rev:  rtCamp ? rtCamp.total_revenue : 0,
+          conv: rtCamp ? rtCamp.convtype2     : 0,
+        });
+      }
 
       // Por rt_ad: filtra Meta pelo regex e soma
       for (const { rtAd, regex } of rtAdRegexes) {
