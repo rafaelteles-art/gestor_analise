@@ -1,9 +1,10 @@
 import { fetchAndSyncMetaAccounts } from '@/lib/meta-accounts';
-import { fetchAndSyncRedTrackCampaigns } from '@/lib/redtrack-campaigns';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
+// Escaneia apenas contas de anúncio do Meta (BMs + personal + owned).
+// O sync de campanhas do RedTrack roda no painel do RedTrack, não aqui.
 export async function GET() {
   const encoder = new TextEncoder();
 
@@ -25,23 +26,10 @@ export async function GET() {
         });
 
         send({
-          type: 'progress',
-          phase: 'meta',
-          message: `Meta: ${metaResult.count} contas sincronizadas`,
-        });
-
-        send({ type: 'progress', phase: 'redtrack', message: 'Sincronizando RedTrack…' });
-
-        const rtResult = await fetchAndSyncRedTrackCampaigns((msg) => {
-          send({ type: 'progress', phase: 'redtrack', message: msg });
-        });
-
-        send({
           type: 'done',
           success: true,
-          message: `Scaneado com sucesso. ${metaResult.count} contas Meta e ${rtResult.count} campanhas RedTrack.`,
+          message: `Scaneado com sucesso. ${metaResult.count} contas Meta.`,
           meta: metaResult.count,
-          redtrack: rtResult.count,
         });
       } catch (error: any) {
         console.error('[accounts/sync] Error:', error?.message, error?.stack);

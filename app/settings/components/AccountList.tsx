@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toggleAccountSelection, toggleAllAccountsSelection, toggleBmSelection } from '../actions';
+import { handleStaleServerAction } from '@/lib/stale-action';
 import { RefreshCw, CheckCircle2, CheckSquare, Square, ChevronDown } from 'lucide-react';
 
 interface Account {
@@ -36,6 +37,8 @@ function groupByBm(accounts: Account[]): BmGroup[] {
 export default function AccountList({ initialAccounts }: { initialAccounts: Account[] }) {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string>('');
+  const [syncPct, setSyncPct] = useState<number>(0);
   // Grupos colapsados: começa com todos abertos
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -47,7 +50,8 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
     setAccounts(prev => prev.map(a => a.account_id === accountId ? { ...a, is_selected: newStatus } : a));
     try {
       await toggleAccountSelection(accountId, newStatus);
-    } catch {
+    } catch (err) {
+      if (handleStaleServerAction(err)) return;
       setAccounts(prev => prev.map(a => a.account_id === accountId ? { ...a, is_selected: currentStatus } : a));
       alert('Falha ao atualizar conta.');
     }
@@ -59,7 +63,8 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
     setAccounts(prevAccs => prevAccs.map(a => a.bm_id === bmId ? { ...a, is_selected: newStatus } : a));
     try {
       await toggleBmSelection(bmId, newStatus);
-    } catch {
+    } catch (err) {
+      if (handleStaleServerAction(err)) return;
       setAccounts(prev);
       alert('Falha ao atualizar BM.');
     }
@@ -71,7 +76,8 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
     setAccounts(prevAccs => prevAccs.map(a => ({ ...a, is_selected: newStatus })));
     try {
       await toggleAllAccountsSelection(newStatus);
-    } catch {
+    } catch (err) {
+      if (handleStaleServerAction(err)) return;
       setAccounts(prev);
       alert('Falha ao atualizar todas as contas.');
     }
@@ -79,9 +85,16 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
 
   // ── Scan contas novas ─────────────────────────────────────────────────────
   // A rota /api/accounts/sync responde em NDJSON (um JSON por linha).
-  // Drenamos o stream inteiro e olhamos o último evento (done | error).
+  // Drenamos o stream, atualizamos status/progresso e reload no final.
+  //
+  // Progresso (apenas Meta — RT é sincronizado em outro painel):
+  //   start → 3%
+  //   "BM X/Y:" parseado das mensagens → 5 + (X/Y)*94  (range 5-99%)
+  //   done  → 100%
   const syncAccounts = async () => {
     setIsSyncing(true);
+    setSyncStatus('Iniciando…');
+    setSyncPct(1);
     try {
       const res = await fetch('/api/accounts/sync');
       if (!res.ok || !res.body) {
@@ -94,6 +107,36 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
       let buffer = '';
       let lastEvent: any = null;
 
+      const applyEvent = (ev: any) => {
+        if (!ev || typeof ev !== 'object') return;
+        if (ev.message) setSyncStatus(String(ev.message));
+
+        if (ev.type === 'start') {
+          setSyncPct(3);
+          return;
+        }
+        if (ev.type === 'done') {
+          setSyncPct(100);
+          return;
+        }
+        if (ev.type === 'error') return;
+
+        if (ev.phase === 'meta') {
+          // Tenta extrair "BM X/Y:" da mensagem para progresso fino.
+          const m = typeof ev.message === 'string' ? ev.message.match(/BM\s+(\d+)\/(\d+)/) : null;
+          if (m) {
+            const idx = Number(m[1]);
+            const total = Number(m[2]);
+            if (total > 0) {
+              const pct = 5 + Math.round((idx / total) * 94); // 5-99%
+              setSyncPct(prev => Math.max(prev, pct));
+              return;
+            }
+          }
+          setSyncPct(prev => Math.max(prev, 5));
+        }
+      };
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -102,14 +145,23 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
         buffer = parts.pop() ?? '';
         for (const part of parts) {
           if (!part.trim()) continue;
-          try { lastEvent = JSON.parse(part); } catch { /* ignora linha malformada */ }
+          try {
+            const ev = JSON.parse(part);
+            lastEvent = ev;
+            applyEvent(ev);
+          } catch { /* ignora linha malformada */ }
         }
       }
       if (buffer.trim()) {
-        try { lastEvent = JSON.parse(buffer); } catch { /* ignora resto malformado */ }
+        try {
+          const ev = JSON.parse(buffer);
+          lastEvent = ev;
+          applyEvent(ev);
+        } catch { /* ignora resto malformado */ }
       }
 
       if (lastEvent?.type === 'done' && lastEvent?.success) {
+        setSyncStatus('Concluído — recarregando…');
         window.location.reload();
       } else if (lastEvent?.type === 'error') {
         alert('Erro ao sincronizar: ' + (lastEvent.error ?? 'desconhecido'));
@@ -120,6 +172,8 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
       alert('Erro de rede: ' + (e?.message ?? String(e)));
     } finally {
       setIsSyncing(false);
+      setSyncPct(0);
+      setSyncStatus('');
     }
   };
 
@@ -167,6 +221,22 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
           {isSyncing ? 'Escaneando...' : 'Escanear contas'}
         </button>
       </div>
+
+      {/* Barra de progresso do scan */}
+      {isSyncing && (
+        <div className="mb-5 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
+          <div className="flex justify-between items-center text-[11px] text-gray-500 mb-1.5">
+            <span className="truncate pr-3">{syncStatus || 'Processando…'}</span>
+            <span className="font-mono shrink-0">{syncPct}%</span>
+          </div>
+          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+            <div
+              className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${syncPct}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Grouped list */}
       {accounts.length === 0 ? (

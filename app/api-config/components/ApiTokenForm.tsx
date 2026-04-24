@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getStoredTokens, saveApiTokens } from '../actions';
+import { handleStaleServerAction } from '@/lib/stale-action';
 import { Key, Save, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 
 export default function ApiTokenForm() {
@@ -12,13 +13,18 @@ export default function ApiTokenForm() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    getStoredTokens().then((data) => {
-      if (data.metaProfiles && data.metaProfiles.length > 0) {
-        setProfiles(data.metaProfiles);
-      }
-      setRedtrackKey(data.redtrackKey);
-      setVturbToken(data.vturbToken || '');
-    });
+    getStoredTokens()
+      .then((data) => {
+        if (data.metaProfiles && data.metaProfiles.length > 0) {
+          setProfiles(data.metaProfiles);
+        }
+        setRedtrackKey(data.redtrackKey);
+        setVturbToken(data.vturbToken || '');
+      })
+      .catch((err) => {
+        if (handleStaleServerAction(err)) return;
+        console.error(err);
+      });
   }, []);
 
   const addProfile = () => setProfiles([...profiles, {name: '', token: ''}]);
@@ -45,6 +51,7 @@ export default function ApiTokenForm() {
         alert("Erro ao salvar: " + res.error);
       }
     } catch (err: any) {
+      if (handleStaleServerAction(err)) return;
       console.error(err);
       alert("Erro na requisição: " + err.message);
     } finally {

@@ -8,6 +8,7 @@ import {
   togglePageAccess,
   updateUserRole,
 } from './actions';
+import { handleStaleServerAction } from '@/lib/stale-action';
 
 export type UserRow = {
   email: string;
@@ -51,6 +52,7 @@ export default function UsersClient({ rows, pages, currentUserEmail, currentUser
       try {
         await fn();
       } catch (err: any) {
+        if (handleStaleServerAction(err)) return;
         setError(err?.message ?? 'Erro desconhecido');
       }
     });

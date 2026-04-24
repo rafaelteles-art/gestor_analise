@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import Select, { MultiValue } from 'react-select';
 import { setRtCampaignSelections } from '../actions';
+import { handleStaleServerAction } from '@/lib/stale-action';
 import { RefreshCw } from 'lucide-react';
 
 interface Campaign {
@@ -42,7 +43,8 @@ export default function RtCampaignSelector({ initialCampaigns }: { initialCampai
         await setRtCampaignSelections(newValue.map(o => o.value));
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
-      } catch {
+      } catch (err) {
+        if (handleStaleServerAction(err)) return;
         // silently fail — user can retry
       }
     });
