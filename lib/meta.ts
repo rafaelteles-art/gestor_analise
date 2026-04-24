@@ -1,3 +1,13 @@
+import { getMetaProfiles } from './config';
+
+// Se o chamador não passar um token, pega o primeiro perfil configurado
+// (banco via /api-config, com fallback para process.env).
+async function resolveMetaToken(accessToken?: string): Promise<string | undefined> {
+  if (accessToken) return accessToken;
+  const profiles = await getMetaProfiles();
+  return profiles[0]?.token;
+}
+
 export interface MetaAdMetric {
   date: string;
   account_id: string;
@@ -17,7 +27,7 @@ export async function fetchMetaMetrics(
   dateTo: string,
   accessToken?: string
 ): Promise<MetaAdMetric[]> {
-  const token = accessToken || process.env.META_ACCESS_TOKEN;
+  const token = await resolveMetaToken(accessToken);
 
   if (!token || !adAccountId || !dateFrom || !dateTo) {
     console.error(`Meta API credentials missing for account: ${adAccountId}`);
@@ -83,7 +93,7 @@ export async function fetchMetaMetricsPerDay(
   dateTo: string,
   accessToken?: string
 ): Promise<MetaAdMetric[]> {
-  const token = accessToken || process.env.META_ACCESS_TOKEN;
+  const token = await resolveMetaToken(accessToken);
 
   if (!token || !adAccountId || !dateFrom || !dateTo) {
     console.error(`[Meta] Credenciais ausentes para a conta: ${adAccountId}`);

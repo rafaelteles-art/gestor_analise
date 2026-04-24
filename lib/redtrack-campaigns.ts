@@ -1,8 +1,10 @@
 import { pool } from './db';
+import { getRedtrackApiKey } from './config';
 
 export async function fetchAndSyncRedTrackCampaigns(onProgress?: (message: string) => void) {
   const report = (msg: string) => { try { onProgress?.(msg); } catch {} };
-  const apiKey = process.env.REDTRACK_API_KEY;
+  // Lê do banco (app_settings) com fallback para process.env — ver lib/config.ts
+  const apiKey = await getRedtrackApiKey();
   if (!apiKey) {
     console.log("Ignorando RedTrack scanner: API Key ausente.");
     report("RedTrack API Key ausente — pulando");

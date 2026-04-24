@@ -1,3 +1,5 @@
+import { getRedtrackApiKey } from './config';
+
 export interface RedTrackMetric {
   date: string;
   campaign_id: string;
@@ -62,7 +64,7 @@ export async function fetchRedTrackMetrics(
   dateTo: string,
   campaignIds: string[]
 ): Promise<RedTrackMetric[]> {
-  const apiKey = process.env.REDTRACK_API_KEY;
+  const apiKey = await getRedtrackApiKey();
 
   if (!apiKey) {
     console.error("RedTrack API key missing.");
@@ -120,7 +122,7 @@ export async function fetchRedTrackByRtAd(
   dateFrom: string,
   dateTo: string
 ): Promise<{rt_ad: string; cost: number; profit: number; total_revenue: number; total_conversions: number; clicks: number; roas: number}[]> {
-  const apiKey = process.env.REDTRACK_API_KEY;
+  const apiKey = await getRedtrackApiKey();
 
   if (!apiKey) {
     console.error("RedTrack API key missing.");

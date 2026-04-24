@@ -1,4 +1,5 @@
 import { pool } from './db';
+import { getMetaProfiles } from './config';
 
 const API_VERSION = 'v19.0';
 
@@ -69,18 +70,13 @@ async function fetchBmAdAccounts(bmId: string, token: string): Promise<any[]> {
 
 export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) => void) {
   const report = (msg: string) => { try { onProgress?.(msg); } catch {} };
-  let profiles: {name: string, token: string}[] = [];
 
-  try {
-    if (process.env.META_PROFILES) {
-      profiles = JSON.parse(process.env.META_PROFILES);
-    } else if (process.env.META_ACCESS_TOKEN) {
-      profiles = [{ name: 'Default', token: process.env.META_ACCESS_TOKEN }];
-    }
-  } catch(e) {}
+  // Lê perfis do banco (app_settings) com fallback para process.env.
+  // No live os tokens são salvos via /api-config, então só process.env não basta.
+  const profiles = await getMetaProfiles();
 
   if (profiles.length === 0) {
-    throw new Error("META_PROFILES não configurado no .env");
+    throw new Error("META_PROFILES não configurado. Configure os tokens em /api-config.");
   }
 
   try {
