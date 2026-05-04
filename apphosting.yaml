@@ -50,3 +50,7 @@ env:
     secret: auth-secret
     availability:
       - RUNTIME
+  - variable: CRON_SECRET
+    secret: cron-secret
+    availability:
+      - RUNTIME

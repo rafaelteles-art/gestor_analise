@@ -25,6 +25,12 @@ interface ClientImportProps {
   rtCampaigns: RtCampaign[];
 }
 
+interface DashboardTemplate {
+  name: string;
+  rtCampaignId: string;
+  accountIds: string[];
+}
+
 export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportProps) {
   // Sort lists
   const sortedAccounts = [...dbAccounts].sort((a, b) => a.account_name.localeCompare(b.account_name));
@@ -45,7 +51,10 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [tableSearch, setTableSearch] = useState('');
-  
+
+  // Templates de configuração (campanha RT + contas Meta) salvos pelo usuário
+  const [templates, setTemplates] = useState<DashboardTemplate[]>([]);
+
   // Sorting State
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
@@ -130,7 +139,79 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
     setDateFrom(initialDateFrom);
     setDateTo(initialDateTo);
     if (initialSortConfig) setSortConfig(initialSortConfig);
+
+    // Carrega templates salvos
+    try {
+      const tStr = localStorage.getItem('dopscale_templates');
+      if (tStr) {
+        const parsed = JSON.parse(tStr);
+        if (Array.isArray(parsed)) {
+          setTemplates(parsed.filter((t: any) =>
+            t && typeof t.name === 'string' && typeof t.rtCampaignId === 'string' && Array.isArray(t.accountIds)
+          ));
+        }
+      }
+    } catch(e) {}
   }, []);
+
+  // Detecta se a configuração atual corresponde a algum template salvo
+  const activeTemplateName = useMemo(() => {
+    if (selectedAccountIds.length === 0 || !selectedRtCampaignId) return '';
+    const sortedSel = [...selectedAccountIds].sort();
+    const match = templates.find(t =>
+      t.rtCampaignId === selectedRtCampaignId &&
+      t.accountIds.length === selectedAccountIds.length &&
+      [...t.accountIds].sort().every((id, i) => id === sortedSel[i])
+    );
+    return match?.name ?? '';
+  }, [templates, selectedRtCampaignId, selectedAccountIds]);
+
+  const persistTemplates = (next: DashboardTemplate[]) => {
+    setTemplates(next);
+    try {
+      localStorage.setItem('dopscale_templates', JSON.stringify(next));
+    } catch(e) {}
+  };
+
+  const handleApplyTemplate = (name: string) => {
+    if (!name) return;
+    const t = templates.find(t => t.name === name);
+    if (!t) return;
+    const validAccs = t.accountIds.filter(id => sortedAccounts.some(a => a.account_id === id));
+    if (validAccs.length === 0) {
+      alert('Nenhuma das contas deste template existe mais.');
+      return;
+    }
+    if (!sortedRtCampaigns.some(c => c.campaign_id === t.rtCampaignId)) {
+      alert('A campanha RedTrack deste template não existe mais.');
+      return;
+    }
+    setSelectedRtCampaignId(t.rtCampaignId);
+    setSelectedAccountIds(validAccs);
+  };
+
+  const handleSaveTemplate = () => {
+    if (selectedAccountIds.length === 0 || !selectedRtCampaignId) {
+      alert('Selecione uma campanha RedTrack e ao menos uma conta antes de salvar.');
+      return;
+    }
+    const raw = window.prompt('Nome do template:', activeTemplateName || '');
+    if (raw === null) return;
+    const name = raw.trim();
+    if (!name) return;
+    if (templates.some(t => t.name === name) && !window.confirm(`Já existe um template "${name}". Substituir?`)) return;
+    const next = [
+      ...templates.filter(t => t.name !== name),
+      { name, rtCampaignId: selectedRtCampaignId, accountIds: [...selectedAccountIds] },
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    persistTemplates(next);
+  };
+
+  const handleDeleteTemplate = () => {
+    if (!activeTemplateName) return;
+    if (!window.confirm(`Excluir template "${activeTemplateName}"?`)) return;
+    persistTemplates(templates.filter(t => t.name !== activeTemplateName));
+  };
 
   // Salvar no storage sempre que os filtros principais mudarem
   useEffect(() => {
@@ -412,6 +493,35 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                     className="text-sm rounded-lg"
                     styles={{ control: (base) => ({ ...base, minHeight: '38px', borderRadius: '0.5rem', borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }) }}
                 />
+            </div>
+
+            {/* Templates de configuração (campanha RT + contas Meta) */}
+            <div className="flex items-center gap-1.5 border-l border-gray-200 pl-3">
+                <select
+                    value={activeTemplateName}
+                    onChange={(e) => handleApplyTemplate(e.target.value)}
+                    title="Aplicar template salvo"
+                    className="text-xs bg-gray-50 border border-gray-200 rounded-md px-2 py-1.5 outline-none cursor-pointer min-w-[140px] text-gray-700 hover:border-indigo-300"
+                >
+                    <option value="">{templates.length === 0 ? 'Sem templates' : 'Templates...'}</option>
+                    {templates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                </select>
+                <button
+                    onClick={handleSaveTemplate}
+                    title="Salvar configuração atual como template"
+                    className="px-2.5 py-1.5 text-xs font-semibold rounded-md border border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-400 transition-colors"
+                >
+                    Salvar
+                </button>
+                {activeTemplateName && (
+                    <button
+                        onClick={handleDeleteTemplate}
+                        title={`Excluir template "${activeTemplateName}"`}
+                        className="px-2.5 py-1.5 text-xs font-semibold rounded-md border border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-400 transition-colors"
+                    >
+                        Excluir
+                    </button>
+                )}
             </div>
 
             {/* Atualizar: lê do banco de dados */}
