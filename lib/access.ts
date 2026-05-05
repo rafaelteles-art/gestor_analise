@@ -46,3 +46,14 @@ export function canAccessPage(
   if (role === 'admin' && pageKey === 'users') return true;
   return (allowedPages ?? []).includes(pageKey);
 }
+
+export function firstAllowedPath(
+  role: Role | undefined | null,
+  allowedPages: string[] | undefined
+): string | null {
+  if (!role) return null;
+  for (const page of ALL_PAGES) {
+    if (canAccessPage(role, allowedPages, page.key)) return page.path;
+  }
+  return null;
+}

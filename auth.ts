@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import { canAccessPage, pageKeyFromPath, type Role } from "@/lib/access";
+import { canAccessPage, firstAllowedPath, pageKeyFromPath, type Role } from "@/lib/access";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -50,9 +50,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (pathname.startsWith("/api/auth")) return true;
 
+      const role = (session?.user as any)?.role as Role | undefined;
+      const allowedPages = ((session?.user as any)?.allowedPages as string[] | undefined) ?? [];
+      const fallback = isLoggedIn ? firstAllowedPath(role, allowedPages) : null;
+
       if (pathname === "/login") {
-        if (isLoggedIn) return Response.redirect(new URL("/import", nextUrl));
-        return true;
+        if (!isLoggedIn) return true;
+        // Logado com acesso a alguma página → vai pra ela
+        if (fallback) return Response.redirect(new URL(fallback, nextUrl));
+        // Logado sem acesso a nada → mostra erro no /login (sem loop)
+        if (nextUrl.searchParams.get("error") === "no_access") return true;
+        const url = new URL("/login", nextUrl);
+        url.searchParams.set("error", "no_access");
+        return Response.redirect(url);
       }
 
       if (!isLoggedIn) return false;
@@ -64,17 +74,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         pathname.startsWith("/_next/");
       if (alwaysAllowed) return true;
 
-      const role = (session!.user as any).role as Role | undefined;
-      const allowedPages = ((session!.user as any).allowedPages as string[] | undefined) ?? [];
-
       const pageKey = pageKeyFromPath(pathname);
       if (!pageKey) return true; // rota não catalogada: libera (ex.: 404 interna)
 
-      if (!canAccessPage(role, allowedPages, pageKey)) {
-        return Response.redirect(new URL("/import", nextUrl));
-      }
+      if (canAccessPage(role, allowedPages, pageKey)) return true;
 
-      return true;
+      // Sem permissão: manda pra primeira página permitida; se não houver, /login com erro
+      if (fallback && fallback !== pathname) {
+        return Response.redirect(new URL(fallback, nextUrl));
+      }
+      const url = new URL("/login", nextUrl);
+      url.searchParams.set("error", "no_access");
+      return Response.redirect(url);
     },
 
     // Restringe acesso apenas a emails @v2globalteam.com
