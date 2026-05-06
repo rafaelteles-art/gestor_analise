@@ -11,6 +11,7 @@ export async function toggleAccountSelection(accountId: string, newStatus: boole
       [newStatus, accountId]
     );
     revalidatePath('/settings');
+    revalidatePath('/import');
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -24,6 +25,7 @@ export async function toggleAllAccountsSelection(newStatus: boolean) {
       [newStatus]
     );
     revalidatePath('/settings');
+    revalidatePath('/import');
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -37,6 +39,7 @@ export async function toggleBmSelection(bmId: string, newStatus: boolean) {
       [newStatus, bmId]
     );
     revalidatePath('/settings');
+    revalidatePath('/import');
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -58,6 +61,7 @@ export async function setRtCampaignSelections(selectedIds: string[]) {
     }
     await client.query('COMMIT');
     revalidatePath('/settings');
+    revalidatePath('/import');
   } catch (error: any) {
     await client.query('ROLLBACK');
     throw new Error(error.message);
