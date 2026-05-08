@@ -44,13 +44,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     // Controla o acesso a rotas — chamado pelo middleware
-    authorized({ auth: session, request: { nextUrl } }) {
+    authorized({ auth: session, request }) {
+      const { nextUrl } = request;
       const isLoggedIn = !!session?.user;
       const pathname = nextUrl.pathname;
 
       if (pathname.startsWith("/api/auth")) return true;
       // Cron jobs (Cloud Scheduler) — auth via Bearer token dentro do handler
       if (pathname.startsWith("/api/cron/")) return true;
+      // Rotas /api/sync/* chamadas pelo cron — libera quando Bearer bate com CRON_SECRET
+      if (pathname.startsWith("/api/sync/") && process.env.CRON_SECRET) {
+        const authz = request.headers.get("authorization") ?? "";
+        if (authz === `Bearer ${process.env.CRON_SECRET}`) return true;
+      }
 
       const role = (session?.user as any)?.role as Role | undefined;
       const allowedPages = ((session?.user as any)?.allowedPages as string[] | undefined) ?? [];

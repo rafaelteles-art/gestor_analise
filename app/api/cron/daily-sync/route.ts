@@ -38,7 +38,10 @@ export async function POST(req: NextRequest) {
     try {
       const res = await fetch(`${origin}/api/sync/${slug}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${secret}`,
+        },
         body: JSON.stringify({ mode: 'yesterday' }),
       });
 
