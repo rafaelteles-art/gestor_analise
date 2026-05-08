@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { POST as metaBulkPOST } from '@/app/api/sync/meta-bulk/route';
+import { POST as rtBulkPOST } from '@/app/api/sync/rt-bulk/route';
+import { POST as vturbBulkPOST } from '@/app/api/sync/vturb-bulk/route';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -10,12 +13,21 @@ export const dynamic = 'force-dynamic';
  * Roda os 3 syncs de "ontem" em paralelo: meta-bulk, rt-bulk, vturb-bulk.
  *
  * Auth: header `Authorization: Bearer <CRON_SECRET>` ou `?key=<CRON_SECRET>`.
- * O Cloud Scheduler injeta esse header automaticamente quando configurado
- * com `--headers="Authorization=Bearer ..."`.
  *
- * Cada bulk responde NDJSON streaming. Aqui consumimos o stream até o fim
- * e extraímos só o evento `done` final, pra devolver um resumo enxuto.
+ * Importa os handlers diretamente em vez de fetch via HTTP — evita problemas
+ * com origin (req.nextUrl.origin retorna URL interna no Cloud Run) e dispensa
+ * passagem pelo middleware nas rotas filhas. Cada handler responde NDJSON
+ * streaming; consumimos até o fim e extraímos só o evento `done` final.
  */
+type BulkSlug = 'meta-bulk' | 'rt-bulk' | 'vturb-bulk';
+type BulkHandler = (req: NextRequest) => Promise<Response>;
+
+const handlers: Record<BulkSlug, BulkHandler> = {
+  'meta-bulk': metaBulkPOST as BulkHandler,
+  'rt-bulk': rtBulkPOST as BulkHandler,
+  'vturb-bulk': vturbBulkPOST as BulkHandler,
+};
+
 export async function POST(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
@@ -30,27 +42,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const origin = req.nextUrl.origin;
   const startedAt = Date.now();
 
-  const runBulk = async (slug: 'meta-bulk' | 'rt-bulk' | 'vturb-bulk') => {
+  const runBulk = async (slug: BulkSlug) => {
     const t0 = Date.now();
     try {
-      const res = await fetch(`${origin}/api/sync/${slug}`, {
+      const fakeReq = new Request(`http://internal/api/sync/${slug}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${secret}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'yesterday' }),
-      });
+      }) as NextRequest;
+
+      const res = await handlers[slug](fakeReq);
 
       if (!res.ok || !res.body) {
         const text = await res.text().catch(() => '');
         return { slug, ok: false, status: res.status, error: text.slice(0, 300), elapsedMs: Date.now() - t0 };
       }
 
-      // Consome NDJSON e captura só o último evento `done` (ou erro).
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
@@ -85,7 +94,7 @@ export async function POST(req: NextRequest) {
     }
   };
 
-  const results = await Promise.all([
+  const results = await Promise.all<ReturnType<typeof runBulk>>([
     runBulk('meta-bulk'),
     runBulk('rt-bulk'),
     runBulk('vturb-bulk'),
