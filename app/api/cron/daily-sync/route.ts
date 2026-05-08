@@ -3,7 +3,7 @@ import { POST as metaBulkPOST } from '@/app/api/sync/meta-bulk/route';
 import { POST as rtBulkPOST } from '@/app/api/sync/rt-bulk/route';
 import { POST as vturbBulkPOST } from '@/app/api/sync/vturb-bulk/route';
 
-export const maxDuration = 300;
+export const maxDuration = 1200;
 export const dynamic = 'force-dynamic';
 
 /**
