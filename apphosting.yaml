@@ -51,6 +51,6 @@ env:
     availability:
       - RUNTIME
   - variable: CRON_SECRET
-    secret: cron-secret
+    secret: cron-secret@3
     availability:
       - RUNTIME
