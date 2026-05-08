@@ -49,6 +49,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const pathname = nextUrl.pathname;
 
       if (pathname.startsWith("/api/auth")) return true;
+      // Cron jobs (Cloud Scheduler) — auth via Bearer token dentro do handler
+      if (pathname.startsWith("/api/cron/")) return true;
 
       const role = (session?.user as any)?.role as Role | undefined;
       const allowedPages = ((session?.user as any)?.allowedPages as string[] | undefined) ?? [];
