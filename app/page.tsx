@@ -15,6 +15,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
   'settings':      'Conexões de BMs, contas e tokens.',
   'api-config':    'Variáveis de ambiente e integrações.',
   'users':         'Gerenciar usuários e permissões.',
+  'data-studio':   'Relatório embed do Looker Studio.',
 };
 
 const PAGE_ICONS: Record<string, React.ReactNode> = {
@@ -44,6 +45,9 @@ const PAGE_ICONS: Record<string, React.ReactNode> = {
   ),
   'users': (
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+  ),
+  'data-studio': (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.657-1.79 3-4 3s-4-1.343-4-3 1.79-3 4-3 4 1.343 4 3zm12-3c0 1.657-1.79 3-4 3s-4-1.343-4-3 1.79-3 4-3 4 1.343 4 3zM9 10l12-3" /></svg>
   ),
 };
 

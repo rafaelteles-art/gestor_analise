@@ -20,6 +20,7 @@ export const PAGES: PageDef[] = [
   { key: 'campaigns',     label: 'Criar campanha',      path: '/campaigns' },
   { key: 'settings',      label: 'Contas de anúncios',  path: '/settings' },
   { key: 'api-config',    label: 'Configurações',       path: '/api-config' },
+  { key: 'data-studio',   label: 'Data Studio',         path: '/data-studio' },
 ];
 
 export const ADMIN_ONLY_PAGES: PageDef[] = [
