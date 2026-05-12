@@ -2,6 +2,8 @@ import { pool } from '@/lib/db';
 import V2MediaLabLayout from '../components/V2MediaLabLayout';
 import ClientOfertas from './ClientOfertas';
 
+export const dynamic = 'force-dynamic';
+
 async function ensureTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ofertas (

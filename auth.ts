@@ -64,8 +64,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (pathname === "/login") {
         if (!isLoggedIn) return true;
-        // Logado com acesso a alguma página → vai pra ela
-        if (fallback) return Response.redirect(new URL(fallback, nextUrl));
+        // Logado com acesso a alguma página → vai pra home (hub)
+        if (fallback) return Response.redirect(new URL("/", nextUrl));
         // Logado sem acesso a nada → mostra erro no /login (sem loop)
         if (nextUrl.searchParams.get("error") === "no_access") return true;
         const url = new URL("/login", nextUrl);

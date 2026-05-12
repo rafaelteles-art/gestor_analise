@@ -337,11 +337,11 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
     });
   };
 
-  // A rota /api/accounts/sync responde em NDJSON; drena o stream e olha o último evento.
+  // A rota /api/accounts/sync-rt responde em NDJSON; drena o stream e olha o último evento.
   const scanCampaigns = async () => {
     setIsScanningCamps(true);
     try {
-      const res = await fetch('/api/accounts/sync');
+      const res = await fetch('/api/accounts/sync-rt');
       if (!res.ok) { alert('Erro: HTTP ' + res.status); return; }
       let last: LogLine | null = null;
       await readNdjsonStream(res, (line) => { last = line; });

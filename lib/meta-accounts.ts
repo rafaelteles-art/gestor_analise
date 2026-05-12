@@ -80,7 +80,20 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
   }
 
   try {
+    // Garante a coluna accessible_profiles (rastreia quais perfis veem cada conta).
+    // É usada na página /campaigns para mostrar a mesma conta sob TODOS os perfis
+    // que têm permissão a ela, mesmo após o dedup desta função.
+    await pool.query(
+      `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS accessible_profiles TEXT[] DEFAULT '{}'`
+    );
+
     const validAccounts: any[] = [];
+    // Map<account_id, Set<profile_name>> — quem viu o quê (calculado ANTES do dedup)
+    const accessibleByAccount = new Map<string, Set<string>>();
+    const trackAccess = (accountId: string, profileName: string) => {
+      if (!accessibleByAccount.has(accountId)) accessibleByAccount.set(accountId, new Set());
+      accessibleByAccount.get(accountId)!.add(profileName);
+    };
 
     for (const profile of profiles) {
       const token = profile.token;
@@ -94,8 +107,10 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
         `https://graph.facebook.com/${API_VERSION}/me/adaccounts?fields=account_id,name,account_status,currency,timezone_name,funding_source_details{display_string}&limit=200&access_token=${token}`
       );
       personalAccounts.forEach((acc: any) => {
+        const accountId = `act_${acc.account_id}`;
+        trackAccess(accountId, profile.name);
         validAccounts.push({
-          account_id: `act_${acc.account_id}`,
+          account_id: accountId,
           account_name: acc.name || `Account ${acc.account_id}`,
           bm_id: 'Personal',
           bm_name: `Personal (${profile.name})`,
@@ -147,8 +162,10 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
 
         const bmAccounts = await fetchBmAdAccounts(bm.id, token);
         bmAccounts.forEach((acc: any) => {
+          const accountId = `act_${acc.account_id}`;
+          trackAccess(accountId, profile.name);
           validAccounts.push({
-            account_id: `act_${acc.account_id}`,
+            account_id: accountId,
             account_name: acc.name || `Account ${acc.account_id}`,
             bm_id: bm.id,
             bm_name: bm.name,
@@ -184,9 +201,10 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
       try {
         await client.query('BEGIN');
         for (const account of uniqueAccounts) {
+          const profileList = Array.from(accessibleByAccount.get(account.account_id) ?? []);
           await client.query(
-            `INSERT INTO meta_ad_accounts (account_id, account_name, bm_id, bm_name, is_selected, access_token, account_status, moeda, cartao, timezone)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            `INSERT INTO meta_ad_accounts (account_id, account_name, bm_id, bm_name, is_selected, access_token, account_status, moeda, cartao, timezone, accessible_profiles)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
              ON CONFLICT (account_id) DO UPDATE SET
                account_name    = EXCLUDED.account_name,
                bm_id           = CASE
@@ -203,7 +221,8 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
                account_status  = EXCLUDED.account_status,
                moeda           = EXCLUDED.moeda,
                cartao          = COALESCE(EXCLUDED.cartao, meta_ad_accounts.cartao),
-               timezone        = COALESCE(EXCLUDED.timezone, meta_ad_accounts.timezone);`,
+               timezone        = COALESCE(EXCLUDED.timezone, meta_ad_accounts.timezone),
+               accessible_profiles = EXCLUDED.accessible_profiles;`,
             [
               account.account_id,
               account.account_name,
@@ -215,6 +234,7 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
               account.moeda,
               account.cartao ?? null,
               account.timezone ?? null,
+              profileList,
             ]
           );
         }

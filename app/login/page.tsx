@@ -47,7 +47,7 @@ function LoginCard() {
 
       {/* Botão Google */}
       <button
-        onClick={() => signIn('google', { callbackUrl: '/import' })}
+        onClick={() => signIn('google', { callbackUrl: '/' })}
         className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
       >
         <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">

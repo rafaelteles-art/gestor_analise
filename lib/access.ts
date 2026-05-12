@@ -17,6 +17,7 @@ export const PAGES: PageDef[] = [
   { key: 'status-contas', label: 'Status de Contas',    path: '/status-contas' },
   { key: 'analise',       label: 'Análise',             path: '/analise' },
   { key: 'ofertas',       label: 'Ofertas',             path: '/ofertas' },
+  { key: 'campaigns',     label: 'Criar campanha',      path: '/campaigns' },
   { key: 'settings',      label: 'Contas de anúncios',  path: '/settings' },
   { key: 'api-config',    label: 'Configurações',       path: '/api-config' },
 ];
