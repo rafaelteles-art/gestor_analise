@@ -125,7 +125,7 @@ async function fetchAdsVolumePaged<T = any>(initialUrl: string): Promise<T[]> {
       const code = Number(error.code);
       if (code === 1) {
         // Resposta ainda grande demais — corta o limit ao meio e tenta de novo.
-        const u = new URL(nextUrl);
+        const u: URL = new URL(nextUrl);
         const currentLimit = Number(u.searchParams.get('limit') ?? '100');
         const newLimit = Math.max(5, Math.floor(currentLimit / 2));
         if (newLimit < currentLimit) {

@@ -1,11 +1,11 @@
 # Graph Report - .  (2026-05-13)
 
 ## Corpus Check
-- 79 files · ~68,528 words
+- 89 files · ~78,513 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 367 nodes · 411 edges · 61 communities detected
+- 411 nodes · 476 edges · 66 communities detected
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
@@ -71,29 +71,34 @@
 - [[_COMMUNITY_Community 58|Community 58]]
 - [[_COMMUNITY_Community 59|Community 59]]
 - [[_COMMUNITY_Community 60|Community 60]]
+- [[_COMMUNITY_Community 61|Community 61]]
+- [[_COMMUNITY_Community 62|Community 62]]
+- [[_COMMUNITY_Community 63|Community 63]]
+- [[_COMMUNITY_Community 64|Community 64]]
+- [[_COMMUNITY_Community 65|Community 65]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `POST()` - 20 edges
-2. `GET()` - 14 edges
+1. `POST()` - 22 edges
+2. `GET()` - 17 edges
 3. `postGraph()` - 7 edges
 4. `createCampaignBatch()` - 7 edges
 5. `POST /traffic_origin/stats` - 7 edges
 6. `vturbPost()` - 6 edges
 7. `Vturb Session Events` - 6 edges
 8. `vturbMap (aggregation by campaign_id)` - 6 edges
-9. `createAdCreative()` - 5 edges
-10. `createFullCampaign()` - 5 edges
+9. `buildMetaErrorMessage()` - 5 edges
+10. `createAdCreative()` - 5 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Next.js Project (create-next-app)` --conceptually_related_to--> `Problema: Retenção por Campanha FB`  [INFERRED]
   README.md → vturb-retencao-por-campanha.md
-- `DELETE()` --calls--> `GET()`  [EXTRACTED]
-  app\app\api\ofertas\route.ts → app\api\status-contas\sync\route.ts
 - `POST()` --calls--> `aggregateByKey()`  [EXTRACTED]
   app\api\sync\vturb-bulk\route.ts → app\api\history\route.ts
 - `POST()` --calls--> `combineDailyRtAd()`  [EXTRACTED]
   app\api\sync\vturb-bulk\route.ts → app\api\import\route.ts
 - `POST()` --calls--> `combineDailyRtCamp()`  [EXTRACTED]
+  app\api\sync\vturb-bulk\route.ts → app\api\import\route.ts
+- `POST()` --calls--> `combineDailyRtCampById()`  [EXTRACTED]
   app\api\sync\vturb-bulk\route.ts → app\api\import\route.ts
 
 ## Hyperedges (group relationships)
@@ -104,24 +109,24 @@
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.08
+Cohesion: 0.07
 Nodes (11): aggregateByKey(), combineDailyRtAd(), combineDailyRtCamp(), combineDailyRtCampById(), DELETE(), ensureColumns(), ensureTable(), ensureVturbTable() (+3 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.16
-Nodes (17): buildMetaErrorMessage(), buildObjectStorySpec(), createAd(), createAdCreative(), createAdSet(), createCampaign(), createCampaignBatch(), createFullCampaign() (+9 more)
+Cohesion: 0.14
+Nodes (19): buildMetaErrorMessage(), buildObjectStorySpec(), createAd(), createAdCreative(), createAdSet(), createCampaign(), createCampaignBatch(), createFullCampaign() (+11 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.11
-Nodes (5): handleDeleteTemplate(), handleImport(), handleSaveTemplate(), handleSyncToday(), persistTemplates()
+Nodes (10): addChild(), applyPresetConfig(), buildCurrentPresetConfig(), emptyAd(), emptyChild(), handleApplyPreset(), handleSavePreset(), handleSingleUpload() (+2 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.12
-Nodes (20): Vturb Analytics API (analytics.vturb.net v1), Auth: X-Api-Token + X-Api-Version, Caching: Redis ~10min TTL, GET /players/list, POST /events/total_by_company_players, POST /traffic_origin/stats, extractCampaignId() function, facebook.rows (FB metrics) (+12 more)
+Cohesion: 0.11
+Nodes (5): handleDeleteTemplate(), handleImport(), handleSaveTemplate(), handleSyncToday(), persistTemplates()
 
 ### Community 4 - "Community 4"
-Cohesion: 0.13
-Nodes (6): addChild(), emptyAd(), emptyChild(), handleSingleUpload(), makeId(), uploadFor()
+Cohesion: 0.12
+Nodes (20): Vturb Analytics API (analytics.vturb.net v1), Auth: X-Api-Token + X-Api-Version, Caching: Redis ~10min TTL, GET /players/list, POST /events/total_by_company_players, POST /traffic_origin/stats, extractCampaignId() function, facebook.rows (FB metrics) (+12 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.12
@@ -137,123 +142,123 @@ Nodes (3): handleSync(), handleSyncStatus(), runStreamedSync()
 
 ### Community 8 - "Community 8"
 Cohesion: 0.36
-Nodes (10): buildVturbCampaignMap(), fetchVturbActivePlayerIds(), fetchVturbPlayerCampaignStats(), fetchVturbPlayerDaily(), fetchVturbPlayers(), fetchVturbPlayerUtmDaily(), headers(), normalizeCampaignName() (+2 more)
+Nodes (10): discoverBmCandidates(), ensureCatalogsTable(), fetchAllPages(), fetchAllPagesWithError(), fetchAndSyncMetaCatalogs(), fetchBmCatalogsDetailed(), fetchGraphWithRetry(), getCatalogsFromDB() (+2 more)
 
 ### Community 9 - "Community 9"
+Cohesion: 0.36
+Nodes (10): buildVturbCampaignMap(), fetchVturbActivePlayerIds(), fetchVturbPlayerCampaignStats(), fetchVturbPlayerDaily(), fetchVturbPlayers(), fetchVturbPlayerUtmDaily(), headers(), normalizeCampaignName() (+2 more)
+
+### Community 10 - "Community 10"
 Cohesion: 0.18
 Nodes (11): Context Navigation Policy, Knowledge Graph First Rule, Next.js Agent Rules (Breaking Changes), node_modules/next/dist/docs/, graphify-out/wiki/index.md, CLAUDE.md (include AGENTS.md), app/page.tsx Entry Point, Development Server (npm run dev) (+3 more)
 
-### Community 10 - "Community 10"
+### Community 11 - "Community 11"
 Cohesion: 0.22
 Nodes (2): countActiveSets(), isActive()
 
-### Community 11 - "Community 11"
+### Community 12 - "Community 12"
 Cohesion: 0.36
 Nodes (9): createUser(), deleteUser(), isValidEmail(), isValidPageKey(), requireAdmin(), requireSuperAdmin(), setUserPageAccess(), togglePageAccess() (+1 more)
 
-### Community 12 - "Community 12"
+### Community 13 - "Community 13"
 Cohesion: 0.22
 Nodes (0): 
 
-### Community 13 - "Community 13"
+### Community 14 - "Community 14"
 Cohesion: 0.28
 Nodes (3): append(), buildPayload(), handleSync()
 
-### Community 14 - "Community 14"
+### Community 15 - "Community 15"
 Cohesion: 0.29
 Nodes (2): append(), handleSync()
 
-### Community 15 - "Community 15"
+### Community 16 - "Community 16"
+Cohesion: 0.5
+Nodes (7): fetchAdsVolumePaged(), fetchAllPages(), fetchAndSyncMetaPages(), fetchGraphWithRetry(), fetchPagesWithAdLimits(), listAllBMs(), sleep()
+
+### Community 17 - "Community 17"
 Cohesion: 0.52
 Nodes (5): analyzeAccounts(), analyzeRecovery(), buildSuggestions(), extractFamily(), formatBRL()
 
-### Community 16 - "Community 16"
-Cohesion: 0.29
-Nodes (0): 
-
-### Community 17 - "Community 17"
-Cohesion: 0.29
-Nodes (0): 
-
 ### Community 18 - "Community 18"
+Cohesion: 0.29
+Nodes (0): 
+
+### Community 19 - "Community 19"
+Cohesion: 0.29
+Nodes (0): 
+
+### Community 20 - "Community 20"
 Cohesion: 0.53
 Nodes (4): getMetaProfiles(), getRedtrackApiKey(), getVturbApiToken(), loadSettings()
 
-### Community 19 - "Community 19"
+### Community 21 - "Community 21"
 Cohesion: 0.53
 Nodes (3): fetchAllPages(), fetchAndSyncMetaAccounts(), fetchBmAdAccounts()
 
-### Community 20 - "Community 20"
+### Community 22 - "Community 22"
 Cohesion: 0.6
 Nodes (5): ensureSchema(), fetchAwesomeApiDaily(), fetchBcbPtax(), getUsdToBrl(), upsertRates()
 
-### Community 21 - "Community 21"
-Cohesion: 0.4
-Nodes (0): 
-
-### Community 22 - "Community 22"
-Cohesion: 0.4
-Nodes (0): 
-
 ### Community 23 - "Community 23"
-Cohesion: 0.5
-Nodes (2): canAccessPage(), firstAllowedPath()
+Cohesion: 0.4
+Nodes (0): 
 
 ### Community 24 - "Community 24"
-Cohesion: 0.83
-Nodes (3): ensureSettingsTable(), getStoredTokens(), saveApiTokens()
+Cohesion: 0.4
+Nodes (0): 
 
 ### Community 25 - "Community 25"
-Cohesion: 0.83
-Nodes (3): fetchMetaMetrics(), fetchMetaMetricsPerDay(), resolveMetaToken()
+Cohesion: 0.6
+Nodes (3): ensureTable(), OfertasPage(), PaginasPage()
 
 ### Community 26 - "Community 26"
 Cohesion: 0.5
-Nodes (0): 
+Nodes (2): handleSync(), runStreamedSync()
 
 ### Community 27 - "Community 27"
-Cohesion: 1.0
-Nodes (2): loadAccountAuth(), resolveAuth()
-
-### Community 28 - "Community 28"
-Cohesion: 0.67
+Cohesion: 0.4
 Nodes (0): 
 
+### Community 28 - "Community 28"
+Cohesion: 0.5
+Nodes (2): canAccessPage(), firstAllowedPath()
+
 ### Community 29 - "Community 29"
-Cohesion: 1.0
-Nodes (2): ensureTable(), OfertasPage()
+Cohesion: 0.83
+Nodes (3): ensureSettingsTable(), getStoredTokens(), saveApiTokens()
 
 ### Community 30 - "Community 30"
-Cohesion: 1.0
-Nodes (2): ensureBlacklistSchema(), SettingsPage()
+Cohesion: 0.83
+Nodes (3): fetchMetaMetrics(), fetchMetaMetricsPerDay(), resolveMetaToken()
 
 ### Community 31 - "Community 31"
-Cohesion: 0.67
+Cohesion: 0.5
 Nodes (0): 
 
 ### Community 32 - "Community 32"
 Cohesion: 1.0
-Nodes (2): ensureColumns(), StatusContasPage()
+Nodes (2): loadAccountAuth(), resolveAuth()
 
 ### Community 33 - "Community 33"
-Cohesion: 1.0
-Nodes (2): handleStaleServerAction(), isStaleServerActionError()
+Cohesion: 0.67
+Nodes (0): 
 
 ### Community 34 - "Community 34"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (2): ensureBlacklistSchema(), SettingsPage()
 
 ### Community 35 - "Community 35"
-Cohesion: 1.0
+Cohesion: 0.67
 Nodes (0): 
 
 ### Community 36 - "Community 36"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (2): ensureColumns(), StatusContasPage()
 
 ### Community 37 - "Community 37"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (2): handleStaleServerAction(), isStaleServerActionError()
 
 ### Community 38 - "Community 38"
 Cohesion: 1.0
@@ -347,78 +352,100 @@ Nodes (0):
 Cohesion: 1.0
 Nodes (0): 
 
+### Community 61 - "Community 61"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 62 - "Community 62"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 63 - "Community 63"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 64 - "Community 64"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 65 - "Community 65"
+Cohesion: 1.0
+Nodes (0): 
+
 ## Knowledge Gaps
 - **16 isolated node(s):** `node_modules/next/dist/docs/`, `Knowledge Graph First Rule`, `graphify-out/wiki/index.md`, `app/page.tsx Entry Point`, `next/font + Geist` (+11 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 34`** (2 nodes): `test_rt_pag.js`, `run()`
+- **Thin community `Community 38`** (2 nodes): `test_rt_pag.js`, `run()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 35`** (2 nodes): `HomeSignOut.tsx`, `HomeSignOut()`
+- **Thin community `Community 39`** (2 nodes): `HomeSignOut.tsx`, `HomeSignOut()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 36`** (2 nodes): `layout.tsx`, `RootLayout()`
+- **Thin community `Community 40`** (2 nodes): `layout.tsx`, `RootLayout()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 37`** (2 nodes): `page.tsx`, `AnalisePage()`
+- **Thin community `Community 41`** (2 nodes): `page.tsx`, `AnalisePage()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 38`** (2 nodes): `page.tsx`, `ApiConfigPage()`
+- **Thin community `Community 42`** (2 nodes): `page.tsx`, `ApiConfigPage()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 39`** (2 nodes): `page.tsx`, `CampaignsPage()`
+- **Thin community `Community 43`** (2 nodes): `page.tsx`, `CampaignsPage()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 40`** (2 nodes): `SessionProvider.tsx`, `SessionProvider()`
+- **Thin community `Community 44`** (2 nodes): `page.tsx`, `CatalogoPage()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 41`** (2 nodes): `page.tsx`, `DataStudioPage()`
+- **Thin community `Community 45`** (2 nodes): `SessionProvider.tsx`, `SessionProvider()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 42`** (2 nodes): `page.tsx`, `ImportPage()`
+- **Thin community `Community 46`** (2 nodes): `page.tsx`, `DataStudioPage()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 43`** (2 nodes): `page.tsx`, `ImportV2Page()`
+- **Thin community `Community 47`** (2 nodes): `page.tsx`, `ImportPage()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 44`** (2 nodes): `page.tsx`, `UsersPage()`
+- **Thin community `Community 48`** (2 nodes): `page.tsx`, `ImportV2Page()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 45`** (2 nodes): `UsersClient.tsx`, `run()`
+- **Thin community `Community 49`** (2 nodes): `page.tsx`, `UsersPage()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 46`** (2 nodes): `loadUserAccess()`, `access-server.ts`
+- **Thin community `Community 50`** (2 nodes): `UsersClient.tsx`, `run()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 47`** (2 nodes): `redtrack-campaigns.ts`, `fetchAndSyncRedTrackCampaigns()`
+- **Thin community `Community 51`** (2 nodes): `loadUserAccess()`, `access-server.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 48`** (1 nodes): `auth.ts`
+- **Thin community `Community 52`** (2 nodes): `redtrack-campaigns.ts`, `fetchAndSyncRedTrackCampaigns()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 49`** (1 nodes): `next-env.d.ts`
+- **Thin community `Community 53`** (1 nodes): `auth.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 50`** (1 nodes): `next.config.ts`
+- **Thin community `Community 54`** (1 nodes): `next-env.d.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 51`** (1 nodes): `proxy.ts`
+- **Thin community `Community 55`** (1 nodes): `next.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 52`** (1 nodes): `page.tsx`
+- **Thin community `Community 56`** (1 nodes): `proxy.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 53`** (1 nodes): `route.ts`
+- **Thin community `Community 57`** (1 nodes): `page.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 54`** (1 nodes): `DopScaleLayout.tsx`
+- **Thin community `Community 58`** (1 nodes): `route.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 55`** (1 nodes): `V2MediaLabLayout.tsx`
+- **Thin community `Community 59`** (1 nodes): `DopScaleLayout.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 56`** (1 nodes): `page.tsx`
+- **Thin community `Community 60`** (1 nodes): `V2MediaLabLayout.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 57`** (1 nodes): `db.ts`
+- **Thin community `Community 61`** (1 nodes): `page.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 58`** (1 nodes): `supabase.ts`
+- **Thin community `Community 62`** (1 nodes): `db.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 59`** (1 nodes): `types.ts`
+- **Thin community `Community 63`** (1 nodes): `supabase.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 60`** (1 nodes): `next-auth.d.ts`
+- **Thin community `Community 64`** (1 nodes): `types.ts`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 65`** (1 nodes): `next-auth.d.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vturbMap (aggregation by campaign_id)` connect `Community 6` to `Community 3`?**
-  _High betweenness centrality (0.009) - this node is a cross-community bridge._
+- **Why does `vturbMap (aggregation by campaign_id)` connect `Community 6` to `Community 4`?**
+  _High betweenness centrality (0.007) - this node is a cross-community bridge._
 - **What connects `node_modules/next/dist/docs/`, `Knowledge Graph First Rule`, `graphify-out/wiki/index.md` to the rest of the system?**
   _16 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.08 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07 - nodes in this community are weakly interconnected._
+- **Should `Community 1` be split into smaller, more focused modules?**
+  _Cohesion score 0.14 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.11 - nodes in this community are weakly interconnected._
 - **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.12 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11 - nodes in this community are weakly interconnected._
 - **Should `Community 4` be split into smaller, more focused modules?**
-  _Cohesion score 0.13 - nodes in this community are weakly interconnected._
-- **Should `Community 5` be split into smaller, more focused modules?**
   _Cohesion score 0.12 - nodes in this community are weakly interconnected._
