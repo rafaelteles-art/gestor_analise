@@ -15,6 +15,12 @@ async function ensureColumns() {
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS gestor TEXT[]`,
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS oferta TEXT[]`,
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS timezone VARCHAR(100)`,
+    `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS is_blacklisted BOOLEAN DEFAULT false`,
+    `CREATE TABLE IF NOT EXISTS meta_bm_blacklist (
+       bm_id VARCHAR(64) PRIMARY KEY,
+       bm_name VARCHAR(255),
+       created_at TIMESTAMP DEFAULT NOW()
+     )`,
   ];
   for (const q of alterQueries) {
     await pool.query(q);
@@ -61,6 +67,8 @@ export default async function StatusContasPage() {
           COALESCE(account_status, 'ACTIVE') AS account_status,
           timezone
         FROM meta_ad_accounts
+        WHERE COALESCE(is_blacklisted, false) = false
+          AND bm_id NOT IN (SELECT bm_id FROM meta_bm_blacklist)
         ORDER BY bm_name ASC, account_name ASC
       `),
       pool.query(`

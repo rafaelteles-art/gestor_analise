@@ -15,11 +15,13 @@ export const PAGES: PageDef[] = [
   { key: 'import',        label: 'Dashboard',           path: '/import' },
   { key: 'importv2',      label: 'Dashboard V2',        path: '/importv2' },
   { key: 'status-contas', label: 'Status de Contas',    path: '/status-contas' },
+  { key: 'paginas',       label: 'Páginas',             path: '/paginas' },
   { key: 'analise',       label: 'Análise',             path: '/analise' },
   { key: 'ofertas',       label: 'Ofertas',             path: '/ofertas' },
+  { key: 'catalogo',      label: 'Catálogo Facebook',   path: '/catalogo' },
   { key: 'campaigns',     label: 'Criar campanha',      path: '/campaigns' },
-  { key: 'settings',      label: 'Contas de anúncios',  path: '/settings' },
-  { key: 'api-config',    label: 'Configurações',       path: '/api-config' },
+  { key: 'settings',      label: 'Configurações',       path: '/settings' },
+  { key: 'api-config',    label: 'Tokens',              path: '/api-config' },
   { key: 'data-studio',   label: 'Data Studio',         path: '/data-studio' },
 ];
 
