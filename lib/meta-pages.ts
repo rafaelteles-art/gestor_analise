@@ -6,6 +6,7 @@ const API_VERSION = 'v19.0';
 interface RawPage {
   id: string;
   name?: string;
+  instagram_business_account?: { id?: string };
 }
 
 interface RawAdAccount {
@@ -31,6 +32,7 @@ export interface PageWithAdLimit {
   page_name: string;
   ad_limit: number | null;   // null quando a Graph API não retorna limite
   ads_running: number;
+  ig_account_id: string | null;
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -187,27 +189,37 @@ export async function fetchPagesWithAdLimits(
 
   // 2) Páginas — união de me/accounts (token pessoal) + BM owned/client_pages.
   //    Para System User, me/accounts retorna erro/vazio mas o walk de BM cobre.
-  const pagesMap = new Map<string, string>();
+  //    Captura também instagram_business_account.id pra Instagram ads no /campaigns.
+  const pagesMap = new Map<string, { name: string; ig: string | null }>();
+  const PAGE_FIELDS = 'id,name,instagram_business_account{id}';
+
+  const addPage = (p: RawPage) => {
+    if (!p.id) return;
+    const igId = p.instagram_business_account?.id ?? null;
+    const existing = pagesMap.get(p.id);
+    if (!existing) {
+      pagesMap.set(p.id, { name: p.name ?? p.id, ig: igId });
+    } else {
+      if (!existing.name && p.name) existing.name = p.name;
+      if (!existing.ig && igId) existing.ig = igId;
+    }
+  };
 
   const personalPages = await fetchAllPages<RawPage>(
-    `https://graph.facebook.com/${API_VERSION}/me/accounts?fields=id,name&limit=200&access_token=${token}`
+    `https://graph.facebook.com/${API_VERSION}/me/accounts?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`
   );
-  for (const p of personalPages) {
-    if (p.id) pagesMap.set(p.id, p.name ?? p.id);
-  }
+  for (const p of personalPages) addPage(p);
 
   for (const bm of bms) {
     const [owned, client] = await Promise.all([
       fetchAllPages<RawPage>(
-        `https://graph.facebook.com/${API_VERSION}/${bm.id}/owned_pages?fields=id,name&limit=200&access_token=${token}`
+        `https://graph.facebook.com/${API_VERSION}/${bm.id}/owned_pages?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`
       ),
       fetchAllPages<RawPage>(
-        `https://graph.facebook.com/${API_VERSION}/${bm.id}/client_pages?fields=id,name&limit=200&access_token=${token}`
+        `https://graph.facebook.com/${API_VERSION}/${bm.id}/client_pages?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`
       ),
     ]);
-    for (const p of [...owned, ...client]) {
-      if (p.id && !pagesMap.has(p.id)) pagesMap.set(p.id, p.name ?? p.id);
-    }
+    for (const p of [...owned, ...client]) addPage(p);
   }
 
   // 3) Ad accounts — união de me/adaccounts + BM owned/client_ad_accounts
@@ -279,7 +291,7 @@ export async function fetchPagesWithAdLimits(
       // Se a página aparece em ads_volume mas não estava no walk de BM
       // (ex.: page emprestada de outro BM), registra com actor_name.
       if (!pagesMap.has(actorId) && row.actor_name) {
-        pagesMap.set(actorId, row.actor_name);
+        pagesMap.set(actorId, { name: row.actor_name, ig: null });
       }
 
       const running = row.ads_running_or_in_review_count;
@@ -301,11 +313,12 @@ export async function fetchPagesWithAdLimits(
   }
 
   // 5) Resultado final, uma entrada por página descoberta
-  return Array.from(pagesMap.entries()).map(([page_id, page_name]) => ({
+  return Array.from(pagesMap.entries()).map(([page_id, info]) => ({
     page_id,
-    page_name,
+    page_name: info.name,
     ad_limit: pageLimits.get(page_id) ?? null,
     ads_running: pageRunning.get(page_id) ?? 0,
+    ig_account_id: info.ig,
   }));
 }
 
@@ -333,9 +346,12 @@ export async function fetchAndSyncMetaPages(onProgress?: (message: string) => vo
       ad_limit             INTEGER,
       ads_running          INTEGER NOT NULL DEFAULT 0,
       accessible_profiles  TEXT[]  NOT NULL DEFAULT '{}',
+      ig_account_id        TEXT,
       updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  // Migra schema antigo que não tinha a coluna ig_account_id.
+  await pool.query(`ALTER TABLE meta_pages ADD COLUMN IF NOT EXISTS ig_account_id TEXT`);
 
   // Acumula por page_id ao longo de todos os perfis
   type Acc = {
@@ -344,6 +360,7 @@ export async function fetchAndSyncMetaPages(onProgress?: (message: string) => vo
     ad_limit: number | null;
     ads_running: number;
     accessible_profiles: Set<string>;
+    ig_account_id: string | null;
   };
   const accByPage = new Map<string, Acc>();
 
@@ -373,6 +390,7 @@ export async function fetchAndSyncMetaPages(onProgress?: (message: string) => vo
           ad_limit: p.ad_limit,
           ads_running: p.ads_running,
           accessible_profiles: new Set([profile.name]),
+          ig_account_id: p.ig_account_id,
         });
       } else {
         existing.accessible_profiles.add(profile.name);
@@ -383,6 +401,8 @@ export async function fetchAndSyncMetaPages(onProgress?: (message: string) => vo
           existing.ad_limit = p.ad_limit;
         }
         if (p.ads_running > existing.ads_running) existing.ads_running = p.ads_running;
+        // Preserva IG quando qualquer perfil enxergar
+        if (!existing.ig_account_id && p.ig_account_id) existing.ig_account_id = p.ig_account_id;
       }
     }
   }
@@ -396,13 +416,14 @@ export async function fetchAndSyncMetaPages(onProgress?: (message: string) => vo
       await client.query('BEGIN');
       for (const r of rows) {
         await client.query(
-          `INSERT INTO meta_pages (page_id, page_name, ad_limit, ads_running, accessible_profiles, updated_at)
-           VALUES ($1, $2, $3, $4, $5, now())
+          `INSERT INTO meta_pages (page_id, page_name, ad_limit, ads_running, accessible_profiles, ig_account_id, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, now())
            ON CONFLICT (page_id) DO UPDATE SET
              page_name           = EXCLUDED.page_name,
              ad_limit            = EXCLUDED.ad_limit,
              ads_running         = EXCLUDED.ads_running,
              accessible_profiles = EXCLUDED.accessible_profiles,
+             ig_account_id       = COALESCE(EXCLUDED.ig_account_id, meta_pages.ig_account_id),
              updated_at          = now()`,
           [
             r.page_id,
@@ -410,6 +431,7 @@ export async function fetchAndSyncMetaPages(onProgress?: (message: string) => vo
             r.ad_limit,
             r.ads_running,
             Array.from(r.accessible_profiles),
+            r.ig_account_id,
           ]
         );
       }

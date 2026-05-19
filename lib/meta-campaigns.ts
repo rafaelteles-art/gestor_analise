@@ -730,7 +730,8 @@ export async function createAdSet(
   const params: Record<string, unknown> = {
     name: spec.name,
     campaign_id,
-    status: spec.status,
+    // Conjuntos sempre nascem ACTIVE — a pausa fica só na campanha (controle do usuário).
+    status: 'ACTIVE',
     optimization_goal: spec.optimization_goal,
     billing_event: spec.billing_event,
     bid_strategy: spec.bid_strategy ?? 'LOWEST_COST_WITHOUT_CAP',
@@ -1093,7 +1094,8 @@ export async function createCampaignBatch(
 
             onEvent({ type: 'creative_created', index: adGlobalIdx, id: crCreated.id });
 
-            const ad = await createAd(account_id, access_token, adset.id, adName, crCreated.id, campSpec.status);
+            // Ads sempre ACTIVE — herdam o estado da campanha; pausar a campanha pausa todos.
+            const ad = await createAd(account_id, access_token, adset.id, adName, crCreated.id, 'ACTIVE');
             ad_ids.push(ad.id);
             onEvent({ type: 'ad_created', index: adGlobalIdx, id: ad.id });
           }
@@ -1152,7 +1154,8 @@ export async function createFullCampaign(
       const cr = await createAdCreative(account_id, access_token, a.creative);
       onEvent({ type: 'creative_created', index: i + 1, id: cr.id });
 
-      const ad = await createAd(account_id, access_token, adsetId, a.name, cr.id, campaign.status);
+      // Ads sempre ACTIVE — herdam o estado da campanha; pausar a campanha pausa todos.
+      const ad = await createAd(account_id, access_token, adsetId, a.name, cr.id, 'ACTIVE');
       adIds.push(ad.id);
       onEvent({ type: 'ad_created', index: i + 1, id: ad.id });
     }

@@ -279,29 +279,62 @@ function Toggle({
   checked, onChange, disabled, label, hint,
 }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; label?: string; hint?: string }) {
   return (
-    <label className={cls('flex items-center gap-3 select-none', disabled && 'opacity-50')}>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cls(
+        'group flex items-center gap-3 select-none outline-none',
+        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 rounded-full',
+        disabled && 'opacity-50 cursor-not-allowed'
+      )}
+    >
       <span
-        role="switch"
-        aria-checked={checked}
-        onClick={() => !disabled && onChange(!checked)}
         className={cls(
-          'relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer',
-          checked ? 'bg-indigo-600' : 'bg-gray-300',
-          disabled && 'cursor-not-allowed'
+          'relative inline-flex h-7 w-16 items-center rounded-full border transition-all duration-300 ease-out',
+          'shadow-inner overflow-hidden',
+          checked
+            ? 'bg-gradient-to-r from-emerald-400 to-emerald-600 border-emerald-700/30 shadow-emerald-900/20'
+            : 'bg-gradient-to-r from-slate-200 to-slate-300 border-slate-400/40',
+          !disabled && 'group-hover:brightness-110 group-active:scale-[0.96]'
         )}
       >
-        <span className={cls(
-          'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
-          checked ? 'translate-x-4' : 'translate-x-0.5'
-        )} />
+        {/* texto ON */}
+        <span
+          className={cls(
+            'absolute left-2 text-[9px] font-bold tracking-wider transition-opacity duration-200',
+            checked ? 'opacity-100 text-white' : 'opacity-0'
+          )}
+        >
+          ON
+        </span>
+        {/* texto OFF */}
+        <span
+          className={cls(
+            'absolute right-2 text-[9px] font-bold tracking-wider transition-opacity duration-200',
+            !checked ? 'opacity-100 text-slate-500' : 'opacity-0'
+          )}
+        >
+          OFF
+        </span>
+        {/* bolinha */}
+        <span
+          className={cls(
+            'absolute top-0.5 inline-block h-6 w-6 rounded-full bg-white shadow-lg ring-1 ring-black/10',
+            'transition-all duration-300 ease-out',
+            checked ? 'left-[34px]' : 'left-0.5'
+          )}
+        />
       </span>
       {(label || hint) && (
-        <span className="flex flex-col">
+        <span className="flex flex-col text-left">
           {label && <span className="text-[11px] font-semibold text-gray-700">{label}</span>}
           {hint && <span className="text-[10px] text-gray-400">{hint}</span>}
         </span>
       )}
-    </label>
+    </button>
   );
 }
 
@@ -1473,13 +1506,46 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           </div>
         </SubBlock>
 
-        {/* PAUSADA */}
-        <div className="rounded-lg border border-amber-200 bg-amber-50/40 px-4 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-[12px] font-semibold text-amber-800">Pausada</p>
-            <p className="text-[11px] text-amber-700">Suas campanhas serão publicadas pausadas. Você precisará ativá-las manualmente depois.</p>
+        {/* STATUS DA CAMPANHA */}
+        <div
+          className={cls(
+            'relative rounded-xl border-2 px-5 py-4 flex items-center justify-between gap-4 transition-all duration-300',
+            'shadow-sm hover:shadow-md',
+            publishPaused
+              ? 'border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100/60'
+              : 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100/40'
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={cls(
+                'flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-300',
+                publishPaused ? 'bg-slate-200 text-slate-600' : 'bg-emerald-200 text-emerald-700'
+              )}
+            >
+              {publishPaused ? (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </div>
+            <div>
+              <p className={cls('text-[13px] font-bold leading-tight', publishPaused ? 'text-slate-800' : 'text-emerald-800')}>
+                {publishPaused ? 'Publicar pausada' : 'Publicar ativa'}
+              </p>
+              <p className={cls('text-[11px] mt-0.5 leading-snug max-w-md', publishPaused ? 'text-slate-600' : 'text-emerald-700')}>
+                {publishPaused
+                  ? 'A campanha sobe em PAUSED para revisão. Conjuntos e anúncios já ficam ATIVOS — basta ligar a campanha depois.'
+                  : 'A campanha entra em leilão imediatamente. Conjuntos e anúncios também ATIVOS.'}
+              </p>
+            </div>
           </div>
-          <Toggle checked={publishPaused} onChange={setPublishPaused} />
+          <Toggle checked={!publishPaused} onChange={(v) => setPublishPaused(!v)} />
         </div>
       </MainSection>
 
@@ -1921,7 +1987,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       </MainSection>
 
       {/* ───────── 4. Publicar ───────── */}
-      <MainSection title="Publicar" subtitle={publishPaused ? 'Publica em PAUSED para você revisar no Ads Manager.' : 'Publica ativo — vai entrar em leilão imediatamente.'}>
+      <MainSection title="Publicar" subtitle={publishPaused ? 'Campanha sobe PAUSED (conjuntos e ads ATIVOS) — revise no Ads Manager.' : 'Campanha ATIVA — vai entrar em leilão imediatamente.'}>
         {errors.length > 0 && (
           <div className="bg-rose-50 border border-rose-200 rounded-lg p-3">
             <p className="text-xs font-bold text-rose-700 mb-1">Corrija antes de publicar:</p>
