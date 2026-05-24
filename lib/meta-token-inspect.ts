@@ -13,17 +13,21 @@ import { META_API_VERSION } from './meta-campaigns';
 
 const GRAPH = `https://graph.facebook.com/${META_API_VERSION}`;
 
-// Permissões necessárias para PUBLICAR campanhas de conversão de website
+// Permissões necessárias para PUBLICAR campanhas de conversão de website.
+// pages_show_list + pages_read_engagement já bastam pra usar a Page como actor
+// em ad creatives (ads_management cobre a criação do anúncio em si).
 export const REQUIRED_SCOPES_PUBLISH = [
   'ads_management',
   'pages_show_list',
-  'pages_manage_ads',
   'pages_read_engagement',
   'business_management',
 ] as const;
 
-// Permissões opcionais (úteis mas não bloqueiam)
+// Permissões opcionais (úteis mas não bloqueiam).
+// pages_manage_ads só é necessário pra criar Page Posts orgânicos via API —
+// não é exigido pra usar Page ID como actor em campanhas.
 export const OPTIONAL_SCOPES = [
+  'pages_manage_ads',
   'instagram_basic',
   'instagram_content_publish',
   'ads_read',

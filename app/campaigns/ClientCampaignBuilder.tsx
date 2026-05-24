@@ -19,13 +19,19 @@ interface Account {
 }
 
 interface Pixel { id: string; name: string; last_fired_time?: string }
-interface Page { id: string; name: string; instagram_business_account?: { id: string } }
+interface Page {
+  id: string;
+  name: string;
+  instagram_business_account?: { id: string };
+  ad_limit?: number | null;
+  ads_running?: number;
+}
 interface Audience {
   id: string; name: string; subtype: string;
   approximate_count_lower_bound?: number;
   approximate_count_upper_bound?: number;
 }
-interface Catalog { id: string; name: string; product_count?: number; vertical?: string }
+interface Catalog { id: string; name: string; product_count?: number; vertical?: string; bm_id?: string; bm_name?: string }
 interface ProductSet { id: string; name: string; product_count?: number }
 
 interface CampaignPreset {
@@ -135,6 +141,8 @@ interface AdDraft {
   display_link: string;
   // carousel (sempre imagem por enquanto)
   child_attachments: ChildCard[];
+  // DPA: product set específico desse anúncio. Vazio = usa o set global (fallback).
+  product_set_id: string;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -219,6 +227,7 @@ function emptyAd(): AdDraft {
     cta_link: '',
     display_link: '',
     child_attachments: [],
+    product_set_id: '',
   };
 }
 
@@ -373,6 +382,130 @@ function OptionCard<T extends string>({
       </div>
       {desc && <p className="text-[10px] text-gray-500 leading-tight">{desc}</p>}
     </button>
+  );
+}
+
+/**
+ * Combobox simples com busca. Substitui <select> nativo quando a lista pode
+ * ter muitos itens (catálogos, product sets). Usa apenas estado local; o pai
+ * controla apenas `value` e `onChange` — igual a um <select>.
+ *
+ * `emptyOption` opcional: quando fornecido, aparece como primeira linha
+ * selecionável representando o valor "" (ex: "— todos os produtos —").
+ */
+function SearchableSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  emptyOption,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string; secondary?: string }[];
+  placeholder: string;
+  emptyOption?: { label: string };
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selected = options.find(o => o.value === value);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return options;
+    const q = query.toLowerCase();
+    return options.filter(o =>
+      o.label.toLowerCase().includes(q)
+      || o.value.toLowerCase().includes(q)
+      || (o.secondary?.toLowerCase().includes(q) ?? false)
+    );
+  }, [options, query]);
+
+  // Fecha quando clica fora
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const displayLabel = selected
+    ? selected.label
+    : (value === '' && emptyOption ? emptyOption.label : placeholder);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        className={cls(
+          inputBase,
+          'w-full text-left flex justify-between items-center gap-2',
+          disabled && 'cursor-not-allowed'
+        )}
+      >
+        <span className={cls('truncate', selected || (value === '' && emptyOption) ? 'text-gray-800' : 'text-gray-400')}>
+          {displayLabel}
+        </span>
+        <span className="text-gray-400 text-[10px] shrink-0">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && !disabled && (
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg flex flex-col overflow-hidden">
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Buscar…"
+            className="text-xs px-3 py-2 border-b border-gray-100 outline-none focus:border-indigo-300"
+          />
+          <div className="overflow-y-auto max-h-56">
+            {emptyOption && (
+              <button
+                type="button"
+                onClick={() => { onChange(''); setOpen(false); setQuery(''); }}
+                className={cls(
+                  'block w-full text-left px-3 py-1.5 text-xs italic text-gray-500 hover:bg-indigo-50 hover:text-indigo-700',
+                  value === '' && 'bg-indigo-50 text-indigo-700'
+                )}
+              >
+                {emptyOption.label}
+              </button>
+            )}
+            {filtered.length === 0 ? (
+              <p className="text-[11px] text-gray-400 px-3 py-2 italic">
+                {options.length === 0 ? 'Nenhuma opção disponível' : `Nenhum resultado para "${query}"`}
+              </p>
+            ) : (
+              filtered.map(o => (
+                <button
+                  type="button"
+                  key={o.value}
+                  onClick={() => { onChange(o.value); setOpen(false); setQuery(''); }}
+                  className={cls(
+                    'block w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 hover:text-indigo-700',
+                    o.value === value && 'bg-indigo-50 text-indigo-700 font-semibold'
+                  )}
+                >
+                  <span className="truncate">{o.label}</span>
+                  {o.secondary && (
+                    <span className="text-[10px] text-gray-400 ml-1">({o.secondary})</span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -619,6 +752,221 @@ function LookalikeBuilder({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Popup de Nomenclatura — gera o nome da campanha a partir de um template
+// com variáveis (conta, orçamento, estrutura, criativo, data).
+// ────────────────────────────────────────────────────────────────────────────
+
+const CAMPAIGN_NAME_TPL_KEY = 'campaignNameTemplate_v1';
+const DEFAULT_CAMPAIGN_NAME_TPL = '[{{conta}}] {{orcamento}} {{estrutura}} - {{criativo}} - {{data}}';
+
+interface NameVars {
+  conta: string;
+  orcamento: string;
+  estrutura: string;
+  criativo: string;
+  data: string;
+}
+
+function applyNameTemplate(tpl: string, vars: NameVars): string {
+  return tpl
+    .replace(/\{\{\s*conta\s*\}\}/gi,     vars.conta     || '—')
+    .replace(/\{\{\s*orcamento\s*\}\}/gi, vars.orcamento || '—')
+    .replace(/\{\{\s*estrutura\s*\}\}/gi, vars.estrutura || '—')
+    .replace(/\{\{\s*criativo\s*\}\}/gi,  vars.criativo  || '—')
+    .replace(/\{\{\s*data\s*\}\}/gi,      vars.data      || '—');
+}
+
+function CampaignNameModal({
+  open, onClose, onApply, vars,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onApply: (name: string) => void;
+  vars: NameVars;
+}) {
+  const [tpl, setTpl] = useState<string>(DEFAULT_CAMPAIGN_NAME_TPL);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Carrega template salvo só no client (evita mismatch de SSR)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CAMPAIGN_NAME_TPL_KEY);
+      if (saved) setTpl(saved);
+    } catch {}
+  }, []);
+
+  // ESC fecha o modal
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  const preview = useMemo(() => applyNameTemplate(tpl, vars), [tpl, vars]);
+
+  const insertToken = (token: string) => {
+    const el = inputRef.current;
+    if (!el) { setTpl(t => (t ? t + ' ' : '') + token); return; }
+    const start = el.selectionStart ?? tpl.length;
+    const end   = el.selectionEnd   ?? tpl.length;
+    const next = tpl.slice(0, start) + token + tpl.slice(end);
+    setTpl(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + token.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  if (!open) return null;
+
+  const chips: { token: string; label: string; sample: string; tone: string }[] = [
+    { token: '{{conta}}',     label: 'Conta',         sample: vars.conta,     tone: 'bg-cyan-50 border-cyan-300 text-cyan-800 hover:bg-cyan-100' },
+    { token: '{{orcamento}}', label: 'Orçamento',     sample: vars.orcamento, tone: 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100' },
+    { token: '{{estrutura}}', label: 'Estrutura',     sample: vars.estrutura, tone: 'bg-fuchsia-50 border-fuchsia-300 text-fuchsia-800 hover:bg-fuchsia-100' },
+    { token: '{{criativo}}',  label: 'Criativo',      sample: vars.criativo,  tone: 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100' },
+    { token: '{{data}}',      label: 'Data (DD/MM)',  sample: vars.data,      tone: 'bg-rose-50 border-rose-300 text-rose-800 hover:bg-rose-100' },
+  ];
+
+  const handleSave = () => { try { localStorage.setItem(CAMPAIGN_NAME_TPL_KEY, tpl); } catch {} };
+  // Aplica o TEMPLATE (com tokens {{…}}), não o preview substituído.
+  // A substituição final acontece na hora da criação — assim variáveis editáveis
+  // (conta, orçamento, estrutura, criativo, data) continuam refletindo o estado
+  // atual mesmo se o usuário ajustar campos depois de fechar o modal.
+  const handleUse  = () => { handleSave(); onApply(tpl); onClose(); };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <header className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-base">✨</span>
+            <h3 className="text-sm font-bold text-gray-800">Nomenclatura</h3>
+            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-indigo-100 text-indigo-700">Campanha</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700 text-2xl leading-none w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100"
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+        </header>
+
+        <div className="grid grid-cols-[220px_1fr]">
+          {/* Sidebar de variáveis */}
+          <aside className="border-r border-gray-200 bg-gray-50 px-3 py-4 flex flex-col gap-3">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Variáveis</p>
+            <div className="flex flex-col gap-2">
+              {chips.map(c => (
+                <button
+                  key={c.token}
+                  type="button"
+                  onClick={() => insertToken(c.token)}
+                  className={cls(
+                    'flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md border text-[11px] font-semibold transition',
+                    c.tone,
+                  )}
+                  title={`Inserir ${c.token}`}
+                >
+                  <span className="truncate">{c.label}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-white/80 border border-white/40 font-mono text-[9px] max-w-[80px] truncate">
+                    {c.sample || '—'}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1 leading-snug">
+              Clique para inserir a variável no template. Os valores ao lado são uma prévia do estado atual.
+            </p>
+          </aside>
+
+          {/* Editor + Preview */}
+          <div className="px-5 py-4 flex flex-col gap-4 min-w-0">
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Template</p>
+              <textarea
+                ref={inputRef}
+                value={tpl}
+                onChange={e => setTpl(e.target.value)}
+                rows={2}
+                className="w-full text-xs font-mono px-3 py-2 rounded-md border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-y"
+                placeholder="Ex.: [{{conta}}] {{orcamento}} - {{criativo}} - {{data}}"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">
+                Use chips ao lado ou digite manualmente. Variáveis disponíveis: <code>{'{{conta}}'}</code>, <code>{'{{orcamento}}'}</code>, <code>{'{{estrutura}}'}</code>, <code>{'{{criativo}}'}</code>, <code>{'{{data}}'}</code>.
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Pré-visualização</p>
+              <div className="rounded-md border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-[12px] font-mono text-indigo-900 break-all min-h-[36px]">
+                {preview || <span className="text-gray-400">—</span>}
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">{preview.length} caracteres</p>
+            </div>
+          </div>
+        </div>
+
+        <footer className="px-5 py-3 border-t border-gray-200 flex items-center justify-between gap-3 bg-gray-50">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setTpl(DEFAULT_CAMPAIGN_NAME_TPL)}
+              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100"
+            >
+              Padrão
+            </button>
+            <button
+              type="button"
+              onClick={() => setTpl('')}
+              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100"
+            >
+              Limpar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100"
+              title="Salvar template no navegador"
+            >
+              Salvar template
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleUse}
+              disabled={!preview.trim()}
+              className="px-4 py-1.5 text-xs font-semibold rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 shadow"
+            >
+              Usar template
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Componente principal
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -691,6 +1039,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [pages, setPages] = useState<Page[]>([]);
   const [audiences, setAudiences] = useState<{ custom: Audience[]; saved: Audience[] }>({ custom: [], saved: [] });
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
+  const [catalogBmFilter, setCatalogBmFilter] = useState<string>(''); // filtra dropdown de catálogos por BM
+  const [catalogSourceCounts, setCatalogSourceCounts] = useState<{ db: number; api: number; total: number } | null>(null);
   const [loadingDeps, setLoadingDeps] = useState(false);
   const [depsError, setDepsError] = useState<string | null>(null);
 
@@ -708,6 +1058,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       setPixels(p.pixels ?? []);
       setAudiences({ custom: au.custom ?? [], saved: au.saved ?? [] });
       setCatalogs(cat.catalogs ?? []);
+      setCatalogSourceCounts(cat.source_counts ?? null);
     }).catch(e => setDepsError(e?.message ?? String(e)))
       .finally(() => setLoadingDeps(false));
   }, [accountId, profileName]);
@@ -728,6 +1079,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
   // ── Campanha ──────────────────────────────────────────────────────────────
   const [campaignName, setCampaignName] = useState('Conversão Website — ' + new Date().toISOString().slice(0, 10));
+  const [showNameModal, setShowNameModal] = useState(false);
   const [specialCategory, setSpecialCategory] = useState<'NONE' | 'EMPLOYMENT' | 'HOUSING' | 'CREDIT' | 'FINANCIAL_PRODUCTS_SERVICES'>('NONE');
   const [campaignType, setCampaignType] = useState<CampaignType>('ABO');
   const [bidStrategy, setBidStrategy] = useState<BidStrategyUI>('LOWEST_COST_WITHOUT_CAP');
@@ -744,6 +1096,213 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [productSetId, setProductSetId] = useState('');
   const [productSets, setProductSets] = useState<ProductSet[]>([]);
   const [loadingProductSets, setLoadingProductSets] = useState(false);
+
+  // ── Criar catálogo novo (inline) ──────────────────────────────────────────
+  const [newCatalogName, setNewCatalogName] = useState('');
+  const [newCatalogBmId, setNewCatalogBmId] = useState('');
+  const [manualBmMode, setManualBmMode] = useState(false);
+  const [businesses, setBusinesses] = useState<{ id: string; name: string }[]>([]);
+  const [businessSourceCounts, setBusinessSourceCounts] = useState<{ api: number; db: number; total: number } | null>(null);
+  const [loadingBusinesses, setLoadingBusinesses] = useState(false);
+  const [businessesError, setBusinessesError] = useState<string | null>(null);
+  const [creatingCatalog, setCreatingCatalog] = useState(false);
+  const [createdCatalog, setCreatedCatalog] = useState<{ id: string; name: string } | null>(null);
+  const [createCatalogError, setCreateCatalogError] = useState<string | null>(null);
+
+  // Carrega BMs visíveis ao token sempre que o usuário entra no modo "novo
+  // catálogo" e ainda não tem a lista. Não pré-carrega no mount pra evitar
+  // hit no Graph API quando o usuário não vai usar catálogo.
+  const loadBusinesses = async () => {
+    if (!accountId) return;
+    setLoadingBusinesses(true);
+    setBusinessesError(null);
+    try {
+      const qs = `account_id=${encodeURIComponent(accountId)}${profileName ? `&profile_name=${encodeURIComponent(profileName)}` : ''}`;
+      const res = await fetch(`/api/campaigns/businesses?${qs}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? res.statusText);
+      const list = (data.businesses ?? []) as { id: string; name: string }[];
+      setBusinesses(list);
+      setBusinessSourceCounts(data.source_counts ?? null);
+      // Auto-seleciona o primeiro pra reduzir cliques
+      if (list.length > 0 && !newCatalogBmId) setNewCatalogBmId(list[0].id);
+    } catch (e: any) {
+      setBusinessesError(e?.message ?? String(e));
+      setBusinesses([]);
+    } finally {
+      setLoadingBusinesses(false);
+    }
+  };
+
+  // Limpa lista de BMs ao trocar de conta/perfil — token muda → BMs mudam
+  useEffect(() => {
+    setBusinesses([]);
+    setNewCatalogBmId('');
+    setBusinessesError(null);
+  }, [accountId, profileName]);
+
+  const handleCreateCatalog = async () => {
+    const name = newCatalogName.trim();
+    if (!name || !accountId) return;
+    setCreatingCatalog(true);
+    setCreateCatalogError(null);
+    try {
+      const res = await fetch('/api/campaigns/catalogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          account_id: accountId,
+          profile_name: profileName || undefined,
+          name,
+          bm_id: newCatalogBmId || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? res.statusText);
+      const cat = data.catalog as { id: string; name: string };
+      setCreatedCatalog(cat);
+      setCatalogs(prev => [...prev, { id: cat.id, name: cat.name, product_count: 0 }]);
+      setCatalogId(cat.id);
+      setProductSetId('');
+      setNewCatalogName('');
+    } catch (e: any) {
+      setCreateCatalogError(e?.message ?? String(e));
+    } finally {
+      setCreatingCatalog(false);
+    }
+  };
+
+  // ── Criar produto + conjunto (inline) ─────────────────────────────────────
+  const [productAdName, setProductAdName] = useState('');
+  const [productTitle, setProductTitle] = useState('');
+  const [productLink, setProductLink] = useState('');
+  const [productImageUrl, setProductImageUrl] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [creatingProduct, setCreatingProduct] = useState(false);
+  const [createdProduct, setCreatedProduct] = useState<{ product_id: string; product_set_id: string; retailer_id: string; product_name: string } | null>(null);
+  const [createProductError, setCreateProductError] = useState<string | null>(null);
+
+  type SavedProductPreset = {
+    id: number;
+    name: string;
+    config: {
+      description?: string;
+      link?: string;
+      image_url?: string;
+      price?: string;
+      currency?: string;
+      brand?: string;
+      availability?: string;
+      condition?: string;
+    };
+  };
+  const [productPresets, setProductPresets] = useState<SavedProductPreset[]>([]);
+  const [selectedProductPresetName, setSelectedProductPresetName] = useState('');
+  const [productPresetExtras, setProductPresetExtras] = useState<{
+    price?: string;
+    currency?: string;
+    brand?: string;
+    availability?: string;
+    condition?: string;
+  }>({});
+  const [loadingProductPresets, setLoadingProductPresets] = useState(false);
+
+  const fetchProductPresets = async () => {
+    setLoadingProductPresets(true);
+    try {
+      const res = await fetch('/api/catalogs/product-presets');
+      const data = await res.json();
+      setProductPresets(data.presets ?? []);
+    } catch {
+      setProductPresets([]);
+    } finally {
+      setLoadingProductPresets(false);
+    }
+  };
+
+  const applyProductPreset = (name: string) => {
+    setSelectedProductPresetName(name);
+    if (!name) {
+      setProductPresetExtras({});
+      return;
+    }
+    const p = productPresets.find(x => x.name === name);
+    if (!p) return;
+    if (typeof p.config.description === 'string') setProductDescription(p.config.description);
+    if (typeof p.config.link === 'string') setProductLink(p.config.link);
+    if (typeof p.config.image_url === 'string') setProductImageUrl(p.config.image_url);
+    setProductPresetExtras({
+      price: p.config.price,
+      currency: p.config.currency,
+      brand: p.config.brand,
+      availability: p.config.availability,
+      condition: p.config.condition,
+    });
+  };
+
+  const handleCreateProduct = async () => {
+    if (!accountId || !catalogId) return;
+    if (!productAdName.trim() || !productTitle.trim() || !productLink.trim() || !productImageUrl.trim()) return;
+    setCreatingProduct(true);
+    setCreateProductError(null);
+    try {
+      const res = await fetch('/api/campaigns/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          account_id: accountId,
+          profile_name: profileName || undefined,
+          catalog_id: catalogId,
+          ad_name: productAdName.trim(),
+          product_name: productTitle.trim(),
+          link: productLink.trim(),
+          image_url: productImageUrl.trim(),
+          description: productDescription.trim() || undefined,
+          price: productPresetExtras.price,
+          currency: productPresetExtras.currency,
+          brand: productPresetExtras.brand,
+          availability: productPresetExtras.availability,
+          condition: productPresetExtras.condition,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data?.error ?? res.statusText);
+      const info = {
+        product_id: data.product_id,
+        product_set_id: data.product_set_id,
+        retailer_id: data.retailer_id,
+        product_name: data.product_name,
+      };
+      setCreatedProduct(info);
+      setProductSets(prev => [...prev, { id: info.product_set_id, name: info.retailer_id, product_count: 1 }]);
+      setProductSetId(info.product_set_id);
+    } catch (e: any) {
+      setCreateProductError(e?.message ?? String(e));
+    } finally {
+      setCreatingProduct(false);
+    }
+  };
+
+  // Limpa estado de criação quando troca de conta/catálogo
+  useEffect(() => {
+    setCreatedProduct(null);
+    setCreateProductError(null);
+  }, [catalogId, accountId]);
+
+  // Carrega presets de produto quando há catálogo selecionado
+  useEffect(() => {
+    if (!catalogId) {
+      setProductPresets([]);
+      setSelectedProductPresetName('');
+      setProductPresetExtras({});
+      return;
+    }
+    fetchProductPresets();
+  }, [catalogId]);
+  useEffect(() => {
+    setCreatedCatalog(null);
+    setCreateCatalogError(null);
+  }, [accountId]);
 
   useEffect(() => {
     if (!catalogId) { setProductSets([]); return; }
@@ -804,6 +1363,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
   // ── Anúncios ──────────────────────────────────────────────────────────────
   const [pageIds, setPageIds] = useState<string[]>([]);
+  // Criativos designados a cada página (chave = page_id). Quando undefined,
+  // a página recebe distribuição automática round-robin (comportamento legado).
+  const [pageAllocations, setPageAllocations] = useState<Record<string, number>>({});
   const [autoRetryPage, setAutoRetryPage] = useState(true);
   const [adNameTpl, setAdNameTpl] = useState('');
 
@@ -949,6 +1511,17 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     });
   }, [pages]);
 
+  // Mantém pageAllocations enxuto: descarta entradas de páginas que saíram
+  // da seleção. Não cria entradas novas automaticamente — sem entrada = auto
+  // (round-robin clássico).
+  useEffect(() => {
+    setPageAllocations(prev => {
+      const next: Record<string, number> = {};
+      for (const id of pageIds) if (prev[id] !== undefined) next[id] = prev[id];
+      return next;
+    });
+  }, [pageIds]);
+
   useEffect(() => { if (!pixelId && pixels[0]) setPixelId(pixels[0].id); }, [pixels, pixelId]);
 
   // Anúncios (criativos drafted)
@@ -957,6 +1530,31 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     setAds(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a));
   const addAd = () => setAds(prev => [...prev, { ...emptyAd(), name: `Criativo ${prev.length + 1}` }]);
   const removeAd = (id: string) => setAds(prev => prev.length === 1 ? prev : prev.filter(a => a.id !== id));
+
+  // Quando o total de anúncios a publicar muda (mais/menos criativos ou
+  // mudança nos multiplicadores), garante que a soma das alocações manuais
+  // nunca exceda o teto. Estratégia: percorre pageIds em ordem e clampa o
+  // saldo restante em cada página.
+  useEffect(() => {
+    const totalAds = ads.length
+      * Math.max(1, campaignsPerCreative)
+      * Math.max(1, adsetsPerCampaign)
+      * Math.max(1, adsPerAdset);
+    setPageAllocations(prev => {
+      let remaining = totalAds;
+      let changed = false;
+      const next: Record<string, number> = {};
+      for (const id of pageIds) {
+        if (prev[id] === undefined) continue;
+        const original = prev[id];
+        const clamped = Math.max(0, Math.min(original, remaining));
+        if (clamped !== original) changed = true;
+        next[id] = clamped;
+        remaining -= clamped;
+      }
+      return changed ? next : prev;
+    });
+  }, [ads.length, campaignsPerCreative, adsetsPerCampaign, adsPerAdset, pageIds]);
 
   const uploadFor = async (file: File): Promise<UploadResult | null> => {
     const fd = new FormData();
@@ -997,8 +1595,27 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   if (!profileName) errors.push('Selecione um perfil Meta.');
   if (!accountId) errors.push('Selecione uma conta.');
   if (!campaignName.trim()) errors.push('Nome da campanha é obrigatório.');
-  if (!pixelId && !isDPA) errors.push('Selecione um pixel.');
-  if (isDPA && catalogConfigMode === 'existing' && !catalogId) errors.push('Selecione um catálogo.');
+  // Pixel é obrigatório quando otimização é por conversão (vale tanto para non-DPA quanto DPA
+  // com OFFSITE_CONVERSIONS — Meta precisa saber qual evento do pixel otimizar).
+  if (!pixelId) errors.push('Selecione um pixel.');
+  if (isDPA && !catalogId) {
+    errors.push(catalogConfigMode === 'new'
+      ? 'Crie o novo catálogo (botão "Criar agora").'
+      : 'Selecione um catálogo.');
+  }
+  if (isDPA && catalogId) {
+    // Cada criativo precisa resolver pra ALGUM product set — o próprio do ad
+    // ou o global como fallback. Sem isso a Meta não resolve {{product.url}}.
+    const adsWithoutPsid = ads
+      .map((a, i) => ({ idx: i + 1, ok: !!(a.product_set_id || productSetId) }))
+      .filter(x => !x.ok);
+    if (adsWithoutPsid.length > 0) {
+      errors.push(
+        `Conjunto de Produtos faltando em: ${adsWithoutPsid.map(x => `Criativo ${x.idx}`).join(', ')}. ` +
+        `Defina por criativo ou escolha um global como fallback.`
+      );
+    }
+  }
   if (pageIds.length === 0) errors.push('Selecione pelo menos uma Página do Facebook.');
   if (dailyBudget < 1) errors.push('Orçamento inválido.');
   if (!advantageAudience && (ageMin < 13 || ageMax > 65 || ageMin > ageMax)) errors.push('Faixa etária inválida (13–65).');
@@ -1056,6 +1673,20 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     const status = publishPaused ? 'PAUSED' : 'ACTIVE';
     const selectedPages = pages.filter(p => pageIds.includes(p.id));
 
+    // Substitui variáveis "estáticas" do nome da campanha agora (no submit) —
+    // {{conta}}, {{orcamento}}, {{estrutura}}, {{data}}. O token {{criativo}}
+    // permanece e é resolvido por criativo no orquestrador (meta-campaigns.ts).
+    const startDate = (() => {
+      const d = new Date(startTime);
+      if (isNaN(d.getTime())) return '';
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    })();
+    const resolvedCampaignName = campaignName
+      .replace(/\{\{\s*conta\s*\}\}/gi,     account?.account_name ?? '')
+      .replace(/\{\{\s*orcamento\s*\}\}/gi, campaignType)
+      .replace(/\{\{\s*estrutura\s*\}\}/gi, `${campaignsPerCreative}-${adsetsPerCampaign}-${adsPerAdset}`)
+      .replace(/\{\{\s*data\s*\}\}/gi,      startDate);
+
     // Targeting comum (compartilhado entre todos os conjuntos via template)
     const targeting: any = {
       geo_locations: { countries: [country] },
@@ -1092,17 +1723,23 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     const adsetBudgetCents = !isCBO ? cents : undefined;
     const campaignBudgetCents = isCBO ? cents : undefined;
 
+    // promoted_object do AD SET:
+    //  - DPA (catálogo na campanha): apenas product_set_id + pixel + evento — product_catalog_id
+    //    NÃO vai no adset porque herda do campaign. Mandar gera erro 1815229
+    //    ("product_catalog_id não aceito para WEBSITE_CONVERSIONS").
+    //  - Non-DPA: pixel + evento de conversão.
     const promotedObject: any = isDPA
       ? {
-          product_set_id: catalogLevel === 'ad' ? (productSetId || undefined) : undefined,
-          product_catalog_id: catalogLevel === 'ad' ? catalogId : undefined,
+          product_set_id: productSetId || undefined,
+          pixel_id: pixelId || undefined,
+          custom_event_type: pixelId ? (customEvent || 'PURCHASE') : undefined,
         }
       : { pixel_id: pixelId, custom_event_type: customEvent };
-    // Limpa undefined no DPA pra não enviar chave vazia
+    // Limpa undefined pra não enviar chave vazia
     Object.keys(promotedObject).forEach(k => promotedObject[k] === undefined && delete promotedObject[k]);
 
     const adset: any = {
-      name: setName.trim() || campaignName + ' — Conjunto',
+      name: setName.trim() || resolvedCampaignName + ' — Conjunto',
       optimization_goal: isDPA ? 'OFFSITE_CONVERSIONS' : optGoal,
       billing_event: optGoal === 'LINK_CLICKS' ? 'LINK_CLICKS' : 'IMPRESSIONS',
       bid_strategy: !isCBO ? bidStrategy : undefined,
@@ -1127,7 +1764,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     }
 
     const campaign: any = {
-      name: campaignName,
+      name: resolvedCampaignName,
       objective: isDPA ? 'OUTCOME_SALES' : 'OUTCOME_SALES',
       status,
       special_ad_categories: specialCategory === 'NONE' ? [] : [specialCategory],
@@ -1135,7 +1772,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       is_adset_budget_sharing_enabled: campaignType === 'ABO' && aboShare,
       [budgetKind === 'daily' ? 'daily_budget_cents' : 'lifetime_budget_cents']: campaignBudgetCents,
       bid_strategy: isCBO ? bidStrategy : undefined,
-      promoted_object: (isDPA && catalogLevel === 'campaign' && catalogId)
+      // Em DPA com OUTCOME_SALES (ODAX), product_catalog_id é OBRIGATÓRIO no campaign
+      // (independente do toggle catalogLevel) — sem isso a Meta trata como WEBSITE_CONVERSIONS
+      // normal e rejeita os campos de catálogo.
+      promoted_object: (isDPA && catalogId)
         ? { product_catalog_id: catalogId }
         : undefined,
     };
@@ -1150,12 +1790,15 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     const creatives = ads.map((a) => {
       const baseName = (adNameTpl && adNameTpl.trim()) || a.name;
       const firstPageId = selectedPages[0]?.id ?? '';
+      // Sem IG Business Account, o server resolve via Page-Backed Instagram Account
+      // (PBIA) na hora de criar o creative — não dá pra usar page_id direto aqui.
       const firstIgId = selectedPages[0]?.instagram_business_account?.id;
+      const resolvedPsid = a.product_set_id || productSetId || undefined;
       const creative: any = isDPA
         ? {
             name: baseName + ' — Creative',
             page_id: firstPageId,
-            instagram_actor_id: firstIgId,
+            instagram_user_id: firstIgId,
             type: 'dpa',
             message: a.message,
             headline: a.headline,
@@ -1163,13 +1806,13 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             template_link: a.link || '{{product.url}}',
             cta_type: a.cta_type,
             cta_link: a.cta_link || a.link || '{{product.url}}',
-            product_set_id: productSetId || undefined,
+            product_set_id: resolvedPsid,
           }
         : a.type === 'single'
         ? {
             name: baseName + ' — Creative',
             page_id: firstPageId,
-            instagram_actor_id: firstIgId,
+            instagram_user_id: firstIgId,
             type: 'single',
             link: a.link,
             message: a.message,
@@ -1184,7 +1827,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         : {
             name: baseName + ' — Creative',
             page_id: firstPageId,
-            instagram_actor_id: firstIgId,
+            instagram_user_id: firstIgId,
             type: 'carousel',
             message: a.message,
             multi_share_optimized: true,
@@ -1210,6 +1853,13 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         adsets_per_campaign: adsetsPerCampaign,
         ads_per_adset: adsPerAdset,
         page_ids: selectedPages.map(p => p.id),
+        // Alocação manual de criativos por página. Páginas ausentes aqui
+        // entram no rateio automático (round-robin) sobre o restante.
+        page_allocations: selectedPages.reduce<Record<string, number>>((acc, p) => {
+          const v = pageAllocations[p.id];
+          if (v !== undefined) acc[p.id] = v;
+          return acc;
+        }, {}),
         page_auto_retry: autoRetryPage,
         campaign,
         adset,
@@ -1355,7 +2005,24 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               </select>
             </Field>
             <Field label="Nome da Campanha *" hint={loadingDeps ? 'Carregando pixels/páginas/públicos/catálogos…' : depsError ?? undefined}>
-              <input className={inputBase} value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="Digite o nome da campanha…" maxLength={400} />
+              <div className="flex items-stretch gap-2">
+                <input
+                  className={cls(inputBase, 'flex-1 min-w-0')}
+                  value={campaignName}
+                  onChange={e => setCampaignName(e.target.value)}
+                  placeholder="Digite o nome da campanha…"
+                  maxLength={400}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNameModal(true)}
+                  className="shrink-0 px-3 py-2 text-[11px] font-semibold rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 inline-flex items-center gap-1"
+                  title="Gerar nome com variáveis"
+                >
+                  <span>✨</span>
+                  <span>Variáveis</span>
+                </button>
+              </div>
             </Field>
             <Field label="Categoria especial" hint="Habitação, emprego, crédito, etc. Use NONE se não se aplicar.">
               <select className={inputBase} value={specialCategory} onChange={e => setSpecialCategory(e.target.value as any)}>
@@ -1416,43 +2083,311 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               <div className="grid grid-cols-2 gap-3">
                 <OptionCard
                   value={'new' as const} selected={catalogConfigMode === 'new'}
-                  onClick={() => {/* em breve */}}
+                  onClick={(v) => {
+                    setCatalogConfigMode(v);
+                    setCatalogId('');
+                    setProductSetId('');
+                    if (businesses.length === 0 && !loadingBusinesses) loadBusinesses();
+                  }}
                   title="+ Configurar novo catálogo"
-                  desc="Configura um novo catálogo que será criado automaticamente"
-                  badge={<EmBreve />} disabled
+                  desc="Cria um catálogo novo no BM da conta selecionada"
                 />
                 <OptionCard
                   value={'existing' as const} selected={catalogConfigMode === 'existing'}
-                  onClick={setCatalogConfigMode}
+                  onClick={(v) => { setCatalogConfigMode(v); setCreatedCatalog(null); }}
                   title="Usar catálogo existente"
                   desc="Selecione um Business Manager e depois o catálogo"
                   badge={<span className="text-[9px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold">{catalogs.length} catálogo(s)</span>}
                 />
               </div>
-              {catalogConfigMode === 'existing' && (
-                <div className="grid grid-cols-2 gap-3 mt-2">
-                  <Field label="Catálogo">
-                    <select className={inputBase} value={catalogId} onChange={e => { setCatalogId(e.target.value); setProductSetId(''); }}>
-                      <option value="">— selecione —</option>
-                      {catalogs.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}{c.product_count !== undefined ? ` (${c.product_count})` : ''}</option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Conjunto de Produtos (opcional)">
-                    <select className={inputBase} value={productSetId} onChange={e => setProductSetId(e.target.value)} disabled={!catalogId || loadingProductSets}>
-                      <option value="">{loadingProductSets ? 'Carregando…' : '— todos os produtos —'}</option>
-                      {productSets.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}{s.product_count !== undefined ? ` (${s.product_count})` : ''}</option>
-                      ))}
-                    </select>
-                  </Field>
+
+              {catalogConfigMode === 'new' && !createdCatalog && (
+                <div className="border border-indigo-200 bg-indigo-50/40 rounded-lg p-3 mt-2 flex flex-col gap-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field
+                      label="Business Manager"
+                      hint={
+                        loadingBusinesses
+                          ? 'Carregando…'
+                          : businessSourceCounts
+                            ? `${businessSourceCounts.total} BM(s) · API: ${businessSourceCounts.api} · DB: ${businessSourceCounts.db}`
+                            : `${businesses.length} BM(s)`
+                      }
+                    >
+                      {manualBmMode ? (
+                        <div className="flex gap-2">
+                          <input
+                            className={inputBase + ' flex-1 font-mono'}
+                            value={newCatalogBmId}
+                            onChange={e => setNewCatalogBmId(e.target.value.trim())}
+                            placeholder="ID do BM (ex: 123456789012345)"
+                            disabled={creatingCatalog}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setManualBmMode(false)}
+                            disabled={creatingCatalog}
+                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+                          >
+                            Lista
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <select
+                            className={inputBase + ' flex-1'}
+                            value={newCatalogBmId}
+                            onChange={e => setNewCatalogBmId(e.target.value)}
+                            disabled={loadingBusinesses || creatingCatalog}
+                          >
+                            <option value="">
+                              {loadingBusinesses
+                                ? '— carregando… —'
+                                : businesses.length === 0
+                                  ? '— nenhum BM disponível —'
+                                  : '— selecione —'}
+                            </option>
+                            {businesses.map(b => (
+                              <option key={b.id} value={b.id}>{b.name} ({b.id})</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={loadBusinesses}
+                            disabled={loadingBusinesses || creatingCatalog || !accountId}
+                            title="Recarregar BMs"
+                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            <RefreshCw className={cls('h-3.5 w-3.5', loadingBusinesses && 'animate-spin')} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setManualBmMode(true); setNewCatalogBmId(''); }}
+                            disabled={creatingCatalog}
+                            title="Digitar bm_id manualmente"
+                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            ID
+                          </button>
+                        </div>
+                      )}
+                    </Field>
+                    <Field label="Nome do novo catálogo">
+                      <input
+                        className={inputBase}
+                        value={newCatalogName}
+                        onChange={e => setNewCatalogName(e.target.value)}
+                        placeholder="Ex: Catálogo Produto X"
+                        disabled={creatingCatalog}
+                      />
+                    </Field>
+                  </div>
+                  {!loadingBusinesses && businesses.length === 0 && !manualBmMode && (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                      Nenhum BM visível ao token deste perfil. Use o botão <strong>ID</strong> ao lado pra digitar o <code>bm_id</code> manualmente, ou sincronize as contas em <em>Status Contas</em> primeiro.
+                    </p>
+                  )}
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleCreateCatalog}
+                      disabled={!newCatalogName.trim() || !accountId || !newCatalogBmId || creatingCatalog}
+                      className="px-4 py-2 text-xs font-semibold rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {creatingCatalog ? 'Criando…' : 'Criar agora'}
+                    </button>
+                  </div>
+                  {businessesError && (
+                    <p className="text-[11px] text-rose-600">Erro ao listar BMs: {businessesError}</p>
+                  )}
+                  {createCatalogError && (
+                    <p className="text-[11px] text-rose-600">{createCatalogError}</p>
+                  )}
+                  <p className="text-[10px] text-gray-500">
+                    O catálogo será criado com vertical <code>commerce</code> no BM selecionado. Você precisa ser admin desse BM.
+                  </p>
                 </div>
               )}
+
+              {catalogConfigMode === 'new' && createdCatalog && (
+                <div className="border border-emerald-200 bg-emerald-50/60 rounded-lg p-3 mt-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-[12px] font-semibold text-emerald-800">Catálogo criado ✓</p>
+                    <p className="text-[11px] text-emerald-700">{createdCatalog.name} <span className="text-emerald-600/70">({createdCatalog.id})</span></p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setCreatedCatalog(null); setCatalogId(''); setProductSetId(''); }}
+                    className="text-[11px] text-emerald-700 hover:text-emerald-900 underline"
+                  >
+                    Criar outro
+                  </button>
+                </div>
+              )}
+
+              {catalogConfigMode === 'existing' && (() => {
+                // BMs únicos com contagem de catálogos — alimenta o filtro à esquerda
+                const bmGroups = new Map<string, { id: string; name: string; count: number }>();
+                for (const c of catalogs) {
+                  if (!c.bm_id) continue;
+                  const cur = bmGroups.get(c.bm_id);
+                  if (cur) cur.count++;
+                  else bmGroups.set(c.bm_id, { id: c.bm_id, name: c.bm_name || c.bm_id, count: 1 });
+                }
+                const bmOptions = Array.from(bmGroups.values()).sort((a, b) => a.name.localeCompare(b.name));
+                const filteredCatalogs = catalogBmFilter
+                  ? catalogs.filter(c => c.bm_id === catalogBmFilter)
+                  : catalogs;
+                return (
+                  <div className="grid grid-cols-3 gap-3 mt-2">
+                    <Field label="Business Manager" hint={catalogBmFilter ? `filtrando ${filteredCatalogs.length}/${catalogs.length}` : `${bmOptions.length} BM(s) com catálogo`}>
+                      <SearchableSelect
+                        value={catalogBmFilter}
+                        onChange={(v) => { setCatalogBmFilter(v); if (catalogId && v) {
+                          // Se o catálogo atualmente selecionado não pertence ao novo BM, limpa
+                          const cur = catalogs.find(c => c.id === catalogId);
+                          if (cur && cur.bm_id !== v) { setCatalogId(''); setProductSetId(''); }
+                        } }}
+                        options={bmOptions.map(b => ({
+                          value: b.id,
+                          label: b.name,
+                          secondary: `${b.count} catálogos · ${b.id}`,
+                        }))}
+                        placeholder="— todos os BMs —"
+                        emptyOption={{ label: '— todos os BMs —' }}
+                      />
+                    </Field>
+                    <Field label="Catálogo">
+                      <SearchableSelect
+                        value={catalogId}
+                        onChange={(v) => { setCatalogId(v); setProductSetId(''); }}
+                        options={filteredCatalogs.map(c => {
+                          const bits: string[] = [];
+                          if (c.bm_name && !catalogBmFilter) bits.push(c.bm_name);
+                          if (c.product_count !== undefined) bits.push(`${c.product_count} produtos`);
+                          return {
+                            value: c.id,
+                            label: c.name,
+                            secondary: bits.length ? bits.join(' · ') : c.id,
+                          };
+                        })}
+                        placeholder="— selecione —"
+                      />
+                    </Field>
+                    <Field label="Conjunto de Produtos (fallback)" hint="Usado quando o criativo não define o próprio set.">
+                      <SearchableSelect
+                        value={productSetId}
+                        onChange={setProductSetId}
+                        options={productSets.map(s => ({
+                          value: s.id,
+                          label: s.name,
+                          secondary: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
+                        }))}
+                        placeholder={loadingProductSets ? 'Carregando…' : '— opcional, defina por criativo abaixo —'}
+                        emptyOption={{ label: '— sem fallback (definir por criativo) —' }}
+                        disabled={!catalogId || loadingProductSets}
+                      />
+                    </Field>
+                  </div>
+                );
+              })()}
+
+              {catalogConfigMode === 'existing' && (
+                <p className="text-[10px] text-gray-500 mt-1">
+                  {catalogSourceCounts
+                    ? `${catalogSourceCounts.total} catálogo(s) · sincronizado (DB): ${catalogSourceCounts.db} · API live: ${catalogSourceCounts.api}`
+                    : null}
+                </p>
+              )}
+
               {catalogConfigMode === 'existing' && !catalogId && (
                 <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
-                  Escolha um catálogo acima para prosseguir.
+                  {catalogs.length === 0
+                    ? <>Nenhum catálogo visível para esse perfil. Rode o sync em <strong>/catalogo</strong> antes (esse fluxo captura também catálogos compartilhados via Partner).</>
+                    : <>Escolha um catálogo acima para prosseguir.</>}
                 </p>
+              )}
+
+              {/* Criar produto + conjunto inline — disponível assim que houver catalogId */}
+              {catalogId && (
+                <div className="border border-rose-200 bg-rose-50/40 rounded-lg p-3 mt-3 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[12px] font-semibold text-rose-800">Criar novo produto + conjunto</p>
+                    {createdProduct && (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CRIADO ✓</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-rose-700/80 -mt-1">
+                    Cria um produto e um conjunto com filtro <code>retailer_id == {'{ad_name} {dd/mm}'}</code>. Após criar, o conjunto é selecionado automaticamente.
+                  </p>
+                  <div className="flex items-end gap-2">
+                    <Field label="Preset" hint={loadingProductPresets ? 'Carregando…' : `${productPresets.length} disponíveis`}>
+                      <select
+                        className={inputBase + ' bg-white'}
+                        value={selectedProductPresetName}
+                        onChange={e => applyProductPreset(e.target.value)}
+                        disabled={creatingProduct || loadingProductPresets}
+                      >
+                        <option value="">— Sem preset —</option>
+                        {productPresets.map(p => (
+                          <option key={p.id} value={p.name}>{p.name}</option>
+                        ))}
+                      </select>
+                    </Field>
+                    <button
+                      type="button"
+                      onClick={fetchProductPresets}
+                      disabled={loadingProductPresets}
+                      title="Recarregar presets"
+                      className="px-3 py-2 text-[11px] font-semibold rounded border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-40 whitespace-nowrap"
+                    >
+                      ↻
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Nome do anúncio (gera retailer_id)">
+                      <input className={inputBase} value={productAdName} onChange={e => setProductAdName(e.target.value)} placeholder="Ex: LT1100" disabled={creatingProduct} />
+                    </Field>
+                    <Field label="Título do produto">
+                      <input className={inputBase} value={productTitle} onChange={e => setProductTitle(e.target.value)} placeholder="Ex: Lanterna Tática LT1100" disabled={creatingProduct} />
+                    </Field>
+                    <Field label="Link (URL de destino)">
+                      <input className={inputBase} value={productLink} onChange={e => setProductLink(e.target.value)} placeholder="https://..." disabled={creatingProduct} />
+                    </Field>
+                    <Field label="Imagem (URL pública)">
+                      <input className={inputBase} value={productImageUrl} onChange={e => setProductImageUrl(e.target.value)} placeholder="https://..." disabled={creatingProduct} />
+                    </Field>
+                    <Field label="Descrição (opcional)">
+                      <input className={inputBase} value={productDescription} onChange={e => setProductDescription(e.target.value)} placeholder="Ex: Lanterna recarregável de alta potência" disabled={creatingProduct} />
+                    </Field>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={handleCreateProduct}
+                        disabled={
+                          creatingProduct
+                          || !productAdName.trim()
+                          || !productTitle.trim()
+                          || !productLink.trim()
+                          || !productImageUrl.trim()
+                        }
+                        className="w-full px-4 py-2 text-xs font-semibold rounded-md bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50"
+                      >
+                        {creatingProduct ? 'Criando…' : 'Criar agora'}
+                      </button>
+                    </div>
+                  </div>
+                  {createProductError && (
+                    <p className="text-[11px] text-rose-700 bg-rose-100 border border-rose-200 rounded px-2 py-1">{createProductError}</p>
+                  )}
+                  {createdProduct && (
+                    <div className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2 py-1.5">
+                      <strong>{createdProduct.product_name}</strong> — retailer_id <code>{createdProduct.retailer_id}</code>
+                      <br />
+                      <span className="text-emerald-700">product_id: {createdProduct.product_id} · product_set_id: {createdProduct.product_set_id}</span>
+                    </div>
+                  )}
+                </div>
               )}
             </SubBlock>
           </>
@@ -1598,33 +2533,40 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           <input className={inputBase} value={setName} onChange={e => setSetName(e.target.value)} placeholder="Ex: Conjunto — conta…" />
         </SubBlock>
 
-        {/* PIXEL DE CONVERSÃO */}
-        {!isDPA && (
-          <SubBlock label="Pixel de Conversão" hint="Rastreamento de Conversão">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Pixel">
-                <select className={inputBase} value={pixelId} onChange={e => setPixelId(e.target.value)} disabled={pixels.length === 0}>
-                  {pixels.length === 0 && <option value="">— sem pixels nessa conta —</option>}
-                  {pixels.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.id}){p.last_fired_time ? '' : ' · sem disparos recentes'}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Evento de conversão">
-                <select className={inputBase} value={customEvent} onChange={e => setCustomEvent(e.target.value as CustomEvent)}>
-                  {CUSTOM_EVENTS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-                </select>
-              </Field>
+        {/* PIXEL DE CONVERSÃO — também aparece em DPA porque Meta exige pixel+evento
+            no promoted_object quando optimization_goal = OFFSITE_CONVERSIONS. */}
+        <SubBlock
+          label="Pixel de Conversão"
+          hint={isDPA
+            ? 'DPA otimiza por evento do pixel — selecione o pixel do site que captura compras.'
+            : 'Rastreamento de Conversão'}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Pixel">
+              <select className={inputBase} value={pixelId} onChange={e => setPixelId(e.target.value)} disabled={pixels.length === 0}>
+                {pixels.length === 0 && <option value="">— sem pixels nessa conta —</option>}
+                {pixels.length > 0 && !pixelId && <option value="">— selecione um pixel —</option>}
+                {pixels.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.id}){p.last_fired_time ? '' : ' · sem disparos recentes'}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Evento de conversão">
+              <select className={inputBase} value={customEvent} onChange={e => setCustomEvent(e.target.value as CustomEvent)}>
+                {CUSTOM_EVENTS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+              </select>
+            </Field>
+            {!isDPA && (
               <Field label="Otimização de Entrega">
                 <select className={inputBase} value={optGoal} onChange={e => setOptGoal(e.target.value as OptGoal)}>
                   {OPT_GOALS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </Field>
-            </div>
-          </SubBlock>
-        )}
+            )}
+          </div>
+        </SubBlock>
 
         {/* CONFIGURAÇÕES DE ATRIBUIÇÃO */}
         <SubBlock label="Configurações de Atribuição" hint="Define o período em que conversões são atribuídas aos anúncios.">
@@ -1851,9 +2793,15 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       <MainSection title="Anúncios" subtitle="Defina textos, links, chamada para ação e páginas de distribuição">
         {/* PÁGINAS E DISTRIBUIÇÃO */}
         <SubBlock label="Páginas e Distribuição">
-          <Field label="Páginas do Facebook *" hint="Selecione 1 ou mais páginas. Os anúncios serão distribuídos em round-robin entre elas. Escopo: perfil (todas BMs).">
+          <Field label="Páginas do Facebook *" hint="Selecione 1 ou mais páginas. Os anúncios serão distribuídos em round-robin entre elas (ou conforme alocação manual abaixo). Escopo: perfil (todas BMs).">
             <ChipPicker
-              options={pages.map(p => ({ value: p.id, label: `${p.name}${p.instagram_business_account ? ' · IG' : ''}` }))}
+              options={pages.map(p => {
+                const avail = p.ad_limit == null
+                  ? '∞'
+                  : `${Math.max(0, (p.ad_limit ?? 0) - (p.ads_running ?? 0))} livres`;
+                const igTag = p.instagram_business_account ? ' · IG' : '';
+                return { value: p.id, label: `${p.name}${igTag} — ${avail}` };
+              })}
               selected={pageIds}
               onChange={setPageIds}
               emptyText="Nenhuma página selecionada"
@@ -1862,13 +2810,113 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               noOptionsText="— nenhuma página acessível para este perfil —"
             />
           </Field>
-          <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 py-2 mt-2">
-            <div>
-              <p className="text-[12px] font-semibold text-gray-800">N anúncios por página</p>
-              <p className="text-[10px] text-gray-400">Define quantos anúncios cada página recebe individualmente</p>
-            </div>
-            <EmBreve />
-          </div>
+          {pageIds.length > 0 && (() => {
+            const selPages = pages.filter(p => pageIds.includes(p.id));
+            const totalAds = ads.length * Math.max(1, campaignsPerCreative) * Math.max(1, adsetsPerCampaign) * Math.max(1, adsPerAdset);
+            const allocated = pageIds.reduce((s, id) => s + (pageAllocations[id] ?? 0), 0);
+            const autoCount = pageIds.filter(id => pageAllocations[id] === undefined).length;
+            const remaining = Math.max(0, totalAds - allocated);
+            const perAuto = autoCount > 0 ? Math.floor(remaining / autoCount) : 0;
+            return (
+              <div className="mt-2 border border-gray-200 rounded-md bg-gray-50/60">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200">
+                  <div>
+                    <p className="text-[12px] font-semibold text-gray-800">Criativos por página</p>
+                    <p className="text-[10px] text-gray-500">
+                      Total de anúncios a criar: <span className="font-mono text-gray-700">{totalAds}</span>
+                      {' · '}Alocados manualmente: <span className="font-mono text-gray-700">{allocated}</span>
+                      {autoCount > 0 && <> · Auto (round-robin) p/ {autoCount} página{autoCount > 1 ? 's' : ''}: <span className="font-mono text-gray-700">{remaining}</span></>}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPageAllocations({})}
+                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold"
+                  >
+                    Resetar (tudo auto)
+                  </button>
+                </div>
+                <div className="max-h-[220px] overflow-y-auto">
+                  <table className="w-full text-[11px]">
+                    <thead className="bg-gray-100 text-gray-600">
+                      <tr>
+                        <th className="text-left px-3 py-1.5 font-semibold">Página</th>
+                        <th className="text-right px-3 py-1.5 font-semibold">Disponíveis</th>
+                        <th className="text-right px-3 py-1.5 font-semibold w-[140px]">Criativos designados</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selPages.map(p => {
+                        const avail = p.ad_limit == null
+                          ? null
+                          : Math.max(0, (p.ad_limit ?? 0) - (p.ads_running ?? 0));
+                        const manual = pageAllocations[p.id];
+                        const isAuto = manual === undefined;
+                        const shown = isAuto ? perAuto : manual;
+                        const over = avail != null && shown > avail;
+                        // Teto absoluto desta página = totalAds - alocações manuais
+                        // das OUTRAS páginas. Garante que a soma jamais ultrapassa
+                        // o número real de anúncios a publicar.
+                        const otherManual = allocated - (manual ?? 0);
+                        const capByTotal = Math.max(0, totalAds - otherManual);
+                        const maxAllowed = avail == null
+                          ? capByTotal
+                          : Math.min(capByTotal, avail);
+                        return (
+                          <tr key={p.id} className="border-t border-gray-200">
+                            <td className="px-3 py-1.5 text-gray-800">
+                              {p.name}
+                              {p.instagram_business_account && <span className="ml-1 text-rose-500">· IG</span>}
+                            </td>
+                            <td className={cls('px-3 py-1.5 text-right font-mono', avail == null ? 'text-gray-400' : over ? 'text-rose-600' : 'text-gray-700')}>
+                              {avail == null ? '∞' : avail}
+                            </td>
+                            <td className="px-3 py-1.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={maxAllowed}
+                                  value={isAuto ? '' : manual}
+                                  placeholder={isAuto ? `auto (${perAuto})` : ''}
+                                  title={`Máx. permitido: ${maxAllowed} (total a publicar: ${totalAds}${avail != null ? `, vagas livres: ${avail}` : ''})`}
+                                  onChange={e => {
+                                    const raw = e.target.value;
+                                    setPageAllocations(prev => {
+                                      const next = { ...prev };
+                                      if (raw === '') {
+                                        delete next[p.id];
+                                      } else {
+                                        const proposed = Math.max(0, Number(raw) || 0);
+                                        next[p.id] = Math.min(proposed, maxAllowed);
+                                      }
+                                      return next;
+                                    });
+                                  }}
+                                  className={cls('w-[70px] text-right border rounded-md px-1.5 py-0.5 text-[11px] font-mono',
+                                    over ? 'border-rose-300 bg-rose-50' : 'border-gray-200 bg-white')}
+                                />
+                                {!isAuto && (
+                                  <button
+                                    type="button"
+                                    title="Voltar para auto"
+                                    onClick={() => setPageAllocations(prev => {
+                                      const next = { ...prev }; delete next[p.id]; return next;
+                                    })}
+                                    className="text-gray-400 hover:text-gray-700 text-sm leading-none"
+                                  >×</button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
           <div className="flex items-center justify-between mt-2">
             <div>
               <p className="text-[12px] font-semibold text-gray-800">Auto retry de página</p>
@@ -1896,6 +2944,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 onChange={(patch) => updateAd(a.id, patch)}
                 onRemove={() => removeAd(a.id)}
                 uploadFor={uploadFor}
+                productSets={productSets}
+                loadingProductSets={loadingProductSets}
+                catalogId={catalogId}
+                defaultPsid={productSetId}
               />
             ))}
             <button type="button" onClick={addAd}
@@ -2048,6 +3100,25 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           </div>
         )}
       </MainSection>
+
+      <CampaignNameModal
+        open={showNameModal}
+        onClose={() => setShowNameModal(false)}
+        onApply={(n) => setCampaignName(n)}
+        vars={{
+          conta: accounts.find(a => a.account_id === accountId)?.account_name ?? '',
+          orcamento: campaignType,
+          estrutura: `${campaignsPerCreative}-${adsetsPerCampaign}-${adsPerAdset}`,
+          criativo: useCatalog
+            ? (setName.trim() || ads[0]?.name || '')
+            : (ads[0]?.name || ''),
+          data: (() => {
+            const d = new Date(startTime);
+            if (isNaN(d.getTime())) return '';
+            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+          })(),
+        }}
+      />
     </div>
   );
 }
@@ -2058,6 +3129,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
 function AdEditor({
   index, ad, isDPA, canRemove, onChange, onRemove, uploadFor,
+  productSets, loadingProductSets, catalogId, defaultPsid,
 }: {
   index: number;
   ad: AdDraft;
@@ -2066,6 +3138,10 @@ function AdEditor({
   onChange: (patch: Partial<AdDraft>) => void;
   onRemove: () => void;
   uploadFor: (file: File) => Promise<UploadResult | null>;
+  productSets: ProductSet[];
+  loadingProductSets: boolean;
+  catalogId: string;
+  defaultPsid: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -2245,6 +3321,27 @@ function AdEditor({
                 onChange={e => onChange({ cta_type: e.target.value as CTA })}>
                 {CTA_OPTIONS.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
               </select>
+            </Field>
+            <Field
+              label="Conjunto de Produtos"
+              hint={
+                defaultPsid
+                  ? 'Vazio = usa o fallback definido na config de catálogo.'
+                  : 'Cada criativo precisa do seu (sem fallback definido).'
+              }
+            >
+              <SearchableSelect
+                value={ad.product_set_id}
+                onChange={(v) => onChange({ product_set_id: v })}
+                options={productSets.map(s => ({
+                  value: s.id,
+                  label: s.name,
+                  secondary: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
+                }))}
+                placeholder={loadingProductSets ? 'Carregando…' : '— selecione um conjunto —'}
+                emptyOption={defaultPsid ? { label: '— usar fallback global —' } : undefined}
+                disabled={!catalogId || loadingProductSets}
+              />
             </Field>
           </div>
         </>

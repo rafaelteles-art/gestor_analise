@@ -125,16 +125,23 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
 
       report(`Perfil ${profile.name}: ${personalAccounts.length} contas pessoais. Buscando BMs…`);
 
-      // 2. Business Managers onde o usuário é membro direto
+      // 2. Business Managers onde o usuário é membro direto.
+      //    Toda conta de campanha será atribuída a uma dessas BMs (não a sub-BMs),
+      //    pra que o system user tenha permissão de publicar campanhas pela BM.
       const directBms = await fetchAllPages(
         `https://graph.facebook.com/${API_VERSION}/me/businesses?fields=id,name&limit=200&access_token=${token}`
       );
 
-      // 3. Para cada BM direto, busca também as owned_businesses (sub-BMs filhas)
-      //    Isso captura BMs que não aparecem diretamente em /me/businesses
+      // 3. Para cada BM direta, descobre as owned_businesses (sub-BMs filhas)
+      //    e mapeia cada sub-BM de volta à BM-mãe direta. Assim, ao listar
+      //    contas dessas sub-BMs, a conta é registrada sob a BM-mãe direta,
+      //    onde o system user de fato tem acesso para publicar campanhas.
       const allBmMap = new Map<string, { id: string; name: string }>();
+      // bmId (direta ou sub) → BM-mãe direta usada como bm_id/bm_name da conta
+      const bmToParentDirect = new Map<string, { id: string; name: string }>();
       for (const bm of directBms) {
         allBmMap.set(bm.id, bm);
+        bmToParentDirect.set(bm.id, bm); // BM direta é "mãe" de si mesma
       }
 
       for (const bm of directBms) {
@@ -143,8 +150,9 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
         );
         for (const ob of ownedBms) {
           if (!allBmMap.has(ob.id)) {
-            console.log(`  → Sub-BM descoberta via ${bm.name}: ${ob.name}`);
+            console.log(`  → Sub-BM descoberta via ${bm.name}: ${ob.name} (contas serão atribuídas a ${bm.name})`);
             allBmMap.set(ob.id, ob);
+            bmToParentDirect.set(ob.id, bm); // sub-BM → BM-mãe direta
           }
         }
       }
@@ -153,11 +161,14 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
       console.log(`Total de BMs encontrados para ${profile.name}: ${allBms.length}`);
       report(`Perfil ${profile.name}: ${allBms.length} BMs encontrados`);
 
-      // 4. Para cada BM (direto ou cliente), buscar owned + client ad accounts
+      // 4. Para cada BM (direta ou sub), buscar owned + client ad accounts.
+      //    bm_id/bm_name salvos são SEMPRE da BM-mãe direta — nunca da sub-BM —
+      //    pra garantir que o system user possa operar a conta via essa BM.
       let bmIndex = 0;
       for (const bm of allBms) {
         bmIndex++;
-        console.log(`Buscando contas do BM: ${bm.name} (${bm.id})`);
+        const parent = bmToParentDirect.get(bm.id) ?? bm;
+        console.log(`Buscando contas do BM: ${bm.name} (${bm.id}) [mãe direta: ${parent.name}]`);
         report(`BM ${bmIndex}/${allBms.length}: ${bm.name}`);
 
         const bmAccounts = await fetchBmAdAccounts(bm.id, token);
@@ -167,8 +178,8 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
           validAccounts.push({
             account_id: accountId,
             account_name: acc.name || `Account ${acc.account_id}`,
-            bm_id: bm.id,
-            bm_name: bm.name,
+            bm_id: parent.id,
+            bm_name: parent.name,
             is_selected: false,
             access_token: token,
             account_status: mapMetaStatus(acc.account_status),
@@ -181,14 +192,15 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
     }
 
     // Deduplicar: se uma conta aparecer em Personal E em uma BM real, a BM vence.
-    // Percorre todos os registros e substitui a entrada Personal quando encontra a versão BM.
+    // Entre múltiplas BMs reais (mesma conta visível por mais de uma BM-mãe
+    // direta), mantém a primeira vista — todas são BMs onde o system user
+    // pode operar, então qualquer uma serve.
     const accountMap = new Map<string, any>();
     for (const account of validAccounts) {
       const existing = accountMap.get(account.account_id);
       if (!existing) {
         accountMap.set(account.account_id, account);
       } else if (existing.bm_id === 'Personal' && account.bm_id !== 'Personal') {
-        // Substitui Personal pela entrada com BM real
         accountMap.set(account.account_id, account);
       }
     }

@@ -12,6 +12,7 @@ export const SUPER_ADMIN_EMAILS = [
 ];
 
 export const PAGES: PageDef[] = [
+  { key: 'overview',      label: 'Overview',            path: '/overview' },
   { key: 'import',        label: 'Dashboard',           path: '/import' },
   { key: 'importv2',      label: 'Dashboard V2',        path: '/importv2' },
   { key: 'status-contas', label: 'Status de Contas',    path: '/status-contas' },

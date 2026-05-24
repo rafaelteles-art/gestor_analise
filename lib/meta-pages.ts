@@ -37,18 +37,85 @@ export interface PageWithAdLimit {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+// Pausa entre BMs pra não martelar a quota do app — sequencial + sleep
+// reduz a taxa de chamadas pela metade vs. Promise.all anterior.
+const BM_PAUSE_MS = 120;
+
 // Erros transitórios da Graph onde vale a pena retry com backoff.
 //   1  → "Please reduce the amount of data" (resposta grande / sobrecarga)
 //   2  → "Service temporarily unavailable"
-//   4  → "Application request limit reached" (rate limit)
-//   17 → "User request limit reached" (rate limit por usuário)
+//   17 → "User request limit reached" (rate limit por usuário) — só esse token
 //   32 → "Page request limit reached"
 //   613→ "Calls to this api have exceeded the rate limit"
-const TRANSIENT_GRAPH_CODES = new Set([1, 2, 4, 17, 32, 613]);
+//
+// #4 ("Application request limit reached") NÃO entra aqui — é quota do APP
+// inteiro no Facebook (compartilhada entre tokens) e tipicamente só reseta em
+// ~1h. Retry de segundos só piora. Tratamos como fatal: aborta o sync com a
+// parcial salva, ver `AppRateLimitError`.
+const TRANSIENT_GRAPH_CODES = new Set([1, 2, 17, 32, 613]);
+
+export class AppRateLimitError extends Error {
+  constructor(message?: string) {
+    super(message || 'Meta Graph API: app-level rate limit (#4) reached. Try again in ~1 hour.');
+    this.name = 'AppRateLimitError';
+  }
+}
+
+// Lê os 3 headers de throttling que a Meta retorna em TODA resposta da Graph.
+// Cada um é JSON stringificado com call_count, total_cputime, total_time em %.
+//   x-app-usage              → quota do APP inteiro (a do painel "Limitação de volume")
+//   x-business-use-case-usage → BUC: por BM/business e por endpoint-uso
+//   x-ad-account-usage       → por ad account (inclui ads_insights)
+// Ref: https://developers.facebook.com/docs/graph-api/overview/rate-limiting/
+type Usage = { call_count?: number; total_cputime?: number; total_time?: number };
+
+function readUsageHeaders(res: Response): {
+  app: Usage | null;
+  buc: Record<string, Usage[]> | null;
+  adAcc: Record<string, Usage[]> | null;
+} {
+  const safeParse = (v: string | null) => {
+    if (!v) return null;
+    try { return JSON.parse(v); } catch { return null; }
+  };
+  return {
+    app: safeParse(res.headers.get('x-app-usage')),
+    buc: safeParse(res.headers.get('x-business-use-case-usage')),
+    adAcc: safeParse(res.headers.get('x-ad-account-usage')),
+  };
+}
+
+// Maior porcentagem de qualquer métrica em x-app-usage.
+function maxAppUsagePct(usage: Usage | null): number {
+  if (!usage) return 0;
+  return Math.max(
+    Number(usage.call_count ?? 0),
+    Number(usage.total_cputime ?? 0),
+    Number(usage.total_time ?? 0)
+  );
+}
+
+// Maior porcentagem em qualquer entrada de BUC ou ad-account-usage.
+function maxNestedUsagePct(nested: Record<string, Usage[]> | null): number {
+  if (!nested) return 0;
+  let max = 0;
+  for (const arr of Object.values(nested)) {
+    if (!Array.isArray(arr)) continue;
+    for (const u of arr) {
+      max = Math.max(max, maxAppUsagePct(u));
+    }
+  }
+  return max;
+}
 
 /**
  * GET um endpoint do Graph com retry/backoff em erros transitórios.
  * Retorna `{ data, error }` — `error` populado se desistimos.
+ *
+ * Trata #4 de forma adaptativa: a Meta retorna "#4 Application request limit
+ * reached" tanto para limite real do app QUANTO para BUC/ad-account-limit. Se
+ * `x-app-usage` mostra uso baixo, é provavelmente BUC — vale retry com backoff
+ * longo. Só aborta com `AppRateLimitError` se a quota do app estiver mesmo alta.
  */
 async function fetchGraphWithRetry(url: string, maxAttempts = 5): Promise<{ data: any; error: any | null }> {
   let attempt = 0;
@@ -74,6 +141,39 @@ async function fetchGraphWithRetry(url: string, maxAttempts = 5): Promise<{ data
 
     if (data?.error) {
       const code = Number(data.error.code);
+
+      if (code === 4) {
+        const usage = readUsageHeaders(res);
+        const appPct = maxAppUsagePct(usage.app);
+        const bucPct = maxNestedUsagePct(usage.buc);
+        const adPct = maxNestedUsagePct(usage.adAcc);
+        const summary = `app=${appPct}% buc=${bucPct}% adAcc=${adPct}%`;
+        console.warn(`[meta-pages] #4 throttle — ${summary} | headers: ${JSON.stringify(usage)}`);
+
+        // Se app-usage está ≥80%, é mesmo a quota global do app — fatal.
+        if (appPct >= 80) {
+          throw new AppRateLimitError(
+            `${data.error.message} (app usage ${appPct}%) — aguarde ~1h.`
+          );
+        }
+
+        // Senão é BUC/ad-account. Backoff longo (30–60s) e tenta de novo —
+        // BUC tipicamente reseta mais rápido que limite de app.
+        if (attempt < maxAttempts) {
+          const backoff = 30000 + Math.floor(Math.random() * 30000);
+          console.warn(
+            `[meta-pages] #4 com app usage baixo (${appPct}%) — provavelmente BUC (buc=${bucPct}%, adAcc=${adPct}%). Aguardando ${Math.round(backoff / 1000)}s antes de tentar ${attempt + 1}/${maxAttempts}`
+          );
+          await sleep(backoff);
+          continue;
+        }
+
+        // Esgotou retries com app-usage baixo: BUC/ad-account ainda travado.
+        throw new AppRateLimitError(
+          `${data.error.message} (${summary}) — limite por BM/ad account, não pelo app inteiro. Aguarde ~30min ou rode menos perfis.`
+        );
+      }
+
       if (TRANSIENT_GRAPH_CODES.has(code) && attempt < maxAttempts) {
         const backoff = Math.min(1000 * 2 ** (attempt - 1), 10000);
         console.warn(`[meta-pages] Graph (${code}) tentativa ${attempt}/${maxAttempts} — aguardando ${backoff}ms`);
@@ -182,17 +282,15 @@ async function listAllBMs(token: string): Promise<RawBM[]> {
 export async function fetchPagesWithAdLimits(
   token: string,
   onProgress?: (message: string) => void
-): Promise<PageWithAdLimit[]> {
+): Promise<{ pages: PageWithAdLimit[]; aborted: boolean }> {
   const report = (msg: string) => { try { onProgress?.(msg); } catch {} };
-  // 1) Descobre todos os BMs visíveis ao token (diretos + sub-BMs)
-  const bms = await listAllBMs(token);
 
-  // 2) Páginas — união de me/accounts (token pessoal) + BM owned/client_pages.
-  //    Para System User, me/accounts retorna erro/vazio mas o walk de BM cobre.
-  //    Captura também instagram_business_account.id pra Instagram ads no /campaigns.
   const pagesMap = new Map<string, { name: string; ig: string | null }>();
-  const PAGE_FIELDS = 'id,name,instagram_business_account{id}';
+  const pageLimits = new Map<string, number>();
+  const pageRunning = new Map<string, number>();
+  let aborted = false;
 
+  const PAGE_FIELDS = 'id,name,instagram_business_account{id}';
   const addPage = (p: RawPage) => {
     if (!p.id) return;
     const igId = p.instagram_business_account?.id ?? null;
@@ -205,121 +303,124 @@ export async function fetchPagesWithAdLimits(
     }
   };
 
-  const personalPages = await fetchAllPages<RawPage>(
-    `https://graph.facebook.com/${API_VERSION}/me/accounts?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`
-  );
-  for (const p of personalPages) addPage(p);
+  const buildResult = (): PageWithAdLimit[] =>
+    Array.from(pagesMap.entries()).map(([page_id, info]) => ({
+      page_id,
+      page_name: info.name,
+      ad_limit: pageLimits.get(page_id) ?? null,
+      ads_running: pageRunning.get(page_id) ?? 0,
+      ig_account_id: info.ig,
+    }));
 
-  for (const bm of bms) {
-    const [owned, client] = await Promise.all([
-      fetchAllPages<RawPage>(
+  try {
+    // 1) Descobre todos os BMs visíveis ao token (diretos + sub-BMs)
+    const bms = await listAllBMs(token);
+
+    // 2) Páginas — união de me/accounts (token pessoal) + BM owned/client_pages.
+    //    Para System User, me/accounts retorna erro/vazio mas o walk de BM cobre.
+    const personalPages = await fetchAllPages<RawPage>(
+      `https://graph.facebook.com/${API_VERSION}/me/accounts?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`
+    );
+    for (const p of personalPages) addPage(p);
+
+    for (let i = 0; i < bms.length; i++) {
+      const bm = bms[i];
+      // Sequencial em vez de Promise.all: corta pela metade a taxa de chamadas
+      // concorrentes e evita pares de erro #4 logados duplicados.
+      const owned = await fetchAllPages<RawPage>(
         `https://graph.facebook.com/${API_VERSION}/${bm.id}/owned_pages?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`
-      ),
-      fetchAllPages<RawPage>(
+      );
+      const client = await fetchAllPages<RawPage>(
         `https://graph.facebook.com/${API_VERSION}/${bm.id}/client_pages?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`
-      ),
-    ]);
-    for (const p of [...owned, ...client]) addPage(p);
-  }
+      );
+      for (const p of [...owned, ...client]) addPage(p);
+      if (i < bms.length - 1) await sleep(BM_PAUSE_MS);
+    }
 
-  // 3) Ad accounts — união de me/adaccounts + BM owned/client_ad_accounts
-  const adAccountsMap = new Map<string, RawAdAccount>();
+    // 3) Ad accounts — união de me/adaccounts + BM owned/client_ad_accounts
+    const adAccountsMap = new Map<string, RawAdAccount>();
 
-  const personalAcc = await fetchAllPages<RawAdAccount>(
-    `https://graph.facebook.com/${API_VERSION}/me/adaccounts?fields=id,account_id&limit=200&access_token=${token}`
-  );
-  for (const a of personalAcc) {
-    if (a.id) adAccountsMap.set(a.id, a);
-  }
+    const personalAcc = await fetchAllPages<RawAdAccount>(
+      `https://graph.facebook.com/${API_VERSION}/me/adaccounts?fields=id,account_id&limit=200&access_token=${token}`
+    );
+    for (const a of personalAcc) {
+      if (a.id) adAccountsMap.set(a.id, a);
+    }
 
-  for (const bm of bms) {
-    const [owned, client] = await Promise.all([
-      fetchAllPages<RawAdAccount>(
+    for (let i = 0; i < bms.length; i++) {
+      const bm = bms[i];
+      const owned = await fetchAllPages<RawAdAccount>(
         `https://graph.facebook.com/${API_VERSION}/${bm.id}/owned_ad_accounts?fields=id,account_id&limit=200&access_token=${token}`
-      ),
-      fetchAllPages<RawAdAccount>(
+      );
+      const client = await fetchAllPages<RawAdAccount>(
         `https://graph.facebook.com/${API_VERSION}/${bm.id}/client_ad_accounts?fields=id,account_id&limit=200&access_token=${token}`
-      ),
-    ]);
-    for (const a of [...owned, ...client]) {
-      if (a.id && !adAccountsMap.has(a.id)) adAccountsMap.set(a.id, a);
-    }
-  }
-
-  const adAccounts = Array.from(adAccountsMap.values());
-
-  if (pagesMap.size === 0 && adAccounts.length === 0) return [];
-
-  // 4) ads_volume por ad account — SEQUENCIAL (sem paralelismo) pra eliminar
-  //    completamente (#1) "Please reduce the amount of data" e (#4) rate limit.
-  //    `fetchAdsVolumePaged` ainda reduz `limit` automaticamente se uma página
-  //    individual for grande demais. Pega MAX entre ocorrências da mesma
-  //    página em múltiplas ad accounts (não soma — os contadores já são por
-  //    página).
-  const pageLimits = new Map<string, number>();
-  const pageRunning = new Map<string, number>();
-
-  const fields = [
-    'actor_id',
-    'actor_name',
-    'ads_running_or_in_review_count',
-    'limit_on_ads_running_or_in_review',
-    'current_account_ads_running_or_in_review_count',
-  ].join(',');
-
-  for (let i = 0; i < adAccounts.length; i++) {
-    const acc = adAccounts[i];
-    if (i % 10 === 0 || i === adAccounts.length - 1) {
-      report(`Lendo ads_volume: ${i + 1}/${adAccounts.length} ad accounts`);
+      );
+      for (const a of [...owned, ...client]) {
+        if (a.id && !adAccountsMap.has(a.id)) adAccountsMap.set(a.id, a);
+      }
+      if (i < bms.length - 1) await sleep(BM_PAUSE_MS);
     }
 
-    const url =
-      `https://graph.facebook.com/${API_VERSION}/${acc.id}/ads_volume` +
-      `?show_breakdown_by_actor=true&fields=${fields}&limit=50&access_token=${token}`;
+    const adAccounts = Array.from(adAccountsMap.values());
+    if (pagesMap.size === 0 && adAccounts.length === 0) return { pages: [], aborted: false };
 
-    let rows: AdsVolumeRow[] = [];
-    try {
-      rows = await fetchAdsVolumePaged<AdsVolumeRow>(url);
-    } catch (err: any) {
-      console.warn(`[meta-pages] ads_volume falhou em ${acc.id}: ${err?.message ?? err}`);
-    }
+    // 4) ads_volume por ad account — SEQUENCIAL (sem paralelismo). Pega MAX
+    //    entre ocorrências da mesma página em múltiplas ad accounts.
+    const fields = [
+      'actor_id',
+      'actor_name',
+      'ads_running_or_in_review_count',
+      'limit_on_ads_running_or_in_review',
+      'current_account_ads_running_or_in_review_count',
+    ].join(',');
 
-    for (const row of rows) {
-      const actorId = row.actor_id;
-      if (!actorId) continue;
-
-      // Se a página aparece em ads_volume mas não estava no walk de BM
-      // (ex.: page emprestada de outro BM), registra com actor_name.
-      if (!pagesMap.has(actorId) && row.actor_name) {
-        pagesMap.set(actorId, { name: row.actor_name, ig: null });
+    for (let i = 0; i < adAccounts.length; i++) {
+      const acc = adAccounts[i];
+      if (i % 10 === 0 || i === adAccounts.length - 1) {
+        report(`Lendo ads_volume: ${i + 1}/${adAccounts.length} ad accounts`);
       }
 
-      const running = row.ads_running_or_in_review_count;
-      if (typeof running === 'number') {
-        pageRunning.set(actorId, Math.max(pageRunning.get(actorId) ?? 0, running));
-      }
+      const url =
+        `https://graph.facebook.com/${API_VERSION}/${acc.id}/ads_volume` +
+        `?show_breakdown_by_actor=true&fields=${fields}&limit=50&access_token=${token}`;
 
-      const limit = row.limit_on_ads_running_or_in_review;
-      if (typeof limit === 'number') {
-        const current = pageLimits.get(actorId);
-        if (current === undefined || limit > current) {
-          pageLimits.set(actorId, limit);
+      const rows = await fetchAdsVolumePaged<AdsVolumeRow>(url);
+
+      for (const row of rows) {
+        const actorId = row.actor_id;
+        if (!actorId) continue;
+
+        if (!pagesMap.has(actorId) && row.actor_name) {
+          pagesMap.set(actorId, { name: row.actor_name, ig: null });
+        }
+
+        const running = row.ads_running_or_in_review_count;
+        if (typeof running === 'number') {
+          pageRunning.set(actorId, Math.max(pageRunning.get(actorId) ?? 0, running));
+        }
+
+        const limit = row.limit_on_ads_running_or_in_review;
+        if (typeof limit === 'number') {
+          const current = pageLimits.get(actorId);
+          if (current === undefined || limit > current) {
+            pageLimits.set(actorId, limit);
+          }
         }
       }
-    }
 
-    // Pequena pausa entre ad accounts pra ficar abaixo do rate limit por usuário.
-    if (i < adAccounts.length - 1) await sleep(150);
+      if (i < adAccounts.length - 1) await sleep(150);
+    }
+  } catch (err: any) {
+    if (err instanceof AppRateLimitError) {
+      aborted = true;
+      console.warn(`[meta-pages] app/BUC rate limit (#4) — abortando perfil com parcial (${pagesMap.size} páginas até aqui): ${err.message}`);
+      report(`Rate limit Meta (#4): ${err.message}. Salvando ${pagesMap.size} página(s) parciais.`);
+    } else {
+      throw err;
+    }
   }
 
-  // 5) Resultado final, uma entrada por página descoberta
-  return Array.from(pagesMap.entries()).map(([page_id, info]) => ({
-    page_id,
-    page_name: info.name,
-    ad_limit: pageLimits.get(page_id) ?? null,
-    ads_running: pageRunning.get(page_id) ?? 0,
-    ig_account_id: info.ig,
-  }));
+  return { pages: buildResult(), aborted };
 }
 
 /**
@@ -330,12 +431,32 @@ export async function fetchPagesWithAdLimits(
  *     e a união dos accessible_profiles
  *   - Faz upsert na tabela meta_pages (criada on-demand)
  */
-export async function fetchAndSyncMetaPages(onProgress?: (message: string) => void) {
+export async function fetchAndSyncMetaPages(
+  onProgress?: (message: string) => void,
+  options?: { profileNames?: string[] }
+) {
   const report = (msg: string) => { try { onProgress?.(msg); } catch {} };
 
-  const profiles = await getMetaProfiles();
-  if (profiles.length === 0) {
+  const allProfiles = await getMetaProfiles();
+  if (allProfiles.length === 0) {
     throw new Error('META_PROFILES não configurado. Configure os tokens em /api-config.');
+  }
+
+  // Filtra perfis se uma lista foi passada. Match case-insensitive por nome.
+  const profiles = (() => {
+    const filter = options?.profileNames;
+    if (!filter || filter.length === 0) return allProfiles;
+    const wanted = new Set(filter.map((n) => n.toLowerCase().trim()));
+    return allProfiles.filter((p) => wanted.has(p.name.toLowerCase().trim()));
+  })();
+
+  if (profiles.length === 0) {
+    throw new Error(
+      `Nenhum perfil corresponde ao filtro. Configurados: ${allProfiles.map((p) => p.name).join(', ')}`
+    );
+  }
+  if (options?.profileNames?.length) {
+    report(`Sincronizando ${profiles.length} perfil(is) selecionado(s): ${profiles.map((p) => p.name).join(', ')}`);
   }
 
   // Garante a tabela. CREATE TABLE IF NOT EXISTS é idempotente.
@@ -364,22 +485,26 @@ export async function fetchAndSyncMetaPages(onProgress?: (message: string) => vo
   };
   const accByPage = new Map<string, Acc>();
 
+  let appRateLimitHit = false;
   for (const profile of profiles) {
     if (!profile.token) continue;
 
     report(`Perfil ${profile.name}: buscando páginas e limites…`);
-    let pages: PageWithAdLimit[];
+    let pages: PageWithAdLimit[] = [];
+    let aborted = false;
     try {
-      pages = await fetchPagesWithAdLimits(profile.token, (msg) =>
+      const r = await fetchPagesWithAdLimits(profile.token, (msg) =>
         report(`Perfil ${profile.name}: ${msg}`)
       );
+      pages = r.pages;
+      aborted = r.aborted;
     } catch (err: any) {
       console.warn(`[meta-pages] perfil ${profile.name} falhou: ${err?.message ?? err}`);
       report(`Perfil ${profile.name}: erro — ${err?.message ?? err}`);
       continue;
     }
 
-    report(`Perfil ${profile.name}: ${pages.length} páginas encontradas`);
+    report(`Perfil ${profile.name}: ${pages.length} páginas encontradas${aborted ? ' (parcial — rate limit)' : ''}`);
 
     for (const p of pages) {
       const existing = accByPage.get(p.page_id);
@@ -394,16 +519,21 @@ export async function fetchAndSyncMetaPages(onProgress?: (message: string) => vo
         });
       } else {
         existing.accessible_profiles.add(profile.name);
-        // Sempre prefere um nome não-vazio se o anterior estiver vazio
         if (!existing.page_name && p.page_name) existing.page_name = p.page_name;
-        // MAX entre perfis (cobre casos em que um perfil vê limites maiores)
         if (p.ad_limit !== null && (existing.ad_limit === null || p.ad_limit > existing.ad_limit)) {
           existing.ad_limit = p.ad_limit;
         }
         if (p.ads_running > existing.ads_running) existing.ads_running = p.ads_running;
-        // Preserva IG quando qualquer perfil enxergar
         if (!existing.ig_account_id && p.ig_account_id) existing.ig_account_id = p.ig_account_id;
       }
+    }
+
+    if (aborted) {
+      // Quota do app é compartilhada entre todos os tokens — não adianta tentar
+      // os perfis restantes. Salva o que coletou até aqui e devolve.
+      appRateLimitHit = true;
+      report('Limite do app Facebook atingido — pulando perfis restantes. Salvando parcial.');
+      break;
     }
   }
 
@@ -445,5 +575,11 @@ export async function fetchAndSyncMetaPages(onProgress?: (message: string) => vo
     }
   }
 
-  return { success: true, count: rows.length, pages: rows };
+  return {
+    success: true,
+    count: rows.length,
+    pages: rows,
+    partial: appRateLimitHit,
+    profilesSynced: profiles.map((p) => p.name),
+  };
 }

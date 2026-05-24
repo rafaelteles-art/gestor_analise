@@ -10,12 +10,12 @@ import { Key, Save, CheckCircle2, Plus, Trash2, ShieldCheck, AlertTriangle, Chev
 const REQUIRED_SCOPES_PUBLISH = [
   'ads_management',
   'pages_show_list',
-  'pages_manage_ads',
   'pages_read_engagement',
   'business_management',
 ] as const;
 
 const OPTIONAL_SCOPES = [
+  'pages_manage_ads',
   'instagram_basic',
   'instagram_content_publish',
   'ads_read',
@@ -190,7 +190,7 @@ export default function ApiTokenForm() {
                   <li>No System User criado, clique <strong>Add Assets</strong> e atribua: <em>Ad Accounts</em> (Manage), <em>Pages</em> (Create Content + Manage Page) e <em>Pixels</em> (Manage).</li>
                   <li>Clique <strong>Generate New Token</strong>. Selecione o seu App, marque <strong>nunca expira</strong>, e marque as permissões:
                     <div className="bg-gray-50 border border-gray-200 rounded p-2 mt-1 font-mono text-[11px] text-gray-700">
-                      ads_management · pages_show_list · pages_manage_ads · pages_read_engagement · business_management · instagram_basic
+                      ads_management · pages_show_list · pages_read_engagement · business_management · instagram_basic
                     </div>
                   </li>
                   <li>Copie o token gerado e cole no campo abaixo. Use <strong>Validar token</strong> pra conferir as permissões.</li>

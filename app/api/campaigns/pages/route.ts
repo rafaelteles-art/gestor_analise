@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     await pool.query(`ALTER TABLE meta_pages ADD COLUMN IF NOT EXISTS ig_account_id TEXT`);
 
     const dbRes = await pool.query(
-      `SELECT page_id, page_name, ig_account_id
+      `SELECT page_id, page_name, ig_account_id, ad_limit, ads_running
          FROM meta_pages
         WHERE $1 = ANY(COALESCE(accessible_profiles, ARRAY[]::TEXT[]))
         ORDER BY page_name ASC`,
@@ -49,6 +49,8 @@ export async function GET(req: Request) {
       instagram_business_account: r.ig_account_id
         ? { id: r.ig_account_id as string }
         : undefined,
+      ad_limit: r.ad_limit === null || r.ad_limit === undefined ? null : Number(r.ad_limit),
+      ads_running: Number(r.ads_running ?? 0),
     }));
 
     return NextResponse.json({

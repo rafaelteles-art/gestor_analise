@@ -1,4 +1,5 @@
 import { pool } from '@/lib/db';
+import { getMetaProfiles } from '@/lib/config';
 import V2MediaLabLayout from '../components/V2MediaLabLayout';
 import ClientStatusPaginas from './ClientStatusPaginas';
 
@@ -17,6 +18,7 @@ async function ensureTable() {
 
 export default async function PaginasPage() {
   let pages: any[] = [];
+  let configuredProfiles: string[] = [];
 
   try {
     await ensureTable();
@@ -36,9 +38,16 @@ export default async function PaginasPage() {
     console.error('Erro ao carregar páginas:', error);
   }
 
+  try {
+    const profiles = await getMetaProfiles();
+    configuredProfiles = profiles.map((p) => p.name).filter(Boolean);
+  } catch (error) {
+    console.error('Erro ao carregar perfis Meta:', error);
+  }
+
   return (
     <V2MediaLabLayout title="Páginas">
-      <ClientStatusPaginas initialPages={pages} />
+      <ClientStatusPaginas initialPages={pages} configuredProfiles={configuredProfiles} />
     </V2MediaLabLayout>
   );
 }

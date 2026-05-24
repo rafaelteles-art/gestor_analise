@@ -11,7 +11,7 @@
  *  - Lookalike Audiences:    https://developers.facebook.com/docs/marketing-api/audiences/guides/lookalike-audiences/
  */
 
-export const META_API_VERSION = 'v21.0';
+export const META_API_VERSION = 'v22.0';
 const GRAPH = `https://graph.facebook.com/${META_API_VERSION}`;
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -135,6 +135,14 @@ export interface ChildAttachment {
 export interface CreativeSpec {
   name: string;
   page_id: string;
+  /**
+   * IG identity. Em v22.0 (set/2025) a Meta deprecou `instagram_actor_id` e
+   * renomeou para `instagram_user_id` — aceita IG Business conectado *ou* PBIA
+   * (Page-Backed Instagram Account). Mantemos o nome antigo como alias só
+   * pra não quebrar callers existentes.
+   */
+  instagram_user_id?: string;
+  /** @deprecated use `instagram_user_id` — kept as alias para compatibilidade */
   instagram_actor_id?: string;
   /** "single" → uma imagem ou vídeo; "carousel" → 2-10 child_attachments; "dpa" → template DPA */
   type: 'single' | 'carousel' | 'dpa';
@@ -255,6 +263,14 @@ export interface BatchCreateInput {
   ads_per_adset: number;
   /** Lista de Page IDs disponíveis — distribuídos em round-robin entre os ads. */
   page_ids: string[];
+  /**
+   * Alocação manual de criativos por página (chave = page_id).
+   * Páginas com valor aqui recebem exatamente esse número de ads; o restante
+   * é distribuído em round-robin entre as páginas que NÃO aparecem neste mapa.
+   * Quando nenhuma página tem alocação manual, o comportamento é o round-robin
+   * clássico sobre todas as páginas em `page_ids`.
+   */
+  page_allocations?: Record<string, number>;
   /** Se ligado, tenta a próxima página em caso de erro no creative. */
   page_auto_retry: boolean;
   /** Template da campanha (name vira prefixo: name_C01, name_C02…). */
@@ -561,6 +577,93 @@ export async function listProductSets(catalogId: string, token: string): Promise
   return data.data ?? [];
 }
 
+export interface BusinessManagerInfo {
+  id: string;
+  name: string;
+}
+
+/**
+ * Lista BMs visíveis ao token. Combina três fontes:
+ *
+ *  1. `/me?fields=business`   — para System User tokens, esse é o BM-mãe
+ *     (que criou o System User). NÃO aparece em `/me/businesses` em muitos
+ *     casos. É o único jeito de descobrir o BM-pai de um SU.
+ *  2. `/me/businesses`        — BMs onde o usuário é membro/admin (geralmente
+ *     funciona para User Tokens; SU pode retornar vazio).
+ *  3. `/{bm_id}/owned_businesses` por BM — sub-BMs (BMs filhas) de cada um
+ *     dos BMs descobertos acima.
+ *
+ * Deduplica por id e ordena por nome.
+ */
+export async function listBusinessManagers(token: string): Promise<BusinessManagerInfo[]> {
+  const map = new Map<string, BusinessManagerInfo>();
+
+  // 1) BM-mãe via /me?fields=business (essencial para System User tokens)
+  try {
+    const me = await getGraph<{ id: string; business?: BusinessManagerInfo }>(
+      `me`,
+      token,
+      { fields: 'id,business' }
+    );
+    if (me.business?.id) map.set(me.business.id, { id: me.business.id, name: me.business.name ?? me.business.id });
+  } catch {
+    // /me sem permissão — segue
+  }
+
+  // 2) BMs em /me/businesses (User tokens; SU pode vir vazio)
+  let directList: BusinessManagerInfo[] = [];
+  try {
+    const direct = await getGraph<{ data: BusinessManagerInfo[] }>(
+      `me/businesses`,
+      token,
+      { fields: 'id,name', limit: '200' }
+    );
+    directList = direct.data ?? [];
+    for (const bm of directList) if (!map.has(bm.id)) map.set(bm.id, bm);
+  } catch {
+    // SU costuma não responder isso — segue
+  }
+
+  // 3) Para cada BM descoberto, busca sub-BMs (owned_businesses)
+  const allKnown = Array.from(map.values());
+  for (const bm of allKnown) {
+    try {
+      const owned = await getGraph<{ data: BusinessManagerInfo[] }>(
+        `${bm.id}/owned_businesses`,
+        token,
+        { fields: 'id,name', limit: '200' }
+      );
+      for (const ob of owned.data ?? []) {
+        if (!map.has(ob.id)) map.set(ob.id, ob);
+      }
+    } catch {
+      // BM problemático não derruba o restante
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Cria um Product Catalog novo dentro do BM.
+ * Endpoint: POST /{business_id}/owned_product_catalogs
+ * Campos: name (obrigatório), vertical (opcional — default 'commerce').
+ */
+export async function createCatalog(
+  bmId: string,
+  name: string,
+  token: string,
+  vertical: string = 'commerce'
+): Promise<CatalogInfo> {
+  const created = await postGraph<{ id: string }>(
+    `${bmId}/owned_product_catalogs`,
+    { name, vertical },
+    token,
+    'createCatalog'
+  );
+  return { id: created.id, name, vertical, product_count: 0 };
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Lookalike
 // ────────────────────────────────────────────────────────────────────────────
@@ -746,22 +849,147 @@ export async function createAdSet(
   if (spec.end_time) params.end_time = spec.end_time;
   if (spec.attribution_spec) params.attribution_spec = spec.attribution_spec;
 
+  // DEBUG: log exato dos params enviados (remover depois de diagnosticar erro de promoted_object)
+  console.log('[createAdSet] params →', JSON.stringify({
+    optimization_goal: params.optimization_goal,
+    promoted_object: params.promoted_object,
+    destination_type: params.destination_type,
+    campaign_id: params.campaign_id,
+    targeting: params.targeting,
+    billing_event: params.billing_event,
+    bid_strategy: params.bid_strategy,
+  }, null, 2));
+
   return postGraph<{ id: string }>(`${accountId}/adsets`, params, token, 'createAdSet');
+}
+
+/**
+ * Resolve um `instagram_actor_id` para uma Página que NÃO tem IG Business Account
+ * conectado. Faz isso via Page-Backed Instagram Account (PBIA) — a "conta sombra"
+ * que a Meta cria atrás dos panos quando o anunciante escolhe "Usar Página do
+ * Facebook" no Ads Manager.
+ *
+ * Sem isso, o ad creative quebra com (#100/1772103) "conta do Instagram ausente"
+ * em ad sets com placements de IG. Mandar `page_id` direto também não rola
+ * — a Meta valida e rejeita ((#100) "must be a valid Instagram account id").
+ *
+ * Fluxo:
+ *   1. Pega o page access token via `GET /{page}?fields=access_token` com o token do user/SU.
+ *      ⚠ Requer SU token com role de admin na Página (não User token genérico — Page Admin direto).
+ *   2. Tenta `GET /{page}/page_backed_instagram_accounts` (edge plural) com o page token — retorna lista
+ *      com a PBIA existente se já tiver sido criada. ATENÇÃO: NÃO é `?fields=page_backed_instagram_account`
+ *      (singular) — esse é tratado como campo e a Meta retorna (#100) "nonexisting field".
+ *   3. Se a lista veio vazia, `POST /{page}/page_backed_instagram_accounts` cria uma nova
+ *      (idempotente: se já existir, retorna a mesma).
+ *
+ * IMPORTANTE (v22.0+): O ID retornado é passado em `instagram_user_id` (campo novo, substituto
+ * de `instagram_actor_id` que foi deprecado em set/2025). Na v21 a PBIA era rejeitada quando
+ * setada em `instagram_actor_id` com (#100) "must be a valid Instagram account id" — pelo
+ * nome novo a Meta aceita.
+ *
+ * Para DPA é OBRIGATÓRIO setar — omitir dispara (#100/1772103) "IG account missing" no createAd.
+ * Para anúncios simples a Meta resolve via PBIA mesmo sem o campo, mas setamos sempre por consistência.
+ *
+ * Cacheado em memória pra não repetir em batches de múltiplos creatives na mesma Página.
+ */
+const _pbiaCache = new Map<string, { igId: string; expires: number }>();
+const PBIA_TTL_MS = 30 * 60 * 1000;
+
+async function resolvePageBackedInstagram(pageId: string, token: string): Promise<string> {
+  const key = `${token.slice(-12)}::${pageId}`;
+  const hit = _pbiaCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.igId;
+
+  // 1) page access token via user/SU token
+  let pageToken: string | undefined;
+  try {
+    const r = await getGraph<{ access_token?: string }>(pageId, token, { fields: 'access_token' });
+    pageToken = r.access_token;
+  } catch (err) {
+    const msg = (err as Error).message;
+    const isPermErr = /pages_read_engagement|permission|\(#10\)|\(#200\)/i.test(msg);
+    throw new MetaApiError(
+      'resolvePageBackedInstagram',
+      undefined,
+      isPermErr
+        ? `Página ${pageId} sem Instagram conectado. Para anunciar, escolha UMA das opções: ` +
+          `(A) Conecte uma conta IG Business à Página em Configurações da Página → Contas vinculadas; ` +
+          `(B) Crie uma campanha qualquer no Ads Manager com "Usar Página do Facebook" como identidade IG — ` +
+          `isso cria a Page-Backed Instagram Account na Meta e a API passa a usá-la automaticamente; ou ` +
+          `(C) Adicione o scope 'pages_read_engagement' ao token. Detalhe Meta: ${msg}`
+        : `Não consegui pegar o page access token de ${pageId}. Detalhe: ${msg}`
+    );
+  }
+  if (!pageToken) {
+    throw new MetaApiError(
+      'resolvePageBackedInstagram',
+      undefined,
+      `Página ${pageId} sem IG conectado. Conecte um IG Business à Página, ou bootstrap a PBIA criando uma campanha via Ads Manager uma vez (com "Usar Página do Facebook").`
+    );
+  }
+
+  // 2) PBIA existente? (é EDGE plural, NÃO campo — Meta retorna lista)
+  let igId: string | undefined;
+  try {
+    const existing = await getGraph<{ data?: { id: string }[] }>(
+      `${pageId}/page_backed_instagram_accounts`,
+      pageToken
+    );
+    igId = existing.data?.[0]?.id;
+  } catch (err) {
+    console.warn('[resolvePageBackedInstagram] GET /page_backed_instagram_accounts falhou:', (err as Error).message);
+  }
+
+  // 3) Cria se não existir
+  if (!igId) {
+    try {
+      const created = await postGraph<{ id: string }>(
+        `${pageId}/page_backed_instagram_accounts`,
+        {},
+        pageToken,
+        'createPageBackedInstagram'
+      );
+      igId = created.id;
+    } catch (err) {
+      throw new MetaApiError(
+        'resolvePageBackedInstagram',
+        undefined,
+        `Página ${pageId} não tem IG conectado e a criação da Page-Backed Instagram Account falhou. Detalhe: ${(err as Error).message}`
+      );
+    }
+  }
+
+  if (!igId) {
+    throw new MetaApiError(
+      'resolvePageBackedInstagram',
+      undefined,
+      `Página ${pageId} sem IG conectado e PBIA retornou vazio.`
+    );
+  }
+
+  _pbiaCache.set(key, { igId, expires: Date.now() + PBIA_TTL_MS });
+  return igId;
 }
 
 function buildObjectStorySpec(c: CreativeSpec) {
   const base: any = { page_id: c.page_id };
-  if (c.instagram_actor_id) base.instagram_actor_id = c.instagram_actor_id;
+  // v22.0+: `instagram_user_id` substitui `instagram_actor_id`. Aceitamos os dois
+  // nomes em CreativeSpec mas SEMPRE enviamos o nome novo para a Meta.
+  const igUserId = c.instagram_user_id ?? c.instagram_actor_id;
+  if (igUserId) base.instagram_user_id = igUserId;
 
   if (c.type === 'dpa') {
     // DPA: usa template_data; os campos {{product.*}} viram dinâmicos.
+    // IMPORTANTE: usa `||` (não `??`) pra que strings VAZIAS também caiam no
+    // template fallback — sem isso a Meta recebe name/description vazios e não
+    // reconhece o creative como DPA, rejeitando `{{product.url}}` (subcode 2061006).
     base.template_data = {
-      message: c.message ?? '',
-      link: c.template_link ?? '{{product.url}}',
-      name: c.headline ?? '{{product.name | titleize}}',
-      description: c.description ?? '{{product.description}}',
+      message: c.message || '{{product.name}}',
+      link: c.template_link || '{{product.url}}',
+      name: c.headline || '{{product.name | titleize}}',
+      description: c.description || '{{product.description}}',
       call_to_action: c.cta_type
-        ? { type: c.cta_type, value: { link: c.cta_link ?? c.template_link ?? '{{product.url}}' } }
+        ? { type: c.cta_type, value: { link: c.cta_link || c.template_link || '{{product.url}}' } }
         : undefined,
     };
   } else if (c.type === 'carousel') {
@@ -820,6 +1048,24 @@ export async function createAdCreative(
   token: string,
   c: CreativeSpec
 ): Promise<{ id: string }> {
+  // Se a Página não veio com IG Business Account, GARANTE que existe uma
+  // Page-Backed Instagram Account (PBIA) — mas NÃO seta `instagram_actor_id`
+  // com o ID dela. Esse campo só aceita IG Business *conectado*; passar PBIA ID
+  // direto dá (#100) "must be a valid Instagram account id". A Meta resolve
+  // a PBIA automaticamente quando o campo é omitido E ela existe na Página.
+  const incomingIg = c.instagram_user_id ?? c.instagram_actor_id;
+  console.log('[createAdCreative] page_id=', c.page_id, 'instagram_user_id IN=', incomingIg);
+  if (!incomingIg && c.page_id) {
+    const pbia = await resolvePageBackedInstagram(c.page_id, token);
+    // v22.0: PBIA agora é aceita como `instagram_user_id` (era rejeitada como
+    // `instagram_actor_id` na v21). Setar explicitamente — DPA exige identidade
+    // declarada no creative, não resolve por omissão.
+    c = { ...c, instagram_user_id: pbia };
+    console.log('[createAdCreative] PBIA resolved=', pbia, '— setado em instagram_user_id (v22 API).');
+  } else {
+    console.log('[createAdCreative] IG identity já veio na spec. Skip resolver.');
+  }
+
   // Advantage+ creative optimizations — `standard_enhancements` foi descontinuado
   // em out/2023 (subcode 3858504). Hoje cada recurso é declarado individualmente.
   // Quando o usuário não passa nada, mantemos o default conservador (apenas
@@ -838,8 +1084,14 @@ export async function createAdCreative(
   const params: Record<string, unknown> = {
     name: c.name,
     object_story_spec: buildObjectStorySpec(c),
-    degrees_of_freedom_spec: { creative_features_spec },
   };
+  // `degrees_of_freedom_spec` em DPA dispara (#100/1772103) "IG account missing"
+  // mesmo com identidade válida — bug confirmado pela Meta Dev Community (thread
+  // 1905371253614148). Em creatives DPA, omitimos esse bloco; Advantage+ Creative
+  // segue funcionando para single/carousel/video.
+  if (c.type !== 'dpa') {
+    params.degrees_of_freedom_spec = { creative_features_spec };
+  }
   if (c.url_tags) params.url_tags = c.url_tags;
   // Multi-Advertiser Ads: a Meta defaulta para OPT_IN em OUTCOME_SALES desde 2024.
   // Sem enviar enroll_status explícito ele fica ligado mesmo com o toggle off na UI.
@@ -847,6 +1099,14 @@ export async function createAdCreative(
   params.contextual_multi_ads = { enroll_status: c.multi_advertiser ? 'OPT_IN' : 'OPT_OUT' };
   if (c.product_set_id && c.type === 'dpa') {
     params.product_set_id = c.product_set_id;
+  }
+
+  if (c.type === 'dpa') {
+    console.log('[createAdCreative DPA] →', JSON.stringify({
+      account_id: accountId,
+      product_set_id: params.product_set_id,
+      object_story_spec: params.object_story_spec,
+    }, null, 2));
   }
 
   return postGraph<{ id: string }>(`${accountId}/adcreatives`, params, token, 'createAdCreative');
@@ -894,6 +1154,8 @@ export interface OrchestratorEvent {
   campaign_id?: string;
   adset_id?: string;
   ad_ids?: string[];
+  /** Página efetivamente usada no creative deste ad (após eventual auto-retry). */
+  page_id?: string;
   error?: string;
   fbCode?: number;
   message?: string;
@@ -984,6 +1246,7 @@ export async function createCampaignBatch(
     adsets_per_campaign: nAdSet,
     ads_per_adset: nAd,
     page_ids,
+    page_allocations,
     page_auto_retry,
     campaign: campaignTpl,
     adset: adsetTpl,
@@ -1021,7 +1284,29 @@ export async function createCampaignBatch(
   const ad_ids: string[] = [];
 
   let adGlobalIdx = 0;
-  let pageRR = 0; // ponteiro round-robin sobre page_ids
+
+  // Pré-computa a sequência página-por-ad. Páginas em `page_allocations`
+  // contribuem exatamente `count` slots; o restante é preenchido em
+  // round-robin entre as páginas sem alocação manual (auto pool). Se não
+  // houver auto pool e ainda sobrarem slots, faz round-robin sobre todas
+  // as páginas.
+  const pageSequence: string[] = (() => {
+    if (page_ids.length === 0) return [];
+    const manual = page_allocations ?? {};
+    const seq: string[] = [];
+    for (const pid of page_ids) {
+      const n = Math.max(0, Math.floor(manual[pid] ?? 0));
+      for (let i = 0; i < n; i++) seq.push(pid);
+    }
+    const autoPool = page_ids.filter(pid => manual[pid] === undefined);
+    const rrPool = autoPool.length > 0 ? autoPool : page_ids;
+    let rr = 0;
+    while (seq.length < totalAds) {
+      seq.push(rrPool[rr % rrPool.length]);
+      rr += 1;
+    }
+    return seq.slice(0, totalAds);
+  })();
 
   try {
     for (let cIdx = 0; cIdx < creatives.length; cIdx++) {
@@ -1029,9 +1314,17 @@ export async function createCampaignBatch(
 
       for (let ci = 1; ci <= Math.max(1, nCamp); ci++) {
         const campSuffix = nCamp > 1 ? `_C${pad2(ci)}` : '';
+        // Substitui o token {{criativo}} (case-insensitive) pelo nome deste criativo.
+        // O nome da campanha vindo do client pode conter outros tokens (eles já foram
+        // resolvidos no submit, exceto {{criativo}} que é por-criativo).
+        const baseName = campaignTpl.name || crv.name;
+        const resolvedName = baseName.replace(/\{\{\s*criativo\s*\}\}/gi, crv.name);
+        // Garante unicidade quando há múltiplos criativos e o usuário não usou
+        // {{criativo}} no template: anexa o nome do criativo apenas como fallback.
+        const needsCreativeSuffix = creatives.length > 1 && resolvedName === baseName;
         const campSpec: CampaignSpec = {
           ...campaignTpl,
-          name: `${campaignTpl.name || crv.name}${creatives.length > 1 ? ` — ${crv.name}` : ''}${campSuffix}`,
+          name: `${resolvedName}${needsCreativeSuffix ? ` — ${crv.name}` : ''}${campSuffix}`,
         };
 
         const camp = await createCampaign(account_id, access_token, campSpec);
@@ -1040,9 +1333,16 @@ export async function createCampaignBatch(
 
         for (let si = 1; si <= Math.max(1, nAdSet); si++) {
           const setSuffix = nAdSet > 1 ? `_CJ${pad2(si)}` : '';
+          // Quando o criativo define seu próprio product_set_id (DPA com sets
+          // distintos por anúncio), espelhamos no promoted_object do adset —
+          // senão a Meta otimiza pelo set "errado" e pode rejeitar o creative.
+          const overridePsid = crv.creative.product_set_id;
           const adsetSpec: AdSetSpec = {
             ...adsetTpl,
             name: `${adsetTpl.name || campSpec.name}${setSuffix}`,
+            promoted_object: overridePsid
+              ? { ...adsetTpl.promoted_object, product_set_id: overridePsid }
+              : adsetTpl.promoted_object,
           };
 
           const adset = await createAdSet(account_id, access_token, camp.id, adsetSpec);
@@ -1055,11 +1355,13 @@ export async function createCampaignBatch(
             const adName = `${crv.name}${adSuffix}`;
             onEvent({ type: 'ad_progress', index: adGlobalIdx, total: totalAds, message: adName });
 
-            // Round-robin de páginas; auto-retry se a primeira página falhar.
+            // Página primária definida por `pageSequence` (respeita
+            // page_allocations); fallback de auto-retry varre as demais
+            // páginas após a primária.
+            const primaryPage = pageSequence[adGlobalIdx - 1] ?? page_ids[0];
             const pagesToTry = page_ids.length > 0
-              ? [...page_ids.slice(pageRR % page_ids.length), ...page_ids.slice(0, pageRR % page_ids.length)]
+              ? [primaryPage, ...page_ids.filter(p => p !== primaryPage)]
               : [crv.creative.page_id];
-            pageRR += 1;
 
             // URL tags com variáveis DirectAds resolvidas (Meta vars ficam intactas).
             const resolvedUrlTags = url_tags_template
@@ -1075,6 +1377,7 @@ export async function createCampaignBatch(
               : undefined;
 
             let crCreated: { id: string } | null = null;
+            let usedPageId: string | undefined;
             let lastErr: unknown = null;
             for (const pId of pagesToTry) {
               try {
@@ -1084,6 +1387,7 @@ export async function createCampaignBatch(
                   page_id: pId,
                   url_tags: resolvedUrlTags ?? crv.creative.url_tags,
                 });
+                usedPageId = pId;
                 break;
               } catch (e) {
                 lastErr = e;
@@ -1092,12 +1396,12 @@ export async function createCampaignBatch(
             }
             if (!crCreated) throw lastErr ?? new Error('Nenhuma página disponível para o creative.');
 
-            onEvent({ type: 'creative_created', index: adGlobalIdx, id: crCreated.id });
+            onEvent({ type: 'creative_created', index: adGlobalIdx, id: crCreated.id, page_id: usedPageId });
 
             // Ads sempre ACTIVE — herdam o estado da campanha; pausar a campanha pausa todos.
             const ad = await createAd(account_id, access_token, adset.id, adName, crCreated.id, 'ACTIVE');
             ad_ids.push(ad.id);
-            onEvent({ type: 'ad_created', index: adGlobalIdx, id: ad.id });
+            onEvent({ type: 'ad_created', index: adGlobalIdx, id: ad.id, page_id: usedPageId });
           }
         }
       }
@@ -1152,12 +1456,12 @@ export async function createFullCampaign(
       onEvent({ type: 'ad_progress', index: i + 1, total: ads.length, message: a.name });
 
       const cr = await createAdCreative(account_id, access_token, a.creative);
-      onEvent({ type: 'creative_created', index: i + 1, id: cr.id });
+      onEvent({ type: 'creative_created', index: i + 1, id: cr.id, page_id: a.creative.page_id });
 
       // Ads sempre ACTIVE — herdam o estado da campanha; pausar a campanha pausa todos.
       const ad = await createAd(account_id, access_token, adsetId, a.name, cr.id, 'ACTIVE');
       adIds.push(ad.id);
-      onEvent({ type: 'ad_created', index: i + 1, id: ad.id });
+      onEvent({ type: 'ad_created', index: i + 1, id: ad.id, page_id: a.creative.page_id });
     }
 
     onEvent({ type: 'done', campaign_id: campaignId, adset_id: adsetId, ad_ids: adIds });

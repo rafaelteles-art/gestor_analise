@@ -47,7 +47,10 @@ export default async function SettingsPage() {
       <div className="max-w-4xl flex flex-col gap-8">
         <MetaSyncPanel initialRtCampaigns={rtCampaigns} />
         <VturbSyncPanel />
-        <AccountList initialAccounts={accounts} />
+        <AccountList
+          initialAccounts={accounts}
+          initialBlacklistedBmIds={blacklistedBms.map(b => b.bm_id)}
+        />
         <BlacklistPanel
           initialAccounts={accounts}
           initialBlacklistedBms={blacklistedBms}

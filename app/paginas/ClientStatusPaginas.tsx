@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { RefreshCw, Search } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { RefreshCw, Search, ChevronDown } from 'lucide-react';
 
 interface Page {
   page_id: string;
@@ -41,7 +41,13 @@ function AvailableBadge({ available, limit }: { available: number | null; limit:
   );
 }
 
-export default function ClientStatusPaginas({ initialPages }: { initialPages: Page[] }) {
+export default function ClientStatusPaginas({
+  initialPages,
+  configuredProfiles = [],
+}: {
+  initialPages: Page[];
+  configuredProfiles?: string[];
+}) {
   const [pages] = useState<Page[]>(initialPages);
   const [search, setSearch] = useState('');
   const [filterProfile, setFilterProfile] = useState('');
@@ -55,6 +61,39 @@ export default function ClientStatusPaginas({ initialPages }: { initialPages: Pa
     total: number;
     indeterminate: boolean;
   } | null>(null);
+
+  // Picker para escolher quais perfis sincronizar. Vazio = todos.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedProfiles, setSelectedProfiles] = useState<Set<string>>(new Set());
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+
+  // Fonte: perfis configurados (vindos do server) + os já vistos em pages,
+  // unidos pra não esconder algum perfil legacy que existe no banco mas não
+  // está mais em META_PROFILES.
+  const syncableProfiles = useMemo(() => {
+    const set = new Set<string>(configuredProfiles);
+    pages.forEach((p) => p.accessible_profiles.forEach((pr) => set.add(pr)));
+    return Array.from(set).sort();
+  }, [configuredProfiles, pages]);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [pickerOpen]);
+
+  const toggleProfile = (name: string) =>
+    setSelectedProfiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
 
   const uniqueProfiles = useMemo(() => {
     const set = new Set<string>();
@@ -106,14 +145,23 @@ export default function ClientStatusPaginas({ initialPages }: { initialPages: Pa
     return { total, comLimite, cheias, totalLimit, totalRunning, disponivel };
   }, [filteredPages]);
 
-  const runStreamedSync = async (url: string, label: string) => {
+  const runStreamedSync = async (url: string, label: string, body?: unknown) => {
     setSyncProgress({ label, message: 'Conectando…', current: 0, total: 0, indeterminate: true });
 
     let success = false;
     let errorMsg: string | null = null;
 
     try {
-      const res = await fetch(url);
+      const res = await fetch(
+        url,
+        body === undefined
+          ? undefined
+          : {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            }
+      );
       if (!res.ok || !res.body) {
         throw new Error(`HTTP ${res.status}`);
       }
@@ -162,6 +210,10 @@ export default function ClientStatusPaginas({ initialPages }: { initialPages: Pa
               total: prev?.total ?? 1,
               indeterminate: false,
             }));
+            if (line.partial) {
+              // Mostra alerta antes de recarregar, pra usuário entender o motivo.
+              alert(line.message || 'Sincronização parcial: rate limit do app Facebook atingido. Tente novamente em ~1h.');
+            }
           } else if (line.type === 'error') {
             errorMsg = line.error ?? 'Erro desconhecido';
           }
@@ -184,10 +236,20 @@ export default function ClientStatusPaginas({ initialPages }: { initialPages: Pa
     }
   };
 
-  const handleSync = async () => {
+  const handleSync = async (only?: string[]) => {
+    const profiles = (only ?? []).filter(Boolean);
     setIsSyncing(true);
+    setPickerOpen(false);
     try {
-      await runStreamedSync('/api/pages/sync', 'Sincronizar Páginas');
+      if (profiles.length > 0) {
+        await runStreamedSync(
+          '/api/pages/sync',
+          `Sincronizar (${profiles.length} perfil${profiles.length > 1 ? 's' : ''})`,
+          { profiles }
+        );
+      } else {
+        await runStreamedSync('/api/pages/sync', 'Sincronizar Páginas');
+      }
     } finally {
       setIsSyncing(false);
     }
@@ -220,14 +282,84 @@ export default function ClientStatusPaginas({ initialPages }: { initialPages: Pa
             <p className="mt-1.5 text-[11px] text-gray-500 truncate">{syncProgress.message}</p>
           </div>
         )}
-        <button
-          onClick={handleSync}
-          disabled={isSyncing}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-sm font-medium text-white transition-colors shadow-sm disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-          Sincronizar Páginas
-        </button>
+        <div className="relative inline-flex" ref={pickerRef}>
+          <button
+            onClick={() => handleSync()}
+            disabled={isSyncing}
+            className="flex items-center gap-2 pl-4 pr-3 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-l-xl text-sm font-medium text-white transition-colors shadow-sm disabled:opacity-50"
+            title="Sincronizar todos os perfis configurados"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            Sincronizar Páginas
+          </button>
+          <button
+            onClick={() => setPickerOpen((v) => !v)}
+            disabled={isSyncing || syncableProfiles.length === 0}
+            className="flex items-center px-2 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-r-xl border-l border-indigo-500 text-white transition-colors shadow-sm disabled:opacity-50"
+            title="Escolher perfis para sincronizar"
+            aria-label="Escolher perfis"
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+
+          {pickerOpen && (
+            <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-20 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">
+                Perfis para sincronizar
+              </p>
+
+              {syncableProfiles.length === 0 ? (
+                <p className="text-xs text-gray-400 py-2">Nenhum perfil configurado.</p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProfiles(new Set(syncableProfiles))}
+                      className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium"
+                    >
+                      Selecionar todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProfiles(new Set())}
+                      className="text-[11px] text-gray-500 hover:text-gray-700 font-medium"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto flex flex-col gap-1 mb-3">
+                    {syncableProfiles.map((name) => (
+                      <label
+                        key={name}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 cursor-pointer text-xs text-gray-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedProfiles.has(name)}
+                          onChange={() => toggleProfile(name)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="truncate">{name}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSync(Array.from(selectedProfiles))}
+                    disabled={isSyncing || selectedProfiles.size === 0}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs font-medium text-white transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Sincronizar selecionados ({selectedProfiles.size})
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards */}

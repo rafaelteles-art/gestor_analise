@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react';
-import { toggleAccountSelection, toggleAllAccountsSelection, toggleBmSelection } from '../actions';
+import { toggleAccountSelection, toggleAllAccountsSelection, toggleBmSelection, toggleBmBlacklist, toggleAccountBlacklist } from '../actions';
 import { handleStaleServerAction } from '@/lib/stale-action';
-import { RefreshCw, CheckCircle2, CheckSquare, Square, ChevronDown } from 'lucide-react';
+import { RefreshCw, CheckCircle2, CheckSquare, Square, ChevronDown, Ban } from 'lucide-react';
 
 interface Account {
   id: string;
@@ -12,6 +12,7 @@ interface Account {
   bm_id: string;
   bm_name: string;
   is_selected: boolean;
+  is_blacklisted?: boolean;
 }
 
 interface BmGroup {
@@ -34,8 +35,17 @@ function groupByBm(accounts: Account[]): BmGroup[] {
     .map(g => ({ ...g, accounts: g.accounts.sort((a, b) => a.account_name.localeCompare(b.account_name)) }));
 }
 
-export default function AccountList({ initialAccounts }: { initialAccounts: Account[] }) {
+export default function AccountList({
+  initialAccounts,
+  initialBlacklistedBmIds = [],
+}: {
+  initialAccounts: Account[];
+  initialBlacklistedBmIds?: string[];
+}) {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
+  const [blacklistedBmIds, setBlacklistedBmIds] = useState<Set<string>>(
+    () => new Set(initialBlacklistedBmIds)
+  );
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string>('');
   const [syncPct, setSyncPct] = useState<number>(0);
@@ -67,6 +77,36 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
       if (handleStaleServerAction(err)) return;
       setAccounts(prev);
       alert('Falha ao atualizar BM.');
+    }
+  };
+
+  // ── Blacklist conta individual ────────────────────────────────────────────
+  const handleToggleAccountBlacklist = async (accountId: string, currentlyBlacklisted: boolean) => {
+    const newStatus = !currentlyBlacklisted;
+    setAccounts(prev => prev.map(a => a.account_id === accountId ? { ...a, is_blacklisted: newStatus } : a));
+    try {
+      await toggleAccountBlacklist(accountId, newStatus);
+    } catch (err) {
+      if (handleStaleServerAction(err)) return;
+      setAccounts(prev => prev.map(a => a.account_id === accountId ? { ...a, is_blacklisted: currentlyBlacklisted } : a));
+      alert('Falha ao atualizar blacklist da conta.');
+    }
+  };
+
+  // ── Blacklist BM inteira ──────────────────────────────────────────────────
+  const handleToggleBmBlacklist = async (bmId: string, bmName: string, newStatus: boolean) => {
+    const prev = new Set(blacklistedBmIds);
+    setBlacklistedBmIds(curr => {
+      const next = new Set(curr);
+      newStatus ? next.add(bmId) : next.delete(bmId);
+      return next;
+    });
+    try {
+      await toggleBmBlacklist(bmId, bmName, newStatus);
+    } catch (err) {
+      if (handleStaleServerAction(err)) return;
+      setBlacklistedBmIds(prev);
+      alert('Falha ao atualizar blacklist do BM.');
     }
   };
 
@@ -251,6 +291,7 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
             const bmTotal    = group.accounts.length;
             const allOn      = bmSelected === bmTotal;
             const allOff     = bmSelected === 0;
+            const isBlacklisted = blacklistedBmIds.has(group.bm_id);
 
             return (
               <div key={group.bm_id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -292,6 +333,20 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
                         : <><CheckSquare className="w-3 h-3" /> Ativar BM</>
                       }
                     </button>
+
+                    {/* Blacklist BM inteira */}
+                    <button
+                      onClick={() => handleToggleBmBlacklist(group.bm_id, group.bm_name, !isBlacklisted)}
+                      title={isBlacklisted ? 'Remover BM da blacklist' : 'Adicionar BM à blacklist (oculta de /status-contas)'}
+                      className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors border ${
+                        isBlacklisted
+                          ? 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
+                          : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'
+                      }`}
+                    >
+                      <Ban className="w-3 h-3" />
+                      {isBlacklisted ? 'Remover blacklist' : 'Blacklist'}
+                    </button>
                   </div>
                 </div>
 
@@ -311,6 +366,18 @@ export default function AccountList({ initialAccounts }: { initialAccounts: Acco
                               <CheckCircle2 className="w-3 h-3" /> Ativa
                             </span>
                           )}
+                          <button
+                            onClick={() => handleToggleAccountBlacklist(acc.account_id, !!acc.is_blacklisted)}
+                            title={acc.is_blacklisted ? 'Remover conta da blacklist' : 'Adicionar conta à blacklist (oculta de /status-contas)'}
+                            className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md transition-colors border ${
+                              acc.is_blacklisted
+                                ? 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
+                                : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'
+                            }`}
+                          >
+                            <Ban className="w-3 h-3" />
+                            {acc.is_blacklisted ? 'Remover' : 'Blacklist'}
+                          </button>
                           <button
                             onClick={() => handleToggle(acc.account_id, acc.is_selected)}
                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
