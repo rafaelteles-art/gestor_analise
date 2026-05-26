@@ -3,6 +3,8 @@ import { getMetaProfiles } from '@/lib/config';
 import V2MediaLabLayout from '../components/V2MediaLabLayout';
 import ClientStatusPaginas from './ClientStatusPaginas';
 
+export const dynamic = 'force-dynamic';
+
 async function ensureTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS meta_pages (

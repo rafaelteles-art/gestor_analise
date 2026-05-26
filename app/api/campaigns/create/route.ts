@@ -18,10 +18,16 @@ export const maxDuration = 300;
  *
  * Aceita dois formatos:
  *   1) Legado (1 campanha × 1 conjunto × N ads):
- *      { account_id, profile_name?, campaign, adset, ads }
+ *      { account_id | account_ids[], profile_name?, campaign, adset, ads }
  *   2) Batch (multiplicador):
- *      { account_id, profile_name?, batch: { campaigns_per_creative, adsets_per_campaign,
+ *      { account_id | account_ids[], profile_name?, batch: { campaigns_per_creative, adsets_per_campaign,
  *        ads_per_adset, page_ids, page_auto_retry, campaign, adset, creatives } }
+ *
+ * Broadcast multi-conta: se `account_ids` for um array com 2+ entradas, executa o mesmo
+ * payload sequencialmente em cada conta, emitindo `account_start`/`account_done`/`account_error`
+ * em volta de cada execução e um `broadcast_summary` no fim. Em modo single-account
+ * (apenas `account_id` ou `account_ids` com 1 entrada) o comportamento legado é preservado
+ * — nada de eventos broadcast.
  *
  * Resposta: NDJSON streaming em ambos os casos.
  */
@@ -31,22 +37,48 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'body JSON inválido' }, { status: 400 });
   }
 
-  const { account_id, profile_name } = body as { account_id?: string; profile_name?: string };
-  if (!account_id) {
-    return NextResponse.json({ error: 'Campos obrigatórios: account_id.' }, { status: 400 });
+  const { profile_name } = body as { profile_name?: string };
+
+  // Aceita account_ids[] (multi-conta) ou account_id (single). Backward-compatible.
+  const rawIds: unknown = (body as any).account_ids;
+  const singleId: unknown = (body as any).account_id;
+  const accountIds: string[] = Array.isArray(rawIds) && rawIds.length > 0
+    ? rawIds.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+    : (typeof singleId === 'string' && singleId.trim().length > 0 ? [singleId] : []);
+  if (accountIds.length === 0) {
+    return NextResponse.json({ error: 'Campos obrigatórios: account_id ou account_ids[].' }, { status: 400 });
   }
 
-  const auth = await resolveAuth(account_id, profile_name);
-  if (!auth) return NextResponse.json({ error: 'Conta/perfil sem token válido.' }, { status: 404 });
-
+  const isBroadcast = accountIds.length > 1;
   const isBatch = !!body.batch;
+
+  // Validação prévia do payload — falha cedo se faltar algo, evita abrir
+  // stream pra erro de schema.
+  if (isBatch) {
+    const b = body.batch;
+    if (!b || !b.campaign || !b.adset || !Array.isArray(b.creatives) || b.creatives.length === 0) {
+      return NextResponse.json(
+        { error: 'batch.campaign, batch.adset e batch.creatives são obrigatórios.' },
+        { status: 400 }
+      );
+    }
+  } else {
+    const { campaign, adset, ads } = body;
+    if (!campaign || !adset || !Array.isArray(ads) || ads.length === 0) {
+      return NextResponse.json(
+        { error: 'campaign, adset, ads (não-vazio) são obrigatórios.' },
+        { status: 400 }
+      );
+    }
+  }
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      // Conta ads efetivamente publicados por página — usado depois para
-      // incrementar `meta_pages.ads_running` no DB (atualiza vagas livres
-      // em tempo real). Acumula via eventos, então mesmo em caso de
-      // falha parcial os ads já criados são contabilizados.
+      // Conta ads efetivamente publicados por página (somando todas as contas
+      // em broadcast) — usado pra incrementar `meta_pages.ads_running` no DB
+      // uma única vez no fim. Acumula via eventos, então mesmo em falha parcial
+      // os ads já criados são contabilizados.
       const adsPerPage = new Map<string, number>();
       const send = (e: OrchestratorEvent) => {
         if (e.type === 'ad_created' && e.page_id) {
@@ -58,58 +90,119 @@ export async function POST(req: Request) {
           // cliente desconectou
         }
       };
+
+      // Resultado por conta — agregado pro broadcast_summary final.
+      const success: Array<{ account_id: string; campaign_ids: string[]; adset_ids: string[]; ad_ids: string[] }> = [];
+      const failed: Array<{ account_id: string; error: string }> = [];
+
       try {
-        if (isBatch) {
-          const b = body.batch;
-          if (!b.campaign || !b.adset || !Array.isArray(b.creatives) || b.creatives.length === 0) {
-            send({ type: 'error', step: 'validate', error: 'batch.campaign, batch.adset e batch.creatives são obrigatórios.' });
-            return;
+        for (let idx = 0; idx < accountIds.length; idx++) {
+          const acctId = accountIds[idx];
+
+          if (isBroadcast) {
+            send({ type: 'account_start', account_id: acctId, index: idx, total: accountIds.length });
           }
-          const payload: BatchCreateInput = {
-            account_id,
-            access_token: auth.token,
-            campaigns_per_creative: Math.max(1, Number(b.campaigns_per_creative) || 1),
-            adsets_per_campaign: Math.max(1, Number(b.adsets_per_campaign) || 1),
-            ads_per_adset: Math.max(1, Number(b.ads_per_adset) || 1),
-            page_ids: Array.isArray(b.page_ids) ? b.page_ids : [],
-            page_allocations: (b.page_allocations && typeof b.page_allocations === 'object')
-              ? Object.fromEntries(
-                  Object.entries(b.page_allocations as Record<string, unknown>)
-                    .map(([k, v]) => [k, Math.max(0, Number(v) || 0)])
-                )
-              : undefined,
-            page_auto_retry: Boolean(b.page_auto_retry),
-            campaign: b.campaign,
-            adset: b.adset,
-            creatives: b.creatives,
-            url_tags_template: typeof b.url_tags_template === 'string' && b.url_tags_template.trim()
-              ? b.url_tags_template
-              : undefined,
-            context: b.context && typeof b.context === 'object' ? b.context : undefined,
-          };
-          await createCampaignBatch(payload, send);
-        } else {
-          const { campaign, adset, ads } = body;
-          if (!campaign || !adset || !Array.isArray(ads) || ads.length === 0) {
-            send({ type: 'error', step: 'validate', error: 'campaign, adset, ads (não-vazio) são obrigatórios.' });
-            return;
+
+          // Wrapper que injeta `account_id` em todo evento — UI usa pra agrupar
+          // progresso por conta no modo broadcast. Em single-account, injeta
+          // mesmo assim (custo zero) pra manter shape consistente.
+          const accountSend = (e: OrchestratorEvent) => send({ ...e, account_id: acctId });
+
+          try {
+            const acctAuth = await resolveAuth(acctId, profile_name);
+            if (!acctAuth) {
+              const err = 'Conta/perfil sem token válido.';
+              failed.push({ account_id: acctId, error: err });
+              if (isBroadcast) {
+                send({ type: 'account_error', account_id: acctId, error: err });
+                continue;
+              } else {
+                // Single-account: comportamento legado — encerra com erro HTTP-style.
+                send({ type: 'error', step: 'auth', error: err, account_id: acctId });
+                return;
+              }
+            }
+
+            if (isBatch) {
+              const b = body.batch;
+              const payload: BatchCreateInput = {
+                account_id: acctId,
+                access_token: acctAuth.token,
+                campaigns_per_creative: Math.max(1, Number(b.campaigns_per_creative) || 1),
+                adsets_per_campaign: Math.max(1, Number(b.adsets_per_campaign) || 1),
+                ads_per_adset: Math.max(1, Number(b.ads_per_adset) || 1),
+                page_ids: Array.isArray(b.page_ids) ? b.page_ids : [],
+                page_allocations: (b.page_allocations && typeof b.page_allocations === 'object')
+                  ? Object.fromEntries(
+                      Object.entries(b.page_allocations as Record<string, unknown>)
+                        .map(([k, v]) => [k, Math.max(0, Number(v) || 0)])
+                    )
+                  : undefined,
+                page_auto_retry: Boolean(b.page_auto_retry),
+                campaign: b.campaign,
+                adset: b.adset,
+                creatives: b.creatives,
+                url_tags_template: typeof b.url_tags_template === 'string' && b.url_tags_template.trim()
+                  ? b.url_tags_template
+                  : undefined,
+                context: b.context && typeof b.context === 'object' ? b.context : undefined,
+              };
+              const result = await createCampaignBatch(payload, accountSend);
+              success.push({
+                account_id: acctId,
+                campaign_ids: result.campaign_ids,
+                adset_ids: result.adset_ids,
+                ad_ids: result.ad_ids,
+              });
+            } else {
+              const { campaign, adset, ads } = body;
+              const payload: CreateFullCampaignInput = {
+                account_id: acctId,
+                access_token: acctAuth.token,
+                campaign,
+                adset,
+                ads,
+              };
+              const result = await createFullCampaign(payload, accountSend);
+              // createFullCampaign retorna shape diferente — normalizamos para o summary.
+              success.push({
+                account_id: acctId,
+                campaign_ids: result.campaign_id ? [result.campaign_id] : [],
+                adset_ids: result.adset_id ? [result.adset_id] : [],
+                ad_ids: Array.isArray(result.ad_ids) ? result.ad_ids : [],
+              });
+            }
+
+            if (isBroadcast) {
+              send({ type: 'account_done', account_id: acctId, index: idx, total: accountIds.length });
+            }
+          } catch (e: any) {
+            const errMsg = e?.message ?? String(e);
+            failed.push({ account_id: acctId, error: errMsg });
+            if (isBroadcast) {
+              // Em broadcast, segue pra próxima conta.
+              send({ type: 'account_error', account_id: acctId, error: errMsg });
+            } else {
+              // Single-account: erro já foi emitido como evento pelo orquestrador.
+              // Não rethrow — apenas sai do loop.
+              break;
+            }
           }
-          const payload: CreateFullCampaignInput = {
-            account_id,
-            access_token: auth.token,
-            campaign,
-            adset,
-            ads,
-          };
-          await createFullCampaign(payload, send);
         }
-      } catch {
-        // erro já emitido como evento
+
+        if (isBroadcast) {
+          send({
+            type: 'broadcast_summary',
+            total: accountIds.length,
+            success,
+            failed,
+          });
+        }
       } finally {
-        // Commit dos incrementos em meta_pages.ads_running. Sempre tenta
-        // — mesmo em falha parcial, ads que foram criados na Meta devem
-        // ser contabilizados localmente para não estourar o limite na
-        // próxima execução. Falhas aqui não afetam o stream para o cliente.
+        // Commit dos incrementos em meta_pages.ads_running. Sempre tenta —
+        // mesmo em falha parcial, ads que foram criados na Meta devem ser
+        // contabilizados localmente para não estourar o limite na próxima
+        // execução. Falhas aqui não afetam o stream para o cliente.
         if (adsPerPage.size > 0) {
           try {
             const ids: string[] = [];

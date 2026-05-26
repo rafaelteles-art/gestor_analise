@@ -283,6 +283,152 @@ function Field({ label, children, hint }: { label: string; children: React.React
 
 const inputBase = 'text-xs px-3 py-2 rounded-md border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50';
 
+/**
+ * Multi-select de contas agrupado por BM. Quando ≥2 contas marcadas, vira
+ * modo broadcast — a campanha será criada em todas as contas sequencialmente.
+ * A primeira conta marcada é a "primária" e dirige carregamentos account-scoped
+ * (pixels, públicos, catálogos) na UI.
+ */
+function AccountMultiSelect({
+  accounts, selected, onChange,
+}: {
+  accounts: { account_id: string; account_name: string; bm_name: string; account_status: string | null }[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const grouped = useMemo(() => {
+    const m = new Map<string, typeof accounts>();
+    for (const a of accounts) {
+      const key = a.bm_name || '— sem BM —';
+      const arr = m.get(key) ?? [];
+      arr.push(a);
+      m.set(key, arr);
+    }
+    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [accounts]);
+
+  const selectedSet = new Set(selected);
+  const primaryId = selected[0];
+  const primary = accounts.find(a => a.account_id === primaryId);
+
+  const toggle = (id: string) => {
+    if (selectedSet.has(id)) {
+      // Mantém ordem; só remove. Se restou vazio e havia algo, reseta pra primária anterior.
+      const next = selected.filter(x => x !== id);
+      onChange(next.length === 0 && primaryId ? [primaryId] : next);
+    } else {
+      onChange([...selected, id]);
+    }
+  };
+
+  const toggleBM = (bmName: string) => {
+    const idsInBm = (grouped.find(([n]) => n === bmName)?.[1] ?? []).map(a => a.account_id);
+    const allSelected = idsInBm.every(id => selectedSet.has(id));
+    if (allSelected) {
+      // Tira todos do BM, mas mantém primary se ela for desse BM (sem primary = inválido).
+      const next = selected.filter(id => !idsInBm.includes(id));
+      onChange(next.length === 0 && idsInBm[0] ? [idsInBm[0]] : next);
+    } else {
+      const merged = [...selected];
+      for (const id of idsInBm) if (!selectedSet.has(id)) merged.push(id);
+      onChange(merged);
+    }
+  };
+
+  const summary = selected.length === 0
+    ? '— nenhuma conta —'
+    : selected.length === 1
+      ? `${primary?.bm_name ?? ''} — ${primary?.account_name ?? primaryId} (${primaryId})`
+      : `${primary?.account_name ?? primaryId} +${selected.length - 1} conta(s)`;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button
+        type="button"
+        onClick={() => setExpanded(v => !v)}
+        disabled={accounts.length === 0}
+        className={cls(
+          'flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-md border bg-white outline-none transition-colors',
+          'disabled:opacity-50',
+          selected.length > 1
+            ? 'border-indigo-400 ring-1 ring-indigo-200'
+            : 'border-gray-200 hover:border-gray-300'
+        )}
+      >
+        <span className="truncate text-left flex-1">{summary}</span>
+        <span className="flex items-center gap-2 shrink-0">
+          {selected.length > 1 && (
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+              broadcast: {selected.length}
+            </span>
+          )}
+          <span className="text-gray-400 text-[10px]">{expanded ? '▲' : '▼'}</span>
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="border border-gray-200 rounded-md bg-white max-h-72 overflow-y-auto divide-y divide-gray-100">
+          {accounts.length === 0 && (
+            <div className="px-3 py-3 text-[11px] text-gray-400">— nenhuma conta deste perfil —</div>
+          )}
+          {grouped.map(([bmName, list]) => {
+            const ids = list.map(a => a.account_id);
+            const allSel = ids.every(id => selectedSet.has(id));
+            const someSel = ids.some(id => selectedSet.has(id));
+            return (
+              <div key={bmName} className="px-2 py-1.5">
+                <label className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allSel}
+                    ref={el => { if (el) el.indeterminate = !allSel && someSel; }}
+                    onChange={() => toggleBM(bmName)}
+                    className="w-3.5 h-3.5 accent-indigo-600"
+                  />
+                  <span className="text-[11px] font-semibold text-gray-700 flex-1 truncate">{bmName}</span>
+                  <span className="text-[10px] text-gray-400">{list.length} conta(s)</span>
+                </label>
+                <div className="ml-5 mt-0.5">
+                  {list.map(a => {
+                    const isPrimary = a.account_id === primaryId;
+                    return (
+                      <label
+                        key={a.account_id}
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSet.has(a.account_id)}
+                          onChange={() => toggle(a.account_id)}
+                          className="w-3.5 h-3.5 accent-indigo-600"
+                        />
+                        <span className="text-[11px] text-gray-700 flex-1 truncate">
+                          {a.account_name}
+                          <span className="text-gray-400"> ({a.account_id})</span>
+                          {a.account_status && a.account_status !== 'ACTIVE' && (
+                            <span className="text-amber-600"> · {a.account_status}</span>
+                          )}
+                        </span>
+                        {isPrimary && selected.length > 1 && (
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
+                            primária
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Toggle visual estilo iOS/Tailwind. */
 function Toggle({
   checked, onChange, disabled, label, hint,
@@ -1025,14 +1171,28 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   );
 
   // ── Estado base ───────────────────────────────────────────────────────────
-  const [accountId, setAccountId] = useState(accountsForProfile[0]?.account_id ?? '');
+  // accountIds[] é a source-of-truth — 1 entrada = single-account, 2+ = broadcast.
+  // accountId é sempre o "primary" (primeira entrada) e dirige carregamentos
+  // account-scoped (pixels, públicos, catálogos). Em broadcast, esses recursos
+  // são da conta primária; pixel_id/audience_id/catalog_id passam literais nas
+  // demais contas (precisam existir nelas — disclaimer alerta).
+  const [accountIds, setAccountIds] = useState<string[]>(
+    accountsForProfile[0]?.account_id ? [accountsForProfile[0].account_id] : []
+  );
+  const accountId = accountIds[0] ?? '';
   useEffect(() => {
-    if (!accountsForProfile.find(a => a.account_id === accountId)) {
-      setAccountId(accountsForProfile[0]?.account_id ?? '');
+    // Prune ao trocar de perfil: descarta contas que não pertencem ao perfil ativo.
+    const valid = accountIds.filter(id => accountsForProfile.some(a => a.account_id === id));
+    if (valid.length === 0 && accountsForProfile[0]) {
+      setAccountIds([accountsForProfile[0].account_id]);
+    } else if (valid.length !== accountIds.length) {
+      setAccountIds(valid);
     }
-  }, [profileName, accountsForProfile, accountId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileName, accountsForProfile]);
 
   const account = accounts.find(a => a.account_id === accountId);
+  const isBroadcast = accountIds.length > 1;
 
   // Listas dependentes da conta
   const [pixels, setPixels] = useState<Pixel[]>([]);
@@ -1579,6 +1739,15 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [events, setEvents] = useState<any[]>([]);
   const [doneInfo, setDoneInfo] = useState<{ campaign_ids: string[]; adset_ids: string[]; ad_ids: string[] } | null>(null);
   const [errorInfo, setErrorInfo] = useState<{ step?: string; error?: string } | null>(null);
+  // Broadcast: rastreia conta atual, progresso e resumo final. Em modo
+  // single-account, esses estados ficam vazios e a UI mantém o comportamento
+  // antigo (panel verde "✓ Criado com sucesso" via doneInfo).
+  const [broadcastProgress, setBroadcastProgress] = useState<{ current: number; total: number; account_id: string } | null>(null);
+  const [broadcastSummary, setBroadcastSummary] = useState<{
+    success: Array<{ account_id: string; campaign_ids: string[]; adset_ids: string[]; ad_ids: string[] }>;
+    failed: Array<{ account_id: string; error: string }>;
+    total: number;
+  } | null>(null);
 
   // ── Validação ────────────────────────────────────────────────────────────
   const totals = useMemo(() => {
@@ -1669,6 +1838,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     setEvents([]);
     setDoneInfo(null);
     setErrorInfo(null);
+    setBroadcastProgress(null);
+    setBroadcastSummary(null);
 
     const status = publishPaused ? 'PAUSED' : 'ACTIVE';
     const selectedPages = pages.filter(p => pageIds.includes(p.id));
@@ -1846,7 +2017,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     });
 
     const payload = {
-      account_id: accountId,
+      account_ids: accountIds,
       profile_name: profileName || undefined,
       batch: {
         campaigns_per_creative: campaignsPerCreative,
@@ -1890,7 +2061,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         setErrorInfo({ error: data?.error ?? res.statusText });
         return;
       }
-      // Coleta os IDs criados ao longo do stream — orquestrador batch retorna múltiplos
+      // Coleta os IDs criados ao longo do stream — orquestrador batch retorna múltiplos.
+      // Em broadcast, doneInfo agrega TODAS as contas (a aba "✓ Criado com sucesso" mostra
+      // o total combinado; o detalhamento por conta sai pelo broadcastSummary abaixo).
       const collected = { campaign_ids: [] as string[], adset_ids: [] as string[], ad_ids: [] as string[] };
       await readNdjson(res, (e) => {
         setEvents(prev => [...prev, e]);
@@ -1899,6 +2072,20 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         if (e.type === 'ad_created')       collected.ad_ids.push(e.id);
         if (e.type === 'done') setDoneInfo({ ...collected });
         if (e.type === 'error') setErrorInfo({ step: e.step, error: e.error });
+        // Broadcast events
+        if (e.type === 'account_start') {
+          setBroadcastProgress({ current: (e.index ?? 0) + 1, total: e.total ?? 0, account_id: e.account_id });
+        }
+        if (e.type === 'broadcast_summary') {
+          setBroadcastSummary({
+            success: e.success ?? [],
+            failed: e.failed ?? [],
+            total: e.total ?? 0,
+          });
+          setBroadcastProgress(null);
+          // Em broadcast, doneInfo agrega o total — útil pro painel verde existente.
+          setDoneInfo({ ...collected });
+        }
       });
     } catch (e: any) {
       setErrorInfo({ error: e?.message ?? String(e) });
@@ -1994,15 +2181,22 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {/* IDENTIFICAÇÃO */}
         <SubBlock label="Identificação">
           <div className="grid grid-cols-1 gap-3">
-            <Field label="Conta de Anúncio *">
-              <select className={inputBase} value={accountId} onChange={e => setAccountId(e.target.value)} disabled={accountsForProfile.length === 0}>
-                {accountsForProfile.length === 0 && <option value="">— nenhuma conta deste perfil —</option>}
-                {accountsForProfile.map(a => (
-                  <option key={a.account_id} value={a.account_id}>
-                    {a.bm_name} — {a.account_name} ({a.account_id}){a.account_status && a.account_status !== 'ACTIVE' ? ` · ${a.account_status}` : ''}
-                  </option>
-                ))}
-              </select>
+            <Field label="Conta de Anúncio *" hint={isBroadcast ? `Modo broadcast: a campanha será criada em ${accountIds.length} contas sequencialmente.` : undefined}>
+              <AccountMultiSelect
+                accounts={accountsForProfile}
+                selected={accountIds}
+                onChange={setAccountIds}
+              />
+              {isBroadcast && (
+                <div className="mt-2 text-[11px] leading-relaxed bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-amber-800">
+                  <strong>Atenção — IDs account-scoped:</strong> pixels, públicos, catálogos e product sets exibidos são da conta primária
+                  <span className="font-mono"> ({account?.account_name ?? accountId})</span>. Em broadcast, esses IDs serão enviados <em>tal qual</em> para as demais contas — se não existirem
+                  na conta destino, a chamada à Meta falha (erro #100). A criação segue nas demais contas e o resumo final mostra sucessos/falhas.
+                  <br />
+                  <strong>Alocação de páginas:</strong> cada conta respeita o cap localmente, então a mesma página pode receber até
+                  <span className="font-mono"> allocation × {accountIds.length}</span> ads no total entre todas as contas.
+                </div>
+              )}
             </Field>
             <Field label="Nome da Campanha *" hint={loadingDeps ? 'Carregando pixels/páginas/públicos/catálogos…' : depsError ?? undefined}>
               <div className="flex items-stretch gap-2">
@@ -3097,6 +3291,93 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           <div className="mt-3 bg-rose-50 border border-rose-200 rounded-lg p-4">
             <p className="text-xs font-bold text-rose-800">✗ Erro {errorInfo.step ? `em ${errorInfo.step}` : ''}</p>
             <p className="text-[11px] text-rose-700 mt-1">{errorInfo.error}</p>
+          </div>
+        )}
+
+        {/* Broadcast: progresso em tempo real (conta atual / total) */}
+        {broadcastProgress && (
+          <div className="mt-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+            <p className="text-[11px] font-bold text-indigo-800">
+              Broadcast em andamento — conta {broadcastProgress.current}/{broadcastProgress.total}
+            </p>
+            <p className="text-[11px] text-indigo-700 mt-0.5 font-mono">
+              {accounts.find(a => a.account_id === broadcastProgress.account_id)?.account_name ?? broadcastProgress.account_id}
+              <span className="text-indigo-400"> ({broadcastProgress.account_id})</span>
+            </p>
+          </div>
+        )}
+
+        {/* Broadcast: resumo final por conta */}
+        {broadcastSummary && (
+          <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-700">
+                Resumo do broadcast
+              </span>
+              <span className="text-[11px] text-gray-500">
+                <span className="text-emerald-700 font-semibold">✓ {broadcastSummary.success.length}</span>
+                {' · '}
+                <span className="text-rose-700 font-semibold">✗ {broadcastSummary.failed.length}</span>
+                {' / '}
+                {broadcastSummary.total} contas
+              </span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {broadcastSummary.success.map(s => {
+                const acct = accounts.find(a => a.account_id === s.account_id);
+                return (
+                  <div key={`ok-${s.account_id}`} className="px-4 py-2 flex items-center gap-3">
+                    <span className="text-emerald-600 font-bold text-[11px]">✓</span>
+                    <span className="text-[11px] flex-1 truncate">
+                      {acct?.account_name ?? s.account_id}
+                      <span className="text-gray-400 font-mono"> ({s.account_id})</span>
+                    </span>
+                    <span className="text-[11px] text-gray-500 shrink-0">
+                      {s.campaign_ids.length} camp · {s.ad_ids.length} ads
+                    </span>
+                    {s.campaign_ids[0] && (
+                      <a
+                        href={`https://business.facebook.com/adsmanager/manage/campaigns?act=${s.account_id.replace('act_', '')}&selected_campaign_ids=${s.campaign_ids.join(',')}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-[11px] text-emerald-700 underline font-semibold shrink-0"
+                      >
+                        abrir →
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+              {broadcastSummary.failed.map(f => {
+                const acct = accounts.find(a => a.account_id === f.account_id);
+                return (
+                  <div key={`err-${f.account_id}`} className="px-4 py-2 bg-rose-50/40">
+                    <div className="flex items-center gap-3">
+                      <span className="text-rose-600 font-bold text-[11px]">✗</span>
+                      <span className="text-[11px] flex-1 truncate">
+                        {acct?.account_name ?? f.account_id}
+                        <span className="text-gray-400 font-mono"> ({f.account_id})</span>
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-rose-700 mt-1 ml-6 break-words">{f.error}</p>
+                  </div>
+                );
+              })}
+            </div>
+            {broadcastSummary.failed.length > 0 && (
+              <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const failedIds = broadcastSummary.failed.map(f => f.account_id);
+                    setAccountIds(failedIds);
+                    setBroadcastSummary(null);
+                  }}
+                  className="text-[11px] font-semibold text-indigo-700 hover:text-indigo-800 underline"
+                >
+                  Selecionar apenas as {broadcastSummary.failed.length} conta(s) que falharam para nova tentativa
+                </button>
+              </div>
+            )}
           </div>
         )}
       </MainSection>

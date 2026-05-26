@@ -1,11 +1,11 @@
-# Graph Report - .  (2026-05-24)
+# Graph Report - .  (2026-05-26)
 
 ## Corpus Check
-- 103 files · ~100,928 words
+- 103 files · ~102,677 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 503 nodes · 617 edges · 68 communities detected
+- 505 nodes · 619 edges · 68 communities detected
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
@@ -92,6 +92,8 @@
 10. `vturbPost()` - 6 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `Next.js Project (create-next-app)` --conceptually_related_to--> `Problema: Retenção por Campanha FB`  [INFERRED]
+  README.md → vturb-retencao-por-campanha.md
 - `handle()` --calls--> `GET()`  [EXTRACTED]
   app\api\campaigns\businesses\route.ts → app\api\status-contas\sync\route.ts
 - `handleGet()` --calls--> `GET()`  [EXTRACTED]
@@ -100,8 +102,6 @@
   app\api\sync\vturb-bulk\route.ts → app\api\catalogs\product-presets\route.ts
 - `POST()` --calls--> `validatePreset()`  [EXTRACTED]
   app\api\sync\vturb-bulk\route.ts → app\api\catalogs\products\route.ts
-- `POST()` --calls--> `aggregateByKey()`  [EXTRACTED]
-  app\api\sync\vturb-bulk\route.ts → app\api\history\route.ts
 
 ## Hyperedges (group relationships)
 - **Vturb Retention Pipeline (UTM -> Events -> Aggregation -> Rates)** — vturb_utm_campaign_format, vturb_session_events, vturb_endpoint_traffic_origin_stats, vturb_extract_campaign_id_fn, vturb_vturb_map, vturb_play_rate, vturb_over_pitch_rate, vturb_click_rate [EXTRACTED 0.95]
@@ -115,20 +115,20 @@ Cohesion: 0.05
 Nodes (18): aggregateByKey(), combineDailyRtAd(), combineDailyRtCamp(), combineDailyRtCampById(), DELETE(), ensureColumns(), ensureSchema(), ensureTable() (+10 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.08
-Nodes (11): addChild(), applyPresetConfig(), buildCurrentPresetConfig(), emptyAd(), emptyChild(), handleApplyPreset(), handleSavePreset(), handleSingleUpload() (+3 more)
+Cohesion: 0.07
+Nodes (37): Vturb Analytics API (analytics.vturb.net v1), Auth: X-Api-Token + X-Api-Version, Caching: Redis ~10min TTL, Metric: click_rate, GET /players/list, POST /events/total_by_company_players, POST /traffic_origin/stats, Event: clicked (+29 more)
 
 ### Community 2 - "Community 2"
+Cohesion: 0.07
+Nodes (11): addChild(), applyPresetConfig(), buildCurrentPresetConfig(), emptyAd(), emptyChild(), handleApplyPreset(), handleSavePreset(), handleSingleUpload() (+3 more)
+
+### Community 3 - "Community 3"
 Cohesion: 0.13
 Nodes (20): buildMetaErrorMessage(), buildObjectStorySpec(), createAd(), createAdCreative(), createAdSet(), createCampaign(), createCampaignBatch(), createFullCampaign() (+12 more)
 
-### Community 3 - "Community 3"
+### Community 4 - "Community 4"
 Cohesion: 0.14
 Nodes (26): brtDayMonth(), buildMetaErrorMessage(), createProductSetWithRetry(), createProductWithSet(), createProductWithSetUsingToken(), deletePreset(), ensureCatalogProductsTable(), ensureIgnoredProductsTable() (+18 more)
-
-### Community 4 - "Community 4"
-Cohesion: 0.1
-Nodes (28): Context Navigation Policy, Knowledge Graph First Rule, Next.js Agent Rules (Breaking Changes), node_modules/next/dist/docs/, graphify-out/wiki/index.md, CLAUDE.md (include AGENTS.md), app/page.tsx Entry Point, Development Server (npm run dev) (+20 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.11
@@ -136,31 +136,31 @@ Nodes (5): handleDeleteTemplate(), handleImport(), handleSaveTemplate(), handleS
 
 ### Community 6 - "Community 6"
 Cohesion: 0.12
-Nodes (20): Vturb Analytics API (analytics.vturb.net v1), Auth: X-Api-Token + X-Api-Version, Caching: Redis ~10min TTL, GET /players/list, POST /events/total_by_company_players, POST /traffic_origin/stats, extractCampaignId() function, facebook.rows (FB metrics) (+12 more)
+Nodes (4): handleUnignoreProduct(), handleVideoSync(), loadVideoData(), openVideoModal()
 
 ### Community 7 - "Community 7"
 Cohesion: 0.12
-Nodes (4): handleUnignoreProduct(), handleVideoSync(), loadVideoData(), openVideoModal()
-
-### Community 8 - "Community 8"
-Cohesion: 0.12
 Nodes (5): handleDeleteTemplate(), handleImport(), handleSaveTemplate(), handleSyncToday(), persistTemplates()
 
-### Community 9 - "Community 9"
+### Community 8 - "Community 8"
 Cohesion: 0.14
 Nodes (3): handleSync(), handleSyncStatus(), runStreamedSync()
 
-### Community 10 - "Community 10"
+### Community 9 - "Community 9"
 Cohesion: 0.28
 Nodes (11): AppRateLimitError, fetchAdsVolumePaged(), fetchAllPages(), fetchAndSyncMetaPages(), fetchGraphWithRetry(), fetchPagesWithAdLimits(), listAllBMs(), maxAppUsagePct() (+3 more)
 
-### Community 11 - "Community 11"
+### Community 10 - "Community 10"
 Cohesion: 0.36
 Nodes (10): discoverBmCandidates(), ensureCatalogsTable(), fetchAllPages(), fetchAllPagesWithError(), fetchAndSyncMetaCatalogs(), fetchBmCatalogsDetailed(), fetchGraphWithRetry(), getCatalogsFromDB() (+2 more)
 
-### Community 12 - "Community 12"
+### Community 11 - "Community 11"
 Cohesion: 0.36
 Nodes (10): buildVturbCampaignMap(), fetchVturbActivePlayerIds(), fetchVturbPlayerCampaignStats(), fetchVturbPlayerDaily(), fetchVturbPlayers(), fetchVturbPlayerUtmDaily(), headers(), normalizeCampaignName() (+2 more)
+
+### Community 12 - "Community 12"
+Cohesion: 0.18
+Nodes (11): Context Navigation Policy, Knowledge Graph First Rule, Next.js Agent Rules (Breaking Changes), node_modules/next/dist/docs/, graphify-out/wiki/index.md, CLAUDE.md (include AGENTS.md), app/page.tsx Entry Point, Development Server (npm run dev) (+3 more)
 
 ### Community 13 - "Community 13"
 Cohesion: 0.22
@@ -447,17 +447,17 @@ Nodes (0):
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vturbMap (aggregation by campaign_id)` connect `Community 4` to `Community 6`?**
-  _High betweenness centrality (0.005) - this node is a cross-community bridge._
 - **What connects `node_modules/next/dist/docs/`, `Knowledge Graph First Rule`, `graphify-out/wiki/index.md` to the rest of the system?**
   _16 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.05 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
-  _Cohesion score 0.08 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.13 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07 - nodes in this community are weakly interconnected._
 - **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.14 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.13 - nodes in this community are weakly interconnected._
 - **Should `Community 4` be split into smaller, more focused modules?**
-  _Cohesion score 0.1 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.14 - nodes in this community are weakly interconnected._
+- **Should `Community 5` be split into smaller, more focused modules?**
+  _Cohesion score 0.11 - nodes in this community are weakly interconnected._

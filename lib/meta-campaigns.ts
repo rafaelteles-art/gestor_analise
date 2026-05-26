@@ -1146,7 +1146,13 @@ export interface OrchestratorEvent {
     | 'creative_created'
     | 'ad_created'
     | 'done'
-    | 'error';
+    | 'error'
+    // Broadcast (multi-conta) — só usados pela route, createCampaignBatch
+    // continua single-account e não emite estes.
+    | 'account_start'
+    | 'account_done'
+    | 'account_error'
+    | 'broadcast_summary';
   step?: string;
   id?: string;
   index?: number;
@@ -1159,6 +1165,11 @@ export interface OrchestratorEvent {
   error?: string;
   fbCode?: number;
   message?: string;
+  /** Conta-alvo em modo broadcast — preenchido pela route quando há mais de uma conta. */
+  account_id?: string;
+  /** Resumo final do broadcast — preenchido apenas em `broadcast_summary`. */
+  success?: Array<{ account_id: string; campaign_ids: string[]; adset_ids: string[]; ad_ids: string[] }>;
+  failed?: Array<{ account_id: string; error: string }>;
 }
 
 /**
