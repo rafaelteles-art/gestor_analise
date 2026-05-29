@@ -145,94 +145,59 @@ export default function ClientStatusPaginas({
     return { total, comLimite, cheias, totalLimit, totalRunning, disponivel };
   }, [filteredPages]);
 
-  const runStreamedSync = async (url: string, label: string, body?: unknown) => {
-    setSyncProgress({ label, message: 'Conectando…', current: 0, total: 0, indeterminate: true });
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-    let success = false;
-    let errorMsg: string | null = null;
-
+  const runPolledSync = async (label: string, profiles?: string[]) => {
+    setSyncProgress({ label, message: 'Enfileirando…', current: 0, total: 0, indeterminate: true });
+    let jobId: number;
     try {
-      const res = await fetch(
-        url,
-        body === undefined
-          ? undefined
-          : {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-            }
-      );
-      if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n');
-        buffer = parts.pop() ?? '';
-        for (const part of parts) {
-          if (!part.trim()) continue;
-          let line: any;
-          try {
-            line = JSON.parse(part);
-          } catch {
-            continue;
-          }
-
-          if (line.type === 'start') {
-            setSyncProgress({
-              label,
-              message: line.message ?? 'Iniciando…',
-              current: 0,
-              total: line.total ?? 0,
-              indeterminate: !line.total,
-            });
-          } else if (line.type === 'progress') {
-            setSyncProgress((prev) => ({
-              label,
-              message: line.message ?? prev?.message ?? '',
-              current: line.current ?? prev?.current ?? 0,
-              total: line.total ?? prev?.total ?? 0,
-              indeterminate: line.total == null && !prev?.total,
-            }));
-          } else if (line.type === 'done') {
-            success = !!line.success;
-            setSyncProgress((prev) => ({
-              label,
-              message: line.message ?? 'Concluído',
-              current: prev?.total ?? prev?.current ?? 1,
-              total: prev?.total ?? 1,
-              indeterminate: false,
-            }));
-            if (line.partial) {
-              // Mostra alerta antes de recarregar, pra usuário entender o motivo.
-              alert(line.message || 'Sincronização parcial: rate limit do app Facebook atingido. Tente novamente em ~1h.');
-            }
-          } else if (line.type === 'error') {
-            errorMsg = line.error ?? 'Erro desconhecido';
-          }
-        }
-      }
-    } catch (err: any) {
-      errorMsg = err?.message ?? 'Erro de rede';
-    }
-
-    if (errorMsg) {
-      alert(`Erro em ${label}: ${errorMsg}`);
+      const res = await fetch('/api/pages/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profiles && profiles.length ? { profiles } : {}),
+      });
+      const data = await res.json() as Record<string, unknown>;
+      if (!res.ok || !data.job_id) throw new Error(String(data.error ?? `HTTP ${res.status}`));
+      jobId = data.job_id as number;
+    } catch (err: unknown) {
+      alert(`Erro ao iniciar ${label}: ${err instanceof Error ? err.message : 'rede'}`);
       setSyncProgress(null);
       return;
     }
 
-    if (success) {
-      setTimeout(() => window.location.reload(), 400);
-    } else {
-      setSyncProgress(null);
+    // Poll until the job leaves pending/running. The Scheduler may take up to its
+    // interval (~2 min) to pick the job up — that's expected for "async, walk away".
+    while (true) {
+      await sleep(2500);
+      let job: Record<string, unknown>;
+      try {
+        const res = await fetch(`/api/pages/sync/status?job_id=${jobId}`);
+        job = await res.json();
+        if (!res.ok) throw new Error(String(job.error ?? `HTTP ${res.status}`));
+      } catch {
+        continue; // transient — keep polling
+      }
+
+      setSyncProgress({
+        label,
+        message: typeof job.message === 'string' ? job.message : 'Processando…',
+        current: typeof job.current === 'number' ? job.current : 0,
+        total: typeof job.total === 'number' ? job.total : 0,
+        indeterminate: !job.total,
+      });
+
+      if (job.status === 'done') {
+        if (job.partial) {
+          alert(typeof job.message === 'string' ? job.message : 'Sincronização parcial: rate limit do app Facebook atingido. Tente novamente em ~1h.');
+        }
+        setTimeout(() => window.location.reload(), 400);
+        return;
+      }
+      if (job.status === 'error') {
+        alert(`Erro em ${label}: ${typeof job.error === 'string' ? job.error : 'desconhecido'}`);
+        setSyncProgress(null);
+        return;
+      }
     }
   };
 
@@ -241,15 +206,12 @@ export default function ClientStatusPaginas({
     setIsSyncing(true);
     setPickerOpen(false);
     try {
-      if (profiles.length > 0) {
-        await runStreamedSync(
-          '/api/pages/sync',
-          `Sincronizar (${profiles.length} perfil${profiles.length > 1 ? 's' : ''})`,
-          { profiles }
-        );
-      } else {
-        await runStreamedSync('/api/pages/sync', 'Sincronizar Páginas');
-      }
+      await runPolledSync(
+        profiles.length > 0
+          ? `Sincronizar (${profiles.length} perfil${profiles.length > 1 ? 's' : ''})`
+          : 'Sincronizar Páginas',
+        profiles.length > 0 ? profiles : undefined,
+      );
     } finally {
       setIsSyncing(false);
     }
