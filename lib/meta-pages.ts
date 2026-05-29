@@ -24,6 +24,7 @@ export function tokensForAccount(
 const API_VERSION = 'v19.0';
 
 export const REFRESH_BATCH = 100;
+export const REFRESH_TIME_BUDGET_MS = 180_000; // stop a chunk after ~180s so it always fits the cron window
 
 const PAGE_FIELDS = 'id,name,instagram_business_account{id}';
 
@@ -327,10 +328,13 @@ export async function runRefreshChunk(opts: {
   const pageName = new Map<string, string>();
   const pageLimit = new Map<string, number>();
   const pageRunning = new Map<string, number>();
+  const startMs = Date.now();
+  let stoppedEarly = false;
   let partial = false;
   let processed = 0;
 
   for (const acc of accounts) {
+    if (Date.now() - startMs > REFRESH_TIME_BUDGET_MS) { stoppedEarly = true; break; }
     const tokens = tokensForAccount(acc.accessible_profiles, profileMap);
     if (tokens.length === 0) { processed++; continue; }
     let rows: AdsVolumeRow[] = [];
@@ -343,7 +347,7 @@ export async function runRefreshChunk(opts: {
         if (r.ok) break;
       }
     } catch (err: any) {
-      if (err instanceof AppRateLimitError) { partial = true; break; }
+      if (err instanceof AppRateLimitError) { partial = true; stoppedEarly = true; break; }
       throw err;
     }
     for (const row of rows) {
@@ -359,6 +363,7 @@ export async function runRefreshChunk(opts: {
       }
     }
     processed++;
+    if (processed % 10 === 0) report(`Limites: ${opts.offset + processed}/${total} contas`, opts.offset + processed, total);
     await sleep(pacer.delayMs());
   }
 
@@ -383,8 +388,8 @@ export async function runRefreshChunk(opts: {
     } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
   }
 
-  const nextOffset = partial ? opts.offset + processed : opts.offset + accounts.length;
-  const done = !partial && (opts.offset + accounts.length >= total);
+  const nextOffset = opts.offset + processed;
+  const done = !stoppedEarly && (opts.offset + accounts.length >= total);
   report(`Limites: ${Math.min(nextOffset, total)}/${total} contas`, Math.min(nextOffset, total), total);
   return { processed, total, nextOffset, done, partial };
 }
