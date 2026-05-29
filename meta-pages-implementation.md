@@ -1,72 +1,95 @@
-# Meta Pages — Background Job Architecture
+# Meta Pages — Sync Architecture (chunked / incremental / resumable)
 
-Handoff document for the page-sync feature. The feature is complete end-to-end.
+Status as of 2026-05-29, branch `feature/page-sync-background-job` (local only, not pushed).
+Decision records: [`../docs/adr/0001-page-sync-background-job.md`](../docs/adr/0001-page-sync-background-job.md)
+and [`../docs/adr/0002-page-sync-chunked-resumable.md`](../docs/adr/0002-page-sync-chunked-resumable.md).
 
----
+## Why this shape
 
-## 1. Overview
+The original inline sync ran the whole job inside one HTTP request: it died at the App
+Hosting load-balancer's hard **300s** timeout and tripped Meta's shared **#4** app rate
+limit. A first redesign moved it to a background job on the 1200s cron channel — but live
+testing at full scale (475 ad accounts; `p133` alone has 63 Business Managers) proved a
+**single pass is non-viable**: discovery alone took ~370s, the `ads_volume` sweep saturated
+`#4` and crawled, and the end-only upsert persisted nothing on an incomplete run. Hence the
+current **chunked, incrementally-persisted, resumable** design.
 
-Page sync runs as a **background job**, not a blocking user-facing request.
+## How it works
 
-### Flow
+Two operations share the `page_sync_jobs` table via a `kind` column and an integer `cursor`:
 
-1. User clicks "Sincronizar" on `/paginas`.
-2. `POST /api/pages/sync` inserts a row in `page_sync_jobs` (status `pending`) and returns `{ job_id }` immediately.
-3. Cloud Scheduler fires `POST /api/cron/pages-sync` every ~2 minutes (`maxDuration = 1200`).
-4. The cron worker claims the oldest runnable job atomically (`SELECT … FOR UPDATE SKIP LOCKED` + `leased_until` lease).
-5. Worker calls `runPageSyncJob`, which discovers pages and reads `ads_volume` per account, then upserts `meta_pages`.
-6. The UI (`ClientStatusPaginas.tsx`) polls `GET /api/pages/sync/status?job_id=N` every ~2.5 s and reloads when status is `done`.
+- **Refresh Limits** (`kind='refresh'`, primary/frequent): sweeps the **distinct** ad accounts
+  from `meta_ad_accounts` in batches, calls `ads_volume` per account (account-scoped → one
+  call per account suffices, via `tokensForAccount`), and **upserts `ad_limit`/`ads_running`
+  per batch**. No BM walk. `cursor` = account offset.
+- **Discover Pages** (`kind='discovery'`, on-demand/rare): walks **one profile per tick**'s
+  Business Managers and **upserts that profile's pages per tick** (unioning
+  `accessible_profiles`). `cursor` = profile index.
 
-### Why
+Flow:
+1. UI button → `POST /api/pages/sync` with `{ kind, profiles? }` → inserts a `pending`
+   `page_sync_jobs` row, returns `{ job_id }` instantly.
+2. Cloud Scheduler (~every 2 min) → `POST /api/cron/pages-sync` (`maxDuration=1200`, auth via
+   `CRON_SECRET`). It claims the oldest runnable job (`FOR UPDATE SKIP LOCKED` + a
+   `leased_until` lease; a `running` job whose lease was released to `NULL` is re-claimable to
+   **continue**), runs **exactly one chunk**, then either `completeJob` (cursor exhausted) or
+   `advanceAndRelease` (persist cursor, clear lease → next tick continues). The inter-tick gap
+   lets `#4` recover — the anti-crawl mechanism.
+3. UI polls `GET /api/pages/sync/status?job_id=N` (~2.5s) and reloads on `done`.
 
-The old inline streaming sync died at the App Hosting load-balancer hard timeout (300 s) and tripped Meta's shared app-level #4 rate limit. The Cloud Scheduler channel provides up to 1200 s, and the paced, deduped account walk reduces calls from ~746 to ~475.
+The refresh chunk is **time-boxed** (`REFRESH_TIME_BUDGET_MS`, ~180s): it stops after the
+budget (or the batch), persists what it processed, and advances the cursor by exactly that
+many — so a chunk always fits the cron window and always makes progress.
 
----
-
-## 2. Key Mechanics
-
-### Tokens
-
-System User tokens are kept (not personal tokens). Resolved via `tokensForAccount`: given a list of `accessible_profiles` for an ad account, returns ordered unique tokens from the live profile→token map. Multiple tokens serve as auth fallbacks only — `ads_volume` is account-scoped so any working token returns the same data.
-
-### Account list source
-
-The worker reads the DISTINCT ad-account list from `meta_ad_accounts` (populated by the existing accounts sync). One `ads_volume` call per account suffices (account-scoped result). This deduplication is the core call-count reduction: ~746 ad accounts across all profiles → ~475 unique `account_id` rows in the DB.
-
-### Adaptive pacing
-
-`Pacer` (in `lib/meta-pages-pacing.ts`) reads `x-app-usage`, `x-business-use-case-usage`, and `x-ad-account-usage` headers from every Graph response and adjusts the inter-request delay accordingly. `fetchGraphWithRetry` passes the pacer to every fetch.
-
-### App-level #4 handling
-
-`fetchGraphWithRetry` distinguishes a true app-level #4 (x-app-usage ≥ 80%) from a BUC/ad-account #4 (lower app usage). True app-level → throws `AppRateLimitError`, which the worker catches: it saves what it collected so far (`partial: true`) and marks the job `done` with a partial flag rather than `failed`.
-
----
-
-## 3. Files
+## Files
 
 | File | Role |
-|------|------|
-| `lib/meta-pages.ts` | Core: `runPageSyncJob`, `discoverPagesForProfile`, `tokensForAccount`, `fetchAdsVolumePagedPaced` |
-| `lib/meta-pages-pacing.ts` | `Pacer` class — adaptive delay from usage headers |
-| `lib/sync-jobs.ts` | `page_sync_jobs` table lifecycle (create, claim, complete, fail) |
-| `app/api/pages/sync/route.ts` | `POST` — enqueue job; `GET` — (not used, superseded by status route) |
-| `app/api/pages/sync/status/route.ts` | `GET /api/pages/sync/status?job_id=N` — poll endpoint for UI |
-| `app/api/cron/pages-sync/route.ts` | Cron worker — claims job, runs `runPageSyncJob`, updates status |
-| `app/paginas/ClientStatusPaginas.tsx` | Start-sync button + polling UI |
+|---|---|
+| `lib/sync-jobs.ts` | `page_sync_jobs` table (`kind`,`cursor`,lease); `createPageSyncJob({kind,profiles})`, `claimNextPageSyncJob` (continuation-aware), `advanceAndRelease`, `completeJob`, `failJob`, `getJob` |
+| `lib/meta-pages.ts` | `runRefreshChunk` (time-boxed, incremental upsert), `runDiscoveryChunk` (per-profile, incremental upsert), `tokensForAccount`, `discoverPagesForProfile`, `fetchAdsVolumePagedPaced` |
+| `lib/meta-pages-pacing.ts` | `Pacer` — adaptive backoff steered by `x-app-usage`/`x-business-use-case-usage`/`x-ad-account-usage` |
+| `app/api/pages/sync/route.ts` | enqueue (`{kind,profiles}`) |
+| `app/api/pages/sync/status/route.ts` | poll job status |
+| `app/api/cron/pages-sync/route.ts` | Scheduler worker — one chunk per tick |
+| `app/paginas/ClientStatusPaginas.tsx` | **Atualizar limites** (refresh) + **Buscar páginas** (discovery) buttons; start-then-poll |
 
-Related ADR (outside this repo):
-`C:\Apps\REPORT\docs\adr\0001-page-sync-background-job.md`
+## Verification status (IMPORTANT — read before relying on this)
 
----
+- ✅ **Discovery: live-verified** end-to-end (scoped to P222): walked its BMs, upserted pages
+  with `accessible_profiles`, completed correctly.
+- ✅ **Job machinery: verified** — continuation re-claim (insert → claim → `advanceAndRelease` →
+  re-claim same job at advanced cursor), incremental per-chunk upsert, and the chunk logic
+  (offset paging, MAX-not-sum, partial handling) confirmed by review + DB-level tests.
+- ⚠️ **Refresh end-to-end: NOT yet cleanly live-verified under healthy quota.** During testing
+  the shared `#4` quota was saturated (by the earlier failed full-run experiment), which makes
+  each `ads_volume` call slow (BUC backoff 30–60s × up to 4 retries ≈ 135–240s per account), so
+  a chunk could not process meaningfully and the local client timed out.
 
-## 4. Operational Runbook
+### Behaviour under a saturated `#4` quota (known limitation)
 
-### Register the Cloud Scheduler job (one-time, operator action)
+When `#4` is already maxed, refresh **degrades** rather than corrupts:
+- It persists per chunk and advances the cursor by whatever it processed; it **resumes from the
+  cursor** when quota recovers (self-healing). No data corruption, no true infinite loop.
+- BUT a single throttled account's retry budget (~135–240s) can dominate a chunk, and an
+  account that exhausts its `#4` retries throws `AppRateLimitError` → that chunk advances by 0
+  and the job retries on the next tick. So while `#4` is maxed, throughput collapses to ~0–1
+  accounts/tick.
 
-Fill in `REGION` (e.g. `us-central1`) and `YOUR_CRON_SECRET` from the `cron-secret@3` secret (see `apphosting.yaml`):
+**Optional future hardening** (only worth it if normal operation actually reaches saturation —
+determine that with healthy-quota observation first): (a) make `fetchGraphWithRetry`
+deadline-aware so one account can't consume the whole chunk; (b) on a chunk-level `#4`, set a
+job `retry_after` (15–30 min) so the Scheduler backs off instead of retrying every 2 min.
 
-```sh
+### To finish verifying
+
+Wait for `#4` to fully recover (~1h with no Graph activity), then run ONE refresh job and watch
+it drain ~100 accounts/tick over ~5 ticks without crawling — or deploy and observe in normal
+conditions (where the quota isn't pre-saturated).
+
+## Operational runbook
+
+Register the Cloud Scheduler job (operator action — needs GCP creds + the real `CRON_SECRET`):
+```
 gcloud scheduler jobs create http pages-sync-poller \
   --location=REGION \
   --schedule="*/2 * * * *" \
@@ -75,16 +98,8 @@ gcloud scheduler jobs create http pages-sync-poller \
   --http-method=POST \
   --headers="Authorization=Bearer YOUR_CRON_SECRET"
 ```
-
-If `CRON_SECRET` is ever rotated, update the scheduler job's `Authorization` header to match.
-
-### Prerequisites
-
-- `meta_ad_accounts` must be populated (run the accounts sync first). The page sync sources its account list from this table.
-- `META_PROFILES` must be configured in `app_settings` (via `/api-config`).
-
-### Monitoring
-
-- Job rows are in `page_sync_jobs`. Check `status`, `error`, and `progress_message` columns.
-- App-level rate limits produce `partial = true` jobs (not failures) — the partial data is saved and the job completes normally.
-- Logs from `runPageSyncJob` are prefixed `[meta-pages]`.
+- `CRON_SECRET` is stored as the `cron-secret@3` secret (see `apphosting.yaml`); rotating it
+  means updating the scheduler job's `Authorization` header too.
+- **`meta_ad_accounts` must be populated/fresh** (by the existing accounts sync) — refresh reads
+  the distinct account list from it.
+- Until the Scheduler job exists, enqueued jobs sit `pending` (the UI poll spins).
