@@ -1,202 +1,90 @@
-# Meta Pages — Implementação atual e próximos passos
+# Meta Pages — Background Job Architecture
 
-Documento de handoff para retomar a construção do feature "Páginas do
-Meta" em outra sessão. Já foi implementada a **infraestrutura de
-backend** (lib + rota de sync + tabela). Falta UI, navegação,
-configuração do feature e (se desejado) cron job.
-
-Lógica portada do projeto **`c:\Apps\Lista de páginas`**
-(`execution/fetch_facebook_pages.py`), adaptada para Next.js +
-Postgres + multi-perfil, espelhando o padrão de `meta-accounts.ts`.
+Handoff document for the page-sync feature. The feature is complete end-to-end.
 
 ---
 
-## 1. O que já está implementado
+## 1. Overview
 
-### 1.1 `lib/meta-pages.ts`
+Page sync runs as a **background job**, not a blocking user-facing request.
 
-Duas funções exportadas:
+### Flow
 
-- **`fetchPagesWithAdLimits(token: string): Promise<PageWithAdLimit[]>`**
-  Para **1 token**:
-  1. `GET /me/accounts` → todas as páginas do perfil (paginado)
-  2. `GET /me/adaccounts` → todas as ad accounts do perfil (paginado)
-  3. Em paralelo, para cada ad account: `GET /{act_id}/ads_volume?show_breakdown_by_actor=true`
-     com fields `actor_id,actor_name,ads_running_or_in_review_count,limit_on_ads_running_or_in_review,current_account_ads_running_or_in_review_count`
-  4. Junta tudo em `{ page_id, page_name, ad_limit, ads_running }`,
-     pegando **MAX** entre ocorrências da mesma página em múltiplas
-     ad accounts (não soma — `ads_running_or_in_review_count` e
-     `limit_on_ads_running_or_in_review` já são totais por página).
+1. User clicks "Sincronizar" on `/paginas`.
+2. `POST /api/pages/sync` inserts a row in `page_sync_jobs` (status `pending`) and returns `{ job_id }` immediately.
+3. Cloud Scheduler fires `POST /api/cron/pages-sync` every ~2 minutes (`maxDuration = 1200`).
+4. The cron worker claims the oldest runnable job atomically (`SELECT … FOR UPDATE SKIP LOCKED` + `leased_until` lease).
+5. Worker calls `runPageSyncJob`, which discovers pages and reads `ads_volume` per account, then upserts `meta_pages`.
+6. The UI (`ClientStatusPaginas.tsx`) polls `GET /api/pages/sync/status?job_id=N` every ~2.5 s and reloads when status is `done`.
 
-- **`fetchAndSyncMetaPages(onProgress?): Promise<{ success, count, pages }>`**
-  Multi-perfil + persistência:
-  1. Lê todos os perfis de `getMetaProfiles()` (mesmo helper usado em
-     `meta-accounts.ts` — vem de `app_settings.META_PROFILES` com
-     fallback pra `process.env`).
-  2. Roda `fetchPagesWithAdLimits` para cada token.
-  3. Deduplica por `page_id`:
-     - `ad_limit` → MAX entre perfis
-     - `ads_running` → MAX entre perfis
-     - `accessible_profiles` → união dos nomes dos perfis que viram a página
-  4. Upsert na tabela `meta_pages` (criada on-demand via
-     `CREATE TABLE IF NOT EXISTS`).
+### Why
 
-API version usada: `v19.0` (consistência com o resto do projeto;
-o Python usava `v22.0`).
+The old inline streaming sync died at the App Hosting load-balancer hard timeout (300 s) and tripped Meta's shared app-level #4 rate limit. The Cloud Scheduler channel provides up to 1200 s, and the paced, deduped account walk reduces calls from ~746 to ~475.
 
-### 1.2 `app/api/pages/sync/route.ts`
+---
 
-`GET /api/pages/sync` — retorna **streaming NDJSON**, mesmo formato
-de `/api/accounts/sync`:
+## 2. Key Mechanics
 
-```
-{"type":"start","phase":"pages","message":"Iniciando sincronização de páginas…"}
-{"type":"progress","phase":"pages","message":"Perfil X: buscando páginas e limites…"}
-{"type":"progress","phase":"pages","message":"Perfil X: 42 páginas encontradas"}
-{"type":"progress","phase":"pages","message":"Salvando 80 páginas no banco…"}
-{"type":"done","success":true,"message":"Sincronizado com sucesso. 80 páginas.","pages":80}
-```
+### Tokens
 
-Em caso de erro fatal: `{"type":"error","success":false,"error":"…"}`.
+System User tokens are kept (not personal tokens). Resolved via `tokensForAccount`: given a list of `accessible_profiles` for an ad account, returns ordered unique tokens from the live profile→token map. Multiple tokens serve as auth fallbacks only — `ads_volume` is account-scoped so any working token returns the same data.
 
-Erros por perfil (token inválido, BM sem permissão, etc) **não**
-quebram o sync — são logados como `progress` e o sync segue com os
-outros perfis.
+### Account list source
 
-`maxDuration = 300` segundos (compatível com Vercel Pro).
+The worker reads the DISTINCT ad-account list from `meta_ad_accounts` (populated by the existing accounts sync). One `ads_volume` call per account suffices (account-scoped result). This deduplication is the core call-count reduction: ~746 ad accounts across all profiles → ~475 unique `account_id` rows in the DB.
 
-### 1.3 Tabela `meta_pages`
+### Adaptive pacing
 
-Criada automaticamente na primeira chamada de `fetchAndSyncMetaPages`.
-DDL:
+`Pacer` (in `lib/meta-pages-pacing.ts`) reads `x-app-usage`, `x-business-use-case-usage`, and `x-ad-account-usage` headers from every Graph response and adjusts the inter-request delay accordingly. `fetchGraphWithRetry` passes the pacer to every fetch.
 
-```sql
-CREATE TABLE IF NOT EXISTS meta_pages (
-  page_id              TEXT PRIMARY KEY,
-  page_name            TEXT NOT NULL,
-  ad_limit             INTEGER,                       -- null quando Graph não retorna
-  ads_running          INTEGER NOT NULL DEFAULT 0,
-  accessible_profiles  TEXT[]  NOT NULL DEFAULT '{}',
-  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
-)
+### App-level #4 handling
+
+`fetchGraphWithRetry` distinguishes a true app-level #4 (x-app-usage ≥ 80%) from a BUC/ad-account #4 (lower app usage). True app-level → throws `AppRateLimitError`, which the worker catches: it saves what it collected so far (`partial: true`) and marks the job `done` with a partial flag rather than `failed`.
+
+---
+
+## 3. Files
+
+| File | Role |
+|------|------|
+| `lib/meta-pages.ts` | Core: `runPageSyncJob`, `discoverPagesForProfile`, `tokensForAccount`, `fetchAdsVolumePagedPaced` |
+| `lib/meta-pages-pacing.ts` | `Pacer` class — adaptive delay from usage headers |
+| `lib/sync-jobs.ts` | `page_sync_jobs` table lifecycle (create, claim, complete, fail) |
+| `app/api/pages/sync/route.ts` | `POST` — enqueue job; `GET` — (not used, superseded by status route) |
+| `app/api/pages/sync/status/route.ts` | `GET /api/pages/sync/status?job_id=N` — poll endpoint for UI |
+| `app/api/cron/pages-sync/route.ts` | Cron worker — claims job, runs `runPageSyncJob`, updates status |
+| `app/paginas/ClientStatusPaginas.tsx` | Start-sync button + polling UI |
+
+Related ADR (outside this repo):
+`C:\Apps\REPORT\docs\adr\0001-page-sync-background-job.md`
+
+---
+
+## 4. Operational Runbook
+
+### Register the Cloud Scheduler job (one-time, operator action)
+
+Fill in `REGION` (e.g. `us-central1`) and `YOUR_CRON_SECRET` from the `cron-secret@3` secret (see `apphosting.yaml`):
+
+```sh
+gcloud scheduler jobs create http pages-sync-poller \
+  --location=REGION \
+  --schedule="*/2 * * * *" \
+  --time-zone="America/Sao_Paulo" \
+  --uri="https://v2-media-lab--v2-media-lab.us-central1.hosted.app/api/cron/pages-sync" \
+  --http-method=POST \
+  --headers="Authorization=Bearer YOUR_CRON_SECRET"
 ```
 
-Diferenças intencionais vs o Python original:
+If `CRON_SECRET` is ever rotated, update the scheduler job's `Authorization` header to match.
 
-| Campo                  | Python (`execution/`) | REPORT (aqui)                          |
-| ---------------------- | --------------------- | -------------------------------------- |
-| `ad_limit` ausente     | string `"N/A"`        | `NULL` (INTEGER nullable)              |
-| Persistência           | Google Sheets         | Postgres `meta_pages`                  |
-| Multi-perfil           | 1 token via `.env`    | N perfis via `getMetaProfiles()`       |
-| `accessible_profiles`  | —                     | `TEXT[]` (igual `meta_ad_accounts`)    |
-| Ad accounts em paralelo| Serial                | `Promise.all`                          |
-| `updated_at`           | —                     | `TIMESTAMPTZ DEFAULT now()`            |
+### Prerequisites
 
-### 1.4 Sem mudanças em arquivos existentes
+- `meta_ad_accounts` must be populated (run the accounts sync first). The page sync sources its account list from this table.
+- `META_PROFILES` must be configured in `app_settings` (via `/api-config`).
 
-Nada foi tocado em `meta-accounts.ts`, `config.ts`, `db.ts`, layout,
-nav, etc. A nova feature é 100% aditiva.
+### Monitoring
 
----
-
-## 2. O que **falta** implementar
-
-### 2.1 Página UI de listagem (`/status-paginas` ou similar)
-
-Sugestão de paralelo: a página `/status-contas` já lista
-`meta_ad_accounts` com filtros, toggles e busca. Replicar o padrão
-para `meta_pages`:
-
-- Server component que faz `SELECT * FROM meta_pages ORDER BY page_name`.
-- Client component pra tabela com colunas:
-  `page_name | page_id | ad_limit | ads_running | accessible_profiles | updated_at`.
-- Filtros úteis:
-  - Páginas sem limite (`ad_limit IS NULL`)
-  - Páginas próximas do limite (ex: `ads_running >= ad_limit * 0.8`)
-  - Por perfil (`'X' = ANY(accessible_profiles)`)
-- Botão "Sincronizar agora" que dá `fetch('/api/pages/sync')` e mostra
-  progress (consumir o NDJSON como em `/status-contas`).
-
-Arquivo provável: `app/app/status-paginas/page.tsx` (+ um client
-component pra interatividade).
-
-### 2.2 Entrada na navegação
-
-Adicionar link no menu lateral/topo. Procurar onde estão os outros
-links (`status-contas`, `campaigns`, etc.) — provavelmente em
-`app/components/` ou no `layout.tsx`.
-
-### 2.3 Endpoint de leitura (opcional)
-
-Hoje a UI pode ler direto via server component. Se quiser endpoint
-JSON pra consumo externo: `GET /api/pages` retornando todos os rows
-de `meta_pages` (modelo: `app/api/accounts/route.ts`, se existir).
-
-### 2.4 Cron de sincronização (opcional)
-
-A pasta `app/app/api/cron/` já existe e contém crons rodando em
-schedule. Adicionar uma entrada que chame `fetchAndSyncMetaPages`
-diariamente. Decidir frequência:
-- 1x/dia é suficiente — limites e quantidades de ads ativos não
-  mudam rapidamente.
-- A não ser que se queira monitorar a contagem ao vivo, aí 1x/hora.
-
-### 2.5 Considerações pendentes
-
-- **Páginas excluídas**: a sync atual não remove páginas que o token
-  não enxerga mais. Se isso virar problema, considerar marcar
-  `is_stale` ou deletar entradas não vistas na rodada atual.
-- **Concorrência da Graph API**: hoje paraleliza `ads_volume` por
-  ad account dentro de cada perfil. Se um perfil tiver centenas de
-  ad accounts, pode bater rate limit. O código já degrada bem (loga
-  warning e segue). Se virar problema, adicionar throttling com
-  `p-limit` ou batches de 10 (igual `meta-bulk/route.ts` faz).
-- **Token expirado**: hoje só loga warning. Se quiser visibilidade
-  na UI, capturar `data.error.code in (190, 102)` em `fetchAllPages`
-  e propagar como evento `progress` com flag `tokenExpired`.
-
----
-
-## 3. Como testar o que já existe
-
-1. Garantir que `META_PROFILES` está em `app_settings` (configurado
-   via `/api-config`) — sem isso a função lança
-   `META_PROFILES não configurado`.
-2. Subir o dev server:
-   ```
-   cd app
-   npm run dev
-   ```
-3. Em outra aba, disparar o sync:
-   ```
-   curl -N http://localhost:3000/api/pages/sync
-   ```
-   ou abrir a URL no navegador (vai fazer download do NDJSON).
-4. Verificar a tabela:
-   ```sql
-   SELECT page_name, ad_limit, ads_running,
-          accessible_profiles, updated_at
-   FROM meta_pages
-   ORDER BY ads_running DESC;
-   ```
-
----
-
-## 4. Arquivos relevantes
-
-Novos:
-
-- `app/lib/meta-pages.ts`
-- `app/app/api/pages/sync/route.ts`
-
-Referências (modelos a seguir para o resto):
-
-- `app/lib/meta-accounts.ts` — padrão de sync multi-perfil
-- `app/app/api/accounts/sync/route.ts` — padrão de rota com streaming
-- `app/app/status-contas/page.tsx` — padrão de página de listagem
-- `app/app/api/cron/*` — padrão de cron jobs
-
-Origem da lógica:
-
-- `c:\Apps\Lista de páginas\execution\fetch_facebook_pages.py`
-- `c:\Apps\Lista de páginas\directives\sync_facebook_pages_to_sheets.md`
+- Job rows are in `page_sync_jobs`. Check `status`, `error`, and `progress_message` columns.
+- App-level rate limits produce `partial = true` jobs (not failures) — the partial data is saved and the job completes normally.
+- Logs from `runPageSyncJob` are prefixed `[meta-pages]`.
