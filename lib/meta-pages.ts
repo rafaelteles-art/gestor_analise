@@ -1,6 +1,25 @@
 import { pool } from './db';
 import { getMetaProfiles } from './config';
 
+/**
+ * Ordered, de-duplicated list of tokens to try for an ad account, resolved from
+ * its accessible_profiles against the live profile→token map. ads_volume is
+ * account-scoped, so any one working token returns the same data; extra tokens
+ * are fallbacks for auth failures.
+ */
+export function tokensForAccount(
+  accessibleProfiles: string[],
+  profileMap: Map<string, string>,
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const name of accessibleProfiles) {
+    const tok = profileMap.get(name);
+    if (tok && !seen.has(tok)) { seen.add(tok); out.push(tok); }
+  }
+  return out;
+}
+
 const API_VERSION = 'v19.0';
 
 interface RawPage {
