@@ -147,14 +147,14 @@ export default function ClientStatusPaginas({
 
   const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-  const runPolledSync = async (label: string, profiles?: string[]) => {
+  const runPolledSync = async (label: string, kind: 'refresh' | 'discovery', profiles?: string[]) => {
     setSyncProgress({ label, message: 'Enfileirando…', current: 0, total: 0, indeterminate: true });
     let jobId: number;
     try {
       const res = await fetch('/api/pages/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profiles && profiles.length ? { profiles } : {}),
+        body: JSON.stringify({ kind, ...(profiles && profiles.length ? { profiles } : {}) }),
       });
       const data = await res.json() as Record<string, unknown>;
       if (!res.ok || !data.job_id) throw new Error(String(data.error ?? `HTTP ${res.status}`));
@@ -208,10 +208,21 @@ export default function ClientStatusPaginas({
     try {
       await runPolledSync(
         profiles.length > 0
-          ? `Sincronizar (${profiles.length} perfil${profiles.length > 1 ? 's' : ''})`
-          : 'Sincronizar Páginas',
+          ? `Atualizar limites (${profiles.length} perfil${profiles.length > 1 ? 's' : ''})`
+          : 'Atualizar limites',
+        'refresh',
         profiles.length > 0 ? profiles : undefined,
       );
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDiscover = async () => {
+    setIsSyncing(true);
+    setPickerOpen(false);
+    try {
+      await runPolledSync('Buscar páginas (descoberta)', 'discovery');
     } finally {
       setIsSyncing(false);
     }
@@ -244,15 +255,24 @@ export default function ClientStatusPaginas({
             <p className="mt-1.5 text-[11px] text-gray-500 truncate">{syncProgress.message}</p>
           </div>
         )}
+        <button
+          onClick={handleDiscover}
+          disabled={isSyncing}
+          className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors shadow-sm disabled:opacity-50"
+          title="Buscar novas páginas acessíveis (descoberta)"
+        >
+          <Search className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+          Buscar páginas
+        </button>
         <div className="relative inline-flex" ref={pickerRef}>
           <button
             onClick={() => handleSync()}
             disabled={isSyncing}
             className="flex items-center gap-2 pl-4 pr-3 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-l-xl text-sm font-medium text-white transition-colors shadow-sm disabled:opacity-50"
-            title="Sincronizar todos os perfis configurados"
+            title="Atualizar limites dos perfis configurados"
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            Sincronizar Páginas
+            Atualizar limites
           </button>
           <button
             onClick={() => setPickerOpen((v) => !v)}
@@ -408,7 +428,7 @@ export default function ClientStatusPaginas({
               {filteredPages.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">
-                    Nenhuma página encontrada. Clique em &ldquo;Sincronizar Páginas&rdquo; para importar.
+                    Nenhuma página encontrada. Clique em &ldquo;Buscar páginas&rdquo; para importar.
                   </td>
                 </tr>
               )}
