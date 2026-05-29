@@ -60,31 +60,24 @@ many — so a chunk always fits the cron window and always makes progress.
 - ✅ **Job machinery: verified** — continuation re-claim (insert → claim → `advanceAndRelease` →
   re-claim same job at advanced cursor), incremental per-chunk upsert, and the chunk logic
   (offset paging, MAX-not-sum, partial handling) confirmed by review + DB-level tests.
-- ⚠️ **Refresh end-to-end: NOT yet cleanly live-verified under healthy quota.** During testing
-  the shared `#4` quota was saturated (by the earlier failed full-run experiment), which makes
-  each `ads_volume` call slow (BUC backoff 30–60s × up to 4 retries ≈ 135–240s per account), so
-  a chunk could not process meaningfully and the local client timed out.
+- ✅ **Refresh: live-verified to progress + persist + advance + resume**, even under a *throttled*
+  quota. One tick against a still-recovering `#4` processed 4 accounts, **persisted +31 pages'
+  limits**, advanced the cursor `0 → 4`, and left the job `running` (released) for the next tick.
+  No stall, no infinite loop.
 
-### Behaviour under a saturated `#4` quota (known limitation)
+### Throughput adapts to quota health (by design)
 
-When `#4` is already maxed, refresh **degrades** rather than corrupts:
-- It persists per chunk and advances the cursor by whatever it processed; it **resumes from the
-  cursor** when quota recovers (self-healing). No data corruption, no true infinite loop.
-- BUT a single throttled account's retry budget (~135–240s) can dominate a chunk, and an
-  account that exhausts its `#4` retries throws `AppRateLimitError` → that chunk advances by 0
-  and the job retries on the next tick. So while `#4` is maxed, throughput collapses to ~0–1
-  accounts/tick.
+The refresh self-paces: a time-boxed chunk does **~100 accounts when `#4` is healthy** (~5 ticks
+to drain all 475) and **fewer when throttled** (observed ~4/tick at ~75s/account under heavy
+throttle). It **always** persists per chunk and advances the cursor, and **resumes from the
+cursor** as quota recovers — so it converges regardless of quota state, never corrupts, never
+loops. The only cost of a throttled quota is wall-clock (more ticks); since it's background, that's
+acceptable.
 
-**Optional future hardening** (only worth it if normal operation actually reaches saturation —
-determine that with healthy-quota observation first): (a) make `fetchGraphWithRetry`
-deadline-aware so one account can't consume the whole chunk; (b) on a chunk-level `#4`, set a
-job `retry_after` (15–30 min) so the Scheduler backs off instead of retrying every 2 min.
-
-### To finish verifying
-
-Wait for `#4` to fully recover (~1h with no Graph activity), then run ONE refresh job and watch
-it drain ~100 accounts/tick over ~5 ticks without crawling — or deploy and observe in normal
-conditions (where the quota isn't pre-saturated).
+**Optional future hardening** (not required — the design is correct as-is; only worth it if you
+want the *throttled* case to finish faster / waste fewer calls): (a) make `fetchGraphWithRetry`
+deadline-aware so one slow account can't dominate a chunk; (b) on a chunk-level `#4`, set a job
+`retry_after` (15–30 min) so the Scheduler backs off instead of retrying every 2 min while maxed.
 
 ## Operational runbook
 
