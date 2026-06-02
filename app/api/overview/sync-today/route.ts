@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
   try {
     const res = await pool.query(
       `SELECT campaign_id, campaign_name FROM redtrack_campaign_selections
-       WHERE is_selected = true ORDER BY campaign_name ASC`,
+       WHERE oferta_id IN (SELECT id FROM ofertas WHERE status = 'ATIVO') ORDER BY campaign_name ASC`,
     );
     selected = res.rows;
   } catch (err) {

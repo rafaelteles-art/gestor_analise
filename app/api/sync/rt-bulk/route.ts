@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     const res = await pool.query(
       `SELECT campaign_id, campaign_name
        FROM redtrack_campaign_selections
-       WHERE is_selected = true
+       WHERE oferta_id IS NOT NULL
        ORDER BY campaign_name ASC`
     );
     selectedCampaigns = res.rows;

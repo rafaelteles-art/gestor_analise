@@ -12,7 +12,7 @@ const BATCH_SIZE = 10; // contas processadas por fila (lote)
  * POST /api/sync/meta-bulk
  *
  * Busca dados diários de campanha dos últimos N dias (padrão: 30) de TODAS
- * as contas Meta selecionadas (is_selected = true) e grava em meta_ads_metrics.
+ * as contas Meta vinculadas a uma oferta e grava em meta_ads_metrics.
  *
  * Body (opcional):
  *   { mode: 'yesterday' }                              — ontem
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     dateFrom = format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
   }
 
-  // Busca apenas as contas selecionadas que estejam ATIVAS e fora da blacklist.
+  // Busca apenas as contas vinculadas a uma oferta que estejam ATIVAS e fora da blacklist.
   // Exclui:
   //   • contas não-ativas (account_status <> 'ACTIVE' — ex.: DISABLED/desativadas)
   //   • contas na blacklist de conta (is_blacklisted = true)
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     const res = await pool.query(
       `SELECT account_id, account_name, access_token
        FROM meta_ad_accounts
-       WHERE is_selected = true
+       WHERE account_id IN (SELECT account_id FROM meta_account_offers)
          AND account_status = 'ACTIVE'
          AND COALESCE(is_blacklisted, false) = false
          AND bm_id NOT IN (SELECT bm_id FROM meta_bm_blacklist)
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
   }
 
   if (accounts.length === 0) {
-    return NextResponse.json({ error: 'Nenhuma conta ativa selecionada. Ative contas (não desativadas/blacklist) em Configurações.' }, { status: 400 });
+    return NextResponse.json({ error: 'Nenhuma conta ativa vinculada a uma oferta. Vincule contas a uma oferta (não desativadas/blacklist) em Configurações.' }, { status: 400 });
   }
 
   // ── Streaming NDJSON para mostrar progresso ao vivo ──────────────────────

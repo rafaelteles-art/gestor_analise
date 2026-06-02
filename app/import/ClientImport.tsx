@@ -6,6 +6,7 @@ import Select from 'react-select';
 import CampaignHoverPopup from './CampaignHoverPopup';
 import { preloadHistoryBatch } from './hoverCache';
 import { analyzeAccounts, CreativeDiagnostic } from '../analise/diagnostics';
+import OfferSelector from '../components/OfferSelector';
 
 interface AdAccount {
   account_id: string;
@@ -23,6 +24,8 @@ interface RtCampaign {
 interface ClientImportProps {
   dbAccounts: AdAccount[];
   rtCampaigns: RtCampaign[];
+  offers: { id: number; nome: string }[];
+  currentOferta: number | null;
 }
 
 interface DashboardTemplate {
@@ -31,10 +34,17 @@ interface DashboardTemplate {
   accountIds: string[];
 }
 
-export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportProps) {
+export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentOferta }: ClientImportProps) {
   // Sort lists
   const sortedAccounts = [...dbAccounts].sort((a, b) => a.account_name.localeCompare(b.account_name));
   const sortedRtCampaigns = [...rtCampaigns].sort((a, b) => a.campaign_name.localeCompare(b.campaign_name));
+
+  // Stable signatures of the offer-scoped sets. When the offer changes (URL
+  // navigation re-renders this component with new props), these change and the
+  // scope effect re-applies the account/RT default-to-all selection. Derived
+  // from PROPS only (never from state these effects set) → no render loop.
+  const accountScopeKey = sortedAccounts.map(a => a.account_id).join(',');
+  const rtScopeKey = sortedRtCampaigns.map(c => c.campaign_id).join(',');
 
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [selectedRtCampaignId, setSelectedRtCampaignId] = useState<string>('');
@@ -85,10 +95,10 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
     if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
   };
 
-  // Seta por padrão os ultimos selecionados do localStorage, ou então o primeiro caso
+  // Restore APENAS uma vez (mount): intervalo de datas, ordenação e templates.
+  // Estes NÃO podem resetar quando o usuário troca de oferta (props mudam), por
+  // isso ficam num effect com dep array vazio — independente do escopo da oferta.
   useEffect(() => {
-    let initialAccountIds: string[] = sortedAccounts.length > 0 ? [sortedAccounts[0].account_id] : [];
-    let initialRtCampaignId = sortedRtCampaigns.length > 0 ? sortedRtCampaigns[0].campaign_id : '';
     let initialDateRange = 'today';
     const today = new Date();
     let initialDateFrom = format(today, 'yyyy-MM-dd');
@@ -99,18 +109,6 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
         const savedStr = localStorage.getItem('dopscale_prefs');
         if (savedStr) {
             const saved = JSON.parse(savedStr);
-            // Novo formato: accountIds (array). Fallback para accountId legado (string).
-            if (Array.isArray(saved.accountIds)) {
-                const valid = saved.accountIds.filter((id: string) =>
-                    sortedAccounts.some(a => a.account_id === id)
-                );
-                if (valid.length > 0) initialAccountIds = valid;
-            } else if (saved.accountId && sortedAccounts.some(a => a.account_id === saved.accountId)) {
-                initialAccountIds = [saved.accountId];
-            }
-            if (saved.rtCampaignId && sortedRtCampaigns.some(c => c.campaign_id === saved.rtCampaignId)) {
-                initialRtCampaignId = saved.rtCampaignId;
-            }
             if (saved.dateRange) {
                 initialDateRange = saved.dateRange;
                 if (saved.dateRange === 'custom') {
@@ -133,8 +131,6 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
         }
     } catch(e) {}
 
-    setSelectedAccountIds(initialAccountIds);
-    setSelectedRtCampaignId(initialRtCampaignId);
     setDateRangeFilter(initialDateRange as any);
     setDateFrom(initialDateFrom);
     setDateTo(initialDateTo);
@@ -152,7 +148,47 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
         }
       }
     } catch(e) {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Restore do ESCOPO: reaplica o default-to-all de contas + a campanha RT
+  // sempre que o conjunto escopado pela oferta muda (troca de oferta via
+  // navegação). Um load fresco com ?oferta deve mostrar todas as contas daquela
+  // oferta. Deps derivadas SÓ de props → sem loop de render.
+  useEffect(() => {
+    // Default-to-ALL dentro do escopo da oferta: sem ação manual, todas as
+    // contas escopadas entram, então o usuário não precisa escolher nada.
+    let initialAccountIds: string[] = sortedAccounts.map(a => a.account_id);
+    // Semântica do single-select RT: primeira campanha escopada (ou '').
+    let initialRtCampaignId = sortedRtCampaigns.length > 0 ? sortedRtCampaigns[0].campaign_id : '';
+
+    try {
+        const savedStr = localStorage.getItem('dopscale_prefs');
+        if (savedStr) {
+            const saved = JSON.parse(savedStr);
+            // Intersecta ids armazenados com o conjunto escopado pela oferta. Se a
+            // interseção é vazia (nova oferta / ids obsoletos), cai de volta para
+            // TODAS as contas escopadas (o default-to-all acima).
+            if (Array.isArray(saved.accountIds)) {
+                const valid = saved.accountIds.filter((id: string) =>
+                    sortedAccounts.some(a => a.account_id === id)
+                );
+                if (valid.length > 0) initialAccountIds = valid;
+            } else if (saved.accountId && sortedAccounts.some(a => a.account_id === saved.accountId)) {
+                initialAccountIds = [saved.accountId];
+            }
+            // Só restaura a campanha RT armazenada se ela existir na lista escopada;
+            // caso contrário mantém o default (primeira campanha / '').
+            if (saved.rtCampaignId && sortedRtCampaigns.some(c => c.campaign_id === saved.rtCampaignId)) {
+                initialRtCampaignId = saved.rtCampaignId;
+            }
+        }
+    } catch(e) {}
+
+    setSelectedAccountIds(initialAccountIds);
+    setSelectedRtCampaignId(initialRtCampaignId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountScopeKey, rtScopeKey]);
 
   // Detecta se a configuração atual corresponde a algum template salvo
   const activeTemplateName = useMemo(() => {
@@ -493,6 +529,10 @@ export default function ClientImport({ dbAccounts, rtCampaigns }: ClientImportPr
                     className="text-sm rounded-lg"
                     styles={{ control: (base) => ({ ...base, minHeight: '38px', borderRadius: '0.5rem', borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }) }}
                 />
+            </div>
+
+            <div className="flex items-center border-l border-gray-200 pl-3">
+                <OfferSelector offers={offers} current={currentOferta} />
             </div>
 
             {/* Templates de configuração (campanha RT + contas Meta) */}

@@ -1,9 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import Select, { MultiValue } from 'react-select';
-import { setRtCampaignSelections } from '../actions';
-import { handleStaleServerAction } from '@/lib/stale-action';
+import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -12,11 +9,6 @@ interface Campaign {
   campaign_name: string;
   status: string;
   is_selected: boolean;
-}
-
-interface CampaignOption {
-  value: string;
-  label: string;
 }
 
 interface LogLine {
@@ -309,33 +301,8 @@ function MetaPanel() {
 // Painel RedTrack — seletor de campanhas + botão de sync num único card
 // ═══════════════════════════════════════════════════════════════════════════════
 function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
-  // ── Seletor de campanhas ──────────────────────────────────────────────────
-  const allOptions: CampaignOption[] = initialCampaigns.map(c => ({
-    value: c.campaign_id,
-    label: c.campaign_name,
-  }));
-
-  const [selected, setSelected] = useState<MultiValue<CampaignOption>>(
-    allOptions.filter(o => initialCampaigns.find(c => c.campaign_id === o.value)?.is_selected)
-  );
-  const [isPending, startTransition] = useTransition();
-  const [saved, setSaved] = useState(false);
+  const campaignCount = initialCampaigns.length;
   const [isScanningCamps, setIsScanningCamps] = useState(false);
-
-  const handleSelectChange = (newValue: MultiValue<CampaignOption>) => {
-    setSelected(newValue);
-    setSaved(false);
-    startTransition(async () => {
-      try {
-        await setRtCampaignSelections(newValue.map(o => o.value));
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-      } catch (err) {
-        if (handleStaleServerAction(err)) return;
-        /* silently fail */
-      }
-    });
-  };
 
   // A rota /api/accounts/sync-rt responde em NDJSON; drena o stream e olha o último evento.
   const scanCampaigns = async () => {
@@ -426,74 +393,20 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
   return (
     <div className="flex flex-col gap-5">
 
-      {/* ── Seletor ── */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-gray-700">Campanhas selecionadas</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">
-              {selected.length} de {allOptions.length} campanha(s)
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {(isPending || saved) && (
-              <span className={`text-[11px] font-medium ${saved ? 'text-emerald-600' : 'text-gray-400'}`}>
-                {saved ? '✓ Salvo' : 'Salvando...'}
-              </span>
-            )}
-            <button onClick={scanCampaigns} disabled={isScanningCamps}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              <RefreshCw className={`w-3 h-3 ${isScanningCamps ? 'animate-spin' : ''}`} />
-              {isScanningCamps ? 'Escaneando...' : 'Escanear'}
-            </button>
-          </div>
+      {/* ── Campanhas mapeadas + scan ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold text-gray-700">Campanhas mapeadas</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            {campaignCount} campanha(s) · vinculadas pelas Ofertas
+          </p>
         </div>
-
-        <Select<CampaignOption, true>
-          instanceId="select-meta-campaigns-settings"
-          isMulti
-          options={allOptions}
-          value={selected}
-          onChange={handleSelectChange}
-          placeholder="Pesquise e selecione campanhas..."
-          noOptionsMessage={() => 'Nenhuma campanha encontrada'}
-          isLoading={isPending}
-          closeMenuOnSelect={false}
-          hideSelectedOptions={false}
-          styles={{
-            control: (base, state) => ({
-              ...base,
-              minHeight: '40px',
-              borderRadius: '0.5rem',
-              borderColor: state.isFocused ? '#6366f1' : '#e5e7eb',
-              boxShadow: state.isFocused ? '0 0 0 1px #6366f1' : 'none',
-              backgroundColor: '#f9fafb',
-              fontSize: '12px',
-            }),
-            menu: (base) => ({ ...base, borderRadius: '0.5rem', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', border: '1px solid #e5e7eb', zIndex: 50 }),
-            option: (base, state) => ({
-              ...base, fontSize: '12px',
-              backgroundColor: state.isSelected ? '#eef2ff' : state.isFocused ? '#f5f5f5' : 'white',
-              color: state.isSelected ? '#4338ca' : '#374151',
-              fontWeight: state.isSelected ? 600 : 400,
-            }),
-            multiValue:       (base) => ({ ...base, backgroundColor: '#eef2ff', borderRadius: '0.375rem' }),
-            multiValueLabel:  (base) => ({ ...base, color: '#4338ca', fontSize: '11px', fontWeight: 600 }),
-            multiValueRemove: (base) => ({ ...base, color: '#6366f1', ':hover': { backgroundColor: '#c7d2fe', color: '#4338ca' } }),
-            placeholder:      (base) => ({ ...base, fontSize: '12px', color: '#9ca3af' }),
-          }}
-        />
-
-        {selected.length > 0 && (
-          <div className="flex justify-end">
-            <button onClick={() => handleSelectChange([])}
-              className="text-[11px] text-rose-500 hover:text-rose-700 font-medium transition-colors"
-            >
-              Limpar seleção
-            </button>
-          </div>
-        )}
+        <button onClick={scanCampaigns} disabled={isScanningCamps}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        >
+          <RefreshCw className={`w-3 h-3 ${isScanningCamps ? 'animate-spin' : ''}`} />
+          {isScanningCamps ? 'Escaneando...' : 'Escanear'}
+        </button>
       </div>
 
       {/* ── Divisor ── */}
@@ -518,7 +431,7 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
               >{label}</button>
             ))}
           </div>
-          <button onClick={handleSync} disabled={running || selected.length === 0 || !rangeValid}
+          <button onClick={handleSync} disabled={running || !rangeValid}
             className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {running ? <><SpinIcon /> Sincronizando...</> : <><UploadIcon /> {buttonLabel}</>}
@@ -614,7 +527,7 @@ export default function MetaSyncPanel({ initialRtCampaigns = [] }: { initialRtCa
         <div className="mb-4">
           <h2 className="text-sm font-bold text-gray-800">Importar histórico — Meta Ads</h2>
           <p className="text-xs text-gray-500 mt-1">
-            Busca dados diários de todas as contas selecionadas e armazena no banco.
+            Busca dados diários das contas vinculadas (via Ofertas / Status de Contas) e armazena no banco.
           </p>
         </div>
         <MetaPanel />
@@ -625,7 +538,7 @@ export default function MetaSyncPanel({ initialRtCampaigns = [] }: { initialRtCa
         <div className="mb-4">
           <h2 className="text-sm font-bold text-gray-800">Importar histórico — RedTrack</h2>
           <p className="text-xs text-gray-500 mt-1">
-            Selecione as campanhas e sincronize os dados no cache do banco.
+            Sincroniza os dados das campanhas vinculadas (via Ofertas) no cache do banco.
           </p>
         </div>
         <RedTrackPanel initialCampaigns={initialRtCampaigns} />
