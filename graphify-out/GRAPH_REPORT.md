@@ -1,11 +1,11 @@
 # Graph Report - .  (2026-06-02)
 
 ## Corpus Check
-- 115 files · ~107,067 words
+- 116 files · ~107,398 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 538 nodes · 652 edges · 78 communities detected
+- 540 nodes · 654 edges · 78 communities detected
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
@@ -90,7 +90,7 @@
 - [[_COMMUNITY_Community 77|Community 77]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `POST()` - 36 edges
+1. `POST()` - 37 edges
 2. `GET()` - 25 edges
 3. `postGraph()` - 7 edges
 4. `createCampaignBatch()` - 7 edges
@@ -109,9 +109,9 @@
 - `handleGet()` --calls--> `GET()`  [EXTRACTED]
   app\api\campaigns\catalogs\route.ts → app\api\status-contas\sync\route.ts
 - `POST()` --calls--> `validateConfig()`  [EXTRACTED]
-  app\api\sync\vturb-bulk\route.ts → app\api\catalogs\product-presets\route.ts
+  app\api\vturb\sync-players\route.ts → app\api\catalogs\product-presets\route.ts
 - `POST()` --calls--> `validatePreset()`  [EXTRACTED]
-  app\api\sync\vturb-bulk\route.ts → app\api\catalogs\products\route.ts
+  app\api\vturb\sync-players\route.ts → app\api\catalogs\products\route.ts
 
 ## Hyperedges (group relationships)
 - **Vturb Retention Pipeline (UTM -> Events -> Aggregation -> Rates)** — vturb_utm_campaign_format, vturb_session_events, vturb_endpoint_traffic_origin_stats, vturb_extract_campaign_id_fn, vturb_vturb_map, vturb_play_rate, vturb_over_pitch_rate, vturb_click_rate [EXTRACTED 0.95]
@@ -161,24 +161,24 @@ Cohesion: 0.25
 Nodes (13): AppRateLimitError, discoverPagesForProfile(), fetchAdsVolumePagedPaced(), fetchAllPages(), fetchGraphWithRetry(), listAllBMs(), maxAppUsagePct(), maxNestedUsagePct() (+5 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.36
-Nodes (10): discoverBmCandidates(), ensureCatalogsTable(), fetchAllPages(), fetchAllPagesWithError(), fetchAndSyncMetaCatalogs(), fetchBmCatalogsDetailed(), fetchGraphWithRetry(), getCatalogsFromDB() (+2 more)
+Cohesion: 0.22
+Nodes (3): applyPicker(), commitLink(), ofertaName()
 
 ### Community 11 - "Community 11"
 Cohesion: 0.36
-Nodes (10): buildVturbCampaignMap(), fetchVturbActivePlayerIds(), fetchVturbPlayerCampaignStats(), fetchVturbPlayerDaily(), fetchVturbPlayers(), fetchVturbPlayerUtmDaily(), headers(), normalizeCampaignName() (+2 more)
+Nodes (10): discoverBmCandidates(), ensureCatalogsTable(), fetchAllPages(), fetchAllPagesWithError(), fetchAndSyncMetaCatalogs(), fetchBmCatalogsDetailed(), fetchGraphWithRetry(), getCatalogsFromDB() (+2 more)
 
 ### Community 12 - "Community 12"
+Cohesion: 0.36
+Nodes (10): buildVturbCampaignMap(), fetchVturbActivePlayerIds(), fetchVturbPlayerCampaignStats(), fetchVturbPlayerDaily(), fetchVturbPlayers(), fetchVturbPlayerUtmDaily(), headers(), normalizeCampaignName() (+2 more)
+
+### Community 13 - "Community 13"
 Cohesion: 0.18
 Nodes (11): Context Navigation Policy, Knowledge Graph First Rule, Next.js Agent Rules (Breaking Changes), node_modules/next/dist/docs/, graphify-out/wiki/index.md, CLAUDE.md (include AGENTS.md), app/page.tsx Entry Point, Development Server (npm run dev) (+3 more)
 
-### Community 13 - "Community 13"
+### Community 14 - "Community 14"
 Cohesion: 0.22
 Nodes (2): countActiveSets(), isActive()
-
-### Community 14 - "Community 14"
-Cohesion: 0.24
-Nodes (3): applyPicker(), commitLink(), ofertaName()
 
 ### Community 15 - "Community 15"
 Cohesion: 0.36
