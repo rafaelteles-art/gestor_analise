@@ -14,7 +14,8 @@ export async function POST() {
 
     // 1. Consulta QUAIS contas do Meta Ads o usuário habilitou para sincronizar
     const { rows: accounts } = await client.query(
-      `SELECT account_id FROM public.meta_ad_accounts WHERE is_selected = true`
+      `SELECT account_id FROM public.meta_ad_accounts
+       WHERE account_id IN (SELECT account_id FROM meta_account_offers)`
     );
     const selectedAccounts = accounts.map((a: any) => a.account_id);
 
