@@ -77,6 +77,7 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
+    await ensureOfferLinkSchema();
     const body = await req.json();
     const { field, value } = body;
 

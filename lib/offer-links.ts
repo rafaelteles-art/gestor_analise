@@ -32,6 +32,17 @@ export async function ensureOfferLinkSchema(): Promise<void> {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS redtrack_campaign_selections (
+      id          uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+      campaign_id character varying NOT NULL UNIQUE,
+      campaign_name character varying,
+      status      character varying,
+      is_selected boolean DEFAULT false,
+      created_at  timestamp with time zone DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
     ALTER TABLE redtrack_campaign_selections
       ADD COLUMN IF NOT EXISTS oferta_id INTEGER REFERENCES ofertas(id) ON DELETE SET NULL
   `);
