@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { ensureOfferLinkSchema } from '@/lib/offer-links';
 
-const ALLOWED_FIELDS = ['etapa', 'gestor', 'oferta', 'cartao', 'moeda', 'limite', 'gasto_total', 'perfil', 'account_status'];
+const ALLOWED_FIELDS = ['etapa', 'gestor', 'cartao', 'moeda', 'limite', 'gasto_total', 'perfil', 'account_status'];
 
 async function ensureColumns() {
   const alterQueries = [
@@ -41,6 +42,7 @@ async function ensureColumns() {
       END IF;
     END $$;
   `);
+  await ensureOfferLinkSchema();
 }
 
 export async function GET() {
@@ -51,7 +53,11 @@ export async function GET() {
         id, account_id, account_name, bm_id, bm_name, is_selected,
         COALESCE(etapa, 'Não Utilizada') AS etapa,
         COALESCE(gestor, '{}') AS gestor,
-        COALESCE(oferta, '{}') AS oferta,
+        COALESCE(
+          (SELECT array_agg(mao.oferta_id ORDER BY mao.oferta_id)
+           FROM meta_account_offers mao WHERE mao.account_id = meta_ad_accounts.account_id),
+          '{}'
+        ) AS oferta_ids,
         cartao,
         COALESCE(moeda, 'BRL') AS moeda,
         COALESCE(limite, 0) AS limite,
@@ -71,8 +77,41 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
+    await ensureOfferLinkSchema();
     const body = await req.json();
     const { field, value } = body;
+
+    // Vínculo de oferta agora vive em meta_account_offers (por id), não na coluna oferta.
+    if (field === 'oferta') {
+      const ids: number[] = Array.isArray(value) ? value.map(Number).filter(Number.isInteger) : [];
+      const targets: string[] = Array.isArray(body.account_ids) && body.account_ids.length > 0
+        ? body.account_ids
+        : (body.account_id ? [body.account_id] : []);
+      if (targets.length === 0) {
+        return NextResponse.json({ success: false, error: 'account_id obrigatório' }, { status: 400 });
+      }
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        for (const acc of targets) {
+          await client.query(`DELETE FROM meta_account_offers WHERE account_id = $1`, [acc]);
+          for (const oid of ids) {
+            await client.query(
+              `INSERT INTO meta_account_offers (account_id, oferta_id) VALUES ($1, $2)
+               ON CONFLICT DO NOTHING`,
+              [acc, oid],
+            );
+          }
+        }
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
+      }
+      return NextResponse.json({ success: true, updated: targets.length });
+    }
 
     if (!ALLOWED_FIELDS.includes(field)) {
       return NextResponse.json({ success: false, error: 'Campo inválido' }, { status: 400 });

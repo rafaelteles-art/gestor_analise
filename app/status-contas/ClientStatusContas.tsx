@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { RefreshCw, PlusCircle, Search, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { RefreshCw, PlusCircle, Search, ChevronDown, ChevronRight, X, Tag, User, Check } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ interface Account {
   is_selected: boolean;
   etapa: string;
   gestor: string[];
-  oferta: string[];
+  oferta_ids: number[];
   cartao: string | null;
   moeda: string;
   limite: number;
@@ -168,7 +168,7 @@ function FieldDropdown({
   accountId: string;
   field: string;
   currentValue: string[];
-  options: readonly string[];
+  options: readonly { value: string; label: string }[];
   placeholder?: string;
   onUpdate: (accountId: string, field: string, value: string[]) => void;
 }) {
@@ -184,44 +184,47 @@ function FieldDropdown({
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [isOpen]);
 
-  function toggle(opt: string) {
-    const next = currentValue.includes(opt)
-      ? currentValue.filter(v => v !== opt)
-      : [...currentValue, opt];
+  function toggle(optValue: string) {
+    const next = currentValue.includes(optValue)
+      ? currentValue.filter(v => v !== optValue)
+      : [...currentValue, optValue];
     onUpdate(accountId, field, next);
   }
 
-  const label = currentValue.length === 0
-    ? <span className="text-gray-300">{placeholder}</span>
-    : <span className="text-gray-700">{currentValue.join(', ')}</span>;
+  const LeadingIcon = field === 'oferta' ? Tag : field === 'gestor' ? User : null;
+  const isEmpty = currentValue.length === 0;
+  const labelText = isEmpty
+    ? placeholder
+    : currentValue.map(v => options.find(o => o.value === v)?.label ?? v).join(', ');
 
   return (
     <div ref={ref} className="relative inline-block">
       <button
         onClick={() => setIsOpen(o => !o)}
-        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border whitespace-nowrap transition-opacity hover:opacity-80 bg-gray-50 text-gray-600 border-gray-200"
+        className={`flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-lg text-xs border bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors min-w-[130px] max-w-[210px] shadow-sm ${isOpen ? 'border-indigo-400 ring-1 ring-indigo-100' : 'border-gray-200'}`}
       >
-        {label}
-        <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />
+        {LeadingIcon && <LeadingIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+        <span className={`flex-1 truncate text-left ${isEmpty ? 'text-gray-400' : 'text-gray-700 font-medium'}`}>{labelText}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[160px]">
+        <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[190px] max-h-64 overflow-y-auto">
           {options.length === 0 ? (
             <p className="px-3 py-2 text-xs text-gray-400 italic">Nenhuma opção disponível</p>
           ) : (
             options.map(opt => {
-              const active = currentValue.includes(opt);
+              const active = currentValue.includes(opt.value);
               return (
                 <button
-                  key={opt}
-                  onClick={() => toggle(opt)}
-                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 transition-colors ${active ? 'font-semibold' : ''}`}
+                  key={opt.value}
+                  onClick={() => toggle(opt.value)}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 transition-colors ${active ? 'font-semibold text-gray-800' : 'text-gray-600'}`}
                 >
-                  <span className={`w-3.5 h-3.5 flex items-center justify-center rounded border shrink-0 transition-colors ${active ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'}`}>
-                    {active && '✓'}
+                  <span className={`w-4 h-4 flex items-center justify-center rounded border shrink-0 transition-colors ${active ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'}`}>
+                    {active && <Check className="w-3 h-3" strokeWidth={3} />}
                   </span>
-                  {opt}
+                  <span className="truncate">{opt.label}</span>
                 </button>
               );
             })
@@ -374,7 +377,7 @@ export default function ClientStatusContas({
   ofertasOptions = [],
 }: {
   initialAccounts: Account[];
-  ofertasOptions?: string[];
+  ofertasOptions?: { value: string; label: string }[];
 }) {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(initialAccounts.map(a => a.bm_name)));
@@ -406,8 +409,8 @@ export default function ClientStatusContas({
     return accounts.filter(acc => {
       if (filterGestor === '__NONE__' && acc.gestor.length > 0) return false;
       if (filterGestor && filterGestor !== '__NONE__' && !acc.gestor.includes(filterGestor)) return false;
-      if (filterOferta === '__NONE__' && acc.oferta.length > 0) return false;
-      if (filterOferta && filterOferta !== '__NONE__' && !acc.oferta.includes(filterOferta)) return false;
+      if (filterOferta === '__NONE__' && acc.oferta_ids.length > 0) return false;
+      if (filterOferta && filterOferta !== '__NONE__' && !acc.oferta_ids.map(String).includes(filterOferta)) return false;
       if (filterEtapa && acc.etapa !== filterEtapa) return false;
       if (filterMoeda && acc.moeda !== filterMoeda) return false;
       if (filterStatus === 'ACTIVE' && acc.account_status !== 'ACTIVE') return false;
@@ -474,6 +477,24 @@ export default function ClientStatusContas({
 
   // ── Update Field (gestor, oferta — arrays) ──
   const updateField = useCallback(async (accountId: string, field: string, value: string[]) => {
+    if (field === 'oferta') {
+      const prevIds = accounts.find(a => a.account_id === accountId)?.oferta_ids ?? [];
+      const nextIds = value.map(Number).filter(Number.isInteger);
+      setAccounts(list => list.map(a => a.account_id === accountId ? { ...a, oferta_ids: nextIds } : a));
+      try {
+        const res = await fetch('/api/status-contas', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ field: 'oferta', account_id: accountId, value: nextIds }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Erro');
+      } catch (err: any) {
+        setAccounts(list => list.map(a => a.account_id === accountId ? { ...a, oferta_ids: prevIds } : a));
+        alert('Falha ao atualizar oferta: ' + err.message);
+      }
+      return;
+    }
     const prev = (accounts.find(a => a.account_id === accountId)?.[field as keyof Account] ?? []) as string[];
     setAccounts(accs => accs.map(a => a.account_id === accountId ? { ...a, [field]: value } : a));
     try {
@@ -740,7 +761,7 @@ export default function ClientStatusContas({
           <select value={filterOferta} onChange={e => setFilterOferta(e.target.value)}
             className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50">
             <option value="">Todas</option>
-            {ofertasOptions.map(o => <option key={o} value={o}>{o}</option>)}
+            {ofertasOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             <option value="__NONE__">Sem oferta</option>
           </select>
         </div>
@@ -960,7 +981,7 @@ export default function ClientStatusContas({
                             <FieldDropdown
                               accountId={acc.account_id}
                               field="oferta"
-                              currentValue={acc.oferta}
+                              currentValue={acc.oferta_ids.map(String)}
                               options={ofertasOptions}
                               placeholder="—"
                               onUpdate={updateField}
@@ -972,7 +993,7 @@ export default function ClientStatusContas({
                               accountId={acc.account_id}
                               field="gestor"
                               currentValue={acc.gestor}
-                              options={GESTORES}
+                              options={GESTORES.map(g => ({ value: g, label: g }))}
                               placeholder="—"
                               onUpdate={updateField}
                             />
