@@ -56,13 +56,20 @@ export async function POST(req: Request) {
     dateFrom = format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
   }
 
-  // Busca todas as contas selecionadas
+  // Busca apenas as contas selecionadas que estejam ATIVAS e fora da blacklist.
+  // Exclui:
+  //   • contas não-ativas (account_status <> 'ACTIVE' — ex.: DISABLED/desativadas)
+  //   • contas na blacklist de conta (is_blacklisted = true)
+  //   • contas cujo BM inteiro está na blacklist (meta_bm_blacklist)
   let accounts: { account_id: string; account_name: string; access_token: string }[] = [];
   try {
     const res = await pool.query(
       `SELECT account_id, account_name, access_token
        FROM meta_ad_accounts
        WHERE is_selected = true
+         AND account_status = 'ACTIVE'
+         AND COALESCE(is_blacklisted, false) = false
+         AND bm_id NOT IN (SELECT bm_id FROM meta_bm_blacklist)
        ORDER BY account_name ASC`
     );
     accounts = res.rows;
@@ -71,7 +78,7 @@ export async function POST(req: Request) {
   }
 
   if (accounts.length === 0) {
-    return NextResponse.json({ error: 'Nenhuma conta selecionada. Ative contas em Configurações.' }, { status: 400 });
+    return NextResponse.json({ error: 'Nenhuma conta ativa selecionada. Ative contas (não desativadas/blacklist) em Configurações.' }, { status: 400 });
   }
 
   // ── Streaming NDJSON para mostrar progresso ao vivo ──────────────────────
