@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { format } from 'date-fns';
+import { parseOfertaParam } from '@/lib/offer-scope';
 
 /**
  * GET /api/overview/db?date=YYYY-MM-DD
@@ -17,7 +18,12 @@ export async function GET(req: NextRequest) {
     ? dateRaw
     : format(new Date(), 'yyyy-MM-dd');
 
+  const ofertaId = parseOfertaParam(req.nextUrl.searchParams.get('oferta'));
+
   try {
+    const scopeSql = ofertaId == null
+      ? `WHERE s.oferta_id IN (SELECT id FROM ofertas WHERE status = 'ATIVO')`
+      : `WHERE s.oferta_id = $2`;
     const sql = `
       SELECT
         s.campaign_id,
@@ -38,10 +44,11 @@ export async function GET(req: NextRequest) {
       FROM redtrack_campaign_selections s
       LEFT JOIN redtrack_metrics m
         ON m.campaign_id = s.campaign_id AND m.date = $1
-      WHERE s.is_selected = true
+      ${scopeSql}
       ORDER BY s.campaign_name ASC;
     `;
-    const res = await pool.query(sql, [dateStr]);
+    const params = ofertaId == null ? [dateStr] : [dateStr, ofertaId];
+    const res = await pool.query(sql, params);
 
     // Coerções defensivas (numéricos do pg vêm como string)
     const rows = res.rows.map(r => ({
