@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { PlusCircle, Trash2, ChevronDown } from 'lucide-react';
+import { PlusCircle, Trash2, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 
 interface Oferta {
   id: number;
@@ -10,14 +10,37 @@ interface Oferta {
   status: 'ATIVO' | 'PAUSADO';
   created_at: string;
 }
+interface Campaign { campaign_id: string; campaign_name: string; status: string | null; oferta_id: number | null; }
+interface Player { player_id: string; player_name: string | null; video_duration: number | null; oferta_id: number | null; }
+interface AccountLink { oferta_id: number; account_id: string; account_name: string; bm_name: string | null; }
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; border: string }> = {
   ATIVO:   { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
   PAUSADO: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
 };
 
-export default function ClientOfertas({ initialOfertas }: { initialOfertas: Oferta[] }) {
+const isActiveStatus = (s: string | null) => {
+  const v = (s ?? '').toLowerCase();
+  return v === 'active' || v === 'ativo' || v === 'enabled' || v === 'running';
+};
+
+export default function ClientOfertas({
+  initialOfertas,
+  campaigns: initialCampaigns,
+  players: initialPlayers,
+  accountLinks,
+}: {
+  initialOfertas: Oferta[];
+  campaigns: Campaign[];
+  players: Player[];
+  accountLinks: AccountLink[];
+}) {
   const [ofertas, setOfertas] = useState<Oferta[]>(initialOfertas);
+  const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
+  const [players, setPlayers] = useState<Player[]>(initialPlayers);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [picker, setPicker] = useState<{ ofertaId: number; kind: 'campaign' | 'player' } | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [newNome, setNewNome] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -100,6 +123,42 @@ export default function ClientOfertas({ initialOfertas }: { initialOfertas: Ofer
     }
   };
 
+  const ofertaName = (id: number | null) => ofertas.find(o => o.id === id)?.nome ?? null;
+
+  const setLink = async (
+    kind: 'campaign' | 'player',
+    id: string,
+    ofertaId: number | null,
+  ) => {
+    const current = kind === 'campaign'
+      ? campaigns.find(c => c.campaign_id === id)?.oferta_id ?? null
+      : players.find(p => p.player_id === id)?.oferta_id ?? null;
+    if (ofertaId !== null && current !== null && current !== ofertaId) {
+      const ok = confirm(
+        `Este item está na oferta "${ofertaName(current)}". Mover para "${ofertaName(ofertaId)}"?`,
+      );
+      if (!ok) return;
+    }
+
+    if (kind === 'campaign') {
+      setCampaigns(list => list.map(c => c.campaign_id === id ? { ...c, oferta_id: ofertaId } : c));
+    } else {
+      setPlayers(list => list.map(p => p.player_id === id ? { ...p, oferta_id: ofertaId } : p));
+    }
+    try {
+      const res = await fetch('/api/ofertas/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, id, oferta_id: ofertaId }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Erro');
+    } catch (err: any) {
+      alert('Falha ao vincular: ' + err.message);
+      window.location.reload();
+    }
+  };
+
   const ativas = ofertas.filter(o => o.status === 'ATIVO').length;
   const pausadas = ofertas.filter(o => o.status === 'PAUSADO').length;
 
@@ -166,15 +225,28 @@ export default function ClientOfertas({ initialOfertas }: { initialOfertas: Ofer
             <tbody className="divide-y divide-gray-100">
               {ofertas.map(oferta => {
                 const s = STATUS_STYLE[oferta.status] ?? STATUS_STYLE.ATIVO;
+                const myCampaigns = campaigns.filter(c => c.oferta_id === oferta.id);
+                const myPlayers = players.filter(p => p.oferta_id === oferta.id);
+                const myAccounts = accountLinks.filter(a => a.oferta_id === oferta.id);
+                const expanded = expandedId === oferta.id;
                 return (
-                  <tr key={oferta.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-5 py-3 text-sm font-medium text-gray-800">{oferta.nome}</td>
+                  <React.Fragment key={oferta.id}>
+                  <tr className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-5 py-3 text-sm font-medium text-gray-800">
+                      <button
+                        onClick={() => setExpandedId(expanded ? null : oferta.id)}
+                        className="inline-flex items-center gap-2 hover:text-indigo-600"
+                      >
+                        {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        {oferta.nome}
+                        <span className="text-[10px] text-gray-400 font-normal">
+                          {myCampaigns.length}c · {myPlayers.length}v · {myAccounts.length}a
+                        </span>
+                      </button>
+                    </td>
                     <td className="px-5 py-3">
                       <button
-                        ref={el => {
-                          if (el) buttonRefs.current.set(oferta.id, el);
-                          else buttonRefs.current.delete(oferta.id);
-                        }}
+                        ref={el => { if (el) buttonRefs.current.set(oferta.id, el); else buttonRefs.current.delete(oferta.id); }}
                         onClick={() => openStatusDropdown(oferta.id)}
                         className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border whitespace-nowrap transition-opacity hover:opacity-80 ${s.bg} ${s.text} ${s.border}`}
                       >
@@ -193,6 +265,39 @@ export default function ClientOfertas({ initialOfertas }: { initialOfertas: Ofer
                       </button>
                     </td>
                   </tr>
+                  {expanded && (
+                    <tr>
+                      <td colSpan={3} className="px-5 py-4 bg-gray-50/60">
+                        <div className="grid grid-cols-3 gap-4">
+                          <LinkGroup
+                            title="Campanhas RedTrack"
+                            items={myCampaigns.map(c => ({ id: c.campaign_id, label: c.campaign_name }))}
+                            onAdd={() => setPicker({ ofertaId: oferta.id, kind: 'campaign' })}
+                            onRemove={(id) => setLink('campaign', id, null)}
+                          />
+                          <LinkGroup
+                            title="Vídeos vTurb"
+                            items={myPlayers.map(p => ({ id: p.player_id, label: p.player_name ?? p.player_id }))}
+                            onAdd={() => setPicker({ ofertaId: oferta.id, kind: 'player' })}
+                            onRemove={(id) => setLink('player', id, null)}
+                          />
+                          <div>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">
+                              Contas Meta <span className="normal-case font-normal">(edite em Status de Contas)</span>
+                            </p>
+                            {myAccounts.length === 0
+                              ? <p className="text-xs text-gray-400 italic">Nenhuma conta vinculada.</p>
+                              : myAccounts.map(a => (
+                                  <div key={a.account_id} className="text-xs text-gray-700 py-0.5">
+                                    {a.account_name} <span className="text-gray-400">· {a.bm_name}</span>
+                                  </div>
+                                ))}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -233,6 +338,76 @@ export default function ClientOfertas({ initialOfertas }: { initialOfertas: Ofer
         </>,
         document.body
       )}
+
+      {picker && typeof window !== 'undefined' && createPortal(
+        <>
+          <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setPicker(null)} />
+          <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-200 rounded-xl shadow-xl w-[420px] max-h-[70vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <h4 className="text-sm font-bold text-gray-800">
+                {picker.kind === 'campaign' ? 'Vincular campanha' : 'Vincular vídeo'}
+              </h4>
+              <label className="flex items-center gap-1 text-xs text-gray-500">
+                <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} />
+                Mostrar inativos
+              </label>
+            </div>
+            <div className="overflow-y-auto p-2">
+              {(picker.kind === 'campaign'
+                ? campaigns.filter(c => showAll || isActiveStatus(c.status)).map(c => ({ id: c.campaign_id, label: c.campaign_name, oferta_id: c.oferta_id }))
+                : players.filter(p => showAll || (p.video_duration ?? 0) > 0).map(p => ({ id: p.player_id, label: p.player_name ?? p.player_id, oferta_id: p.oferta_id }))
+              ).map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => { setLink(picker.kind, item.id, picker.ofertaId); setPicker(null); }}
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-gray-50 flex items-center justify-between"
+                >
+                  <span className="truncate">{item.label}</span>
+                  {item.oferta_id != null && item.oferta_id !== picker.ofertaId && (
+                    <span className="ml-2 shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                      em {ofertaName(item.oferta_id)}
+                    </span>
+                  )}
+                  {item.oferta_id === picker.ofertaId && (
+                    <span className="ml-2 shrink-0 text-[10px] text-green-600">✓ aqui</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
+function LinkGroup({
+  title, items, onAdd, onRemove,
+}: {
+  title: string;
+  items: { id: string; label: string }[];
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{title}</p>
+        <button onClick={onAdd} className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800">
+          <Plus className="w-3 h-3" /> Adicionar
+        </button>
+      </div>
+      {items.length === 0
+        ? <p className="text-xs text-gray-400 italic">Nenhum vinculado.</p>
+        : items.map(it => (
+            <div key={it.id} className="flex items-center justify-between text-xs text-gray-700 py-0.5 group">
+              <span className="truncate">{it.label}</span>
+              <button onClick={() => onRemove(it.id)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600" title="Remover">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
     </div>
   );
 }
