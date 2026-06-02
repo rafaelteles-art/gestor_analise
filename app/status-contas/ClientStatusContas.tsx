@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { RefreshCw, PlusCircle, Search, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { RefreshCw, PlusCircle, Search, ChevronDown, ChevronRight, X, Tag, User, Check } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -191,22 +191,25 @@ function FieldDropdown({
     onUpdate(accountId, field, next);
   }
 
-  const label = currentValue.length === 0
-    ? <span className="text-gray-300">{placeholder}</span>
-    : <span className="text-gray-700">{currentValue.map(v => options.find(o => o.value === v)?.label ?? v).join(', ')}</span>;
+  const LeadingIcon = field === 'oferta' ? Tag : field === 'gestor' ? User : null;
+  const isEmpty = currentValue.length === 0;
+  const labelText = isEmpty
+    ? placeholder
+    : currentValue.map(v => options.find(o => o.value === v)?.label ?? v).join(', ');
 
   return (
     <div ref={ref} className="relative inline-block">
       <button
         onClick={() => setIsOpen(o => !o)}
-        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border whitespace-nowrap transition-opacity hover:opacity-80 bg-gray-50 text-gray-600 border-gray-200"
+        className={`flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-lg text-xs border bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors min-w-[130px] max-w-[210px] shadow-sm ${isOpen ? 'border-indigo-400 ring-1 ring-indigo-100' : 'border-gray-200'}`}
       >
-        {label}
-        <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />
+        {LeadingIcon && <LeadingIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+        <span className={`flex-1 truncate text-left ${isEmpty ? 'text-gray-400' : 'text-gray-700 font-medium'}`}>{labelText}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[160px]">
+        <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[190px] max-h-64 overflow-y-auto">
           {options.length === 0 ? (
             <p className="px-3 py-2 text-xs text-gray-400 italic">Nenhuma opção disponível</p>
           ) : (
@@ -216,12 +219,12 @@ function FieldDropdown({
                 <button
                   key={opt.value}
                   onClick={() => toggle(opt.value)}
-                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 transition-colors ${active ? 'font-semibold' : ''}`}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 transition-colors ${active ? 'font-semibold text-gray-800' : 'text-gray-600'}`}
                 >
-                  <span className={`w-3.5 h-3.5 flex items-center justify-center rounded border shrink-0 transition-colors ${active ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'}`}>
-                    {active && '✓'}
+                  <span className={`w-4 h-4 flex items-center justify-center rounded border shrink-0 transition-colors ${active ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'}`}>
+                    {active && <Check className="w-3 h-3" strokeWidth={3} />}
                   </span>
-                  {opt.label}
+                  <span className="truncate">{opt.label}</span>
                 </button>
               );
             })
