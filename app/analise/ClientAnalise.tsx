@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import Select from 'react-select';
+import OfferSelector from '../components/OfferSelector';
 import {
   analyzeAccounts,
   AccountDiagnostic,
@@ -30,6 +31,8 @@ interface RtCampaign {
 interface Props {
   dbAccounts: AdAccount[];
   rtCampaigns: RtCampaign[];
+  offers: { id: number; nome: string }[];
+  currentOferta: number | null;
 }
 
 // ============================================================
@@ -90,9 +93,15 @@ const HEALTH_STYLE: Record<AccountDiagnostic['health'], { label: string; color: 
 // ============================================================
 // Main component
 // ============================================================
-export default function ClientAnalise({ dbAccounts, rtCampaigns }: Props) {
+export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, currentOferta }: Props) {
   const sortedAccounts = [...dbAccounts].sort((a, b) => a.account_name.localeCompare(b.account_name));
   const sortedRtCampaigns = [...rtCampaigns].sort((a, b) => a.campaign_name.localeCompare(b.campaign_name));
+
+  // Stable signatures of the offer-scoped sets, derived from PROPS only. When the
+  // offer changes (URL navigation re-renders with new props), these keys change
+  // and the scope effect re-applies the account/RT default-to-all for the scope.
+  const accountScopeKey = sortedAccounts.map(a => a.account_id).join(',');
+  const rtScopeKey = sortedRtCampaigns.map(c => c.campaign_id).join(',');
 
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [selectedRtCampaignId, setSelectedRtCampaignId] = useState<string>('');
@@ -109,25 +118,43 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns }: Props) {
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState<CreativeCategory | 'all'>('all');
 
-  // Persistência de preferências (compartilha chave com o dashboard para selectors consistentes)
+  // Mount-only restore: one-time UI setup that must NOT reset when the user
+  // switches offer (props change). This component stores no date range/sort in
+  // localStorage (date is UI-only, recalculated), so there is nothing to restore
+  // here today — but account/RT defaulting deliberately lives in the scope effect
+  // below, never here, so an offer switch never disturbs the date range.
   useEffect(() => {
-    let initAcc: string[] = sortedAccounts.length > 0 ? [sortedAccounts[0].account_id] : [];
+    // (no persisted date/sort to restore for Análise)
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scope restore: re-applies the account + RT-campaign default-to-all selection
+  // whenever the offer-scoped set changes (offer switch via navigation, or first
+  // load with a given ?oferta). Keys derive from PROPS only to avoid render loops.
+  useEffect(() => {
+    // Default-to-ALL within the offer scope: every offer-scoped account is
+    // selected so the user needn't pick anything.
+    let initAcc: string[] = sortedAccounts.map(a => a.account_id);
+    // RT single-select default semantics: first offer-scoped campaign (or '').
     let initRt = sortedRtCampaigns.length > 0 ? sortedRtCampaigns[0].campaign_id : '';
     try {
       const saved = JSON.parse(localStorage.getItem('dopscale_prefs') || '{}');
+      // Intersect stored account ids with the current offer-scoped set; only use
+      // the stored set if the intersection is non-empty, else default to all.
       if (Array.isArray(saved.accountIds)) {
         const valid = saved.accountIds.filter((id: string) => sortedAccounts.some(a => a.account_id === id));
         if (valid.length > 0) initAcc = valid;
       } else if (saved.accountId && sortedAccounts.some(a => a.account_id === saved.accountId)) {
         initAcc = [saved.accountId];
       }
+      // Only restore the stored RT campaign if present in the offer-scoped list.
       if (saved.rtCampaignId && sortedRtCampaigns.some(c => c.campaign_id === saved.rtCampaignId)) {
         initRt = saved.rtCampaignId;
       }
     } catch {}
     setSelectedAccountIds(initAcc);
     setSelectedRtCampaignId(initRt);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountScopeKey, rtScopeKey]);
 
   // Salva preferências quando mudam
   useEffect(() => {
@@ -324,6 +351,8 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns }: Props) {
               }}
             />
           </div>
+
+          <OfferSelector offers={offers} current={currentOferta} />
 
           <button
             onClick={runAnalysis}

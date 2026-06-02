@@ -1,28 +1,50 @@
 import { pool } from '@/lib/db';
 import V2MediaLabLayout from '../components/V2MediaLabLayout';
 import ClientAnalise from './ClientAnalise';
+import { parseOfertaParam } from '@/lib/offer-scope';
 
-export default async function AnalisePage() {
+export const dynamic = 'force-dynamic';
+
+export default async function AnalisePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ oferta?: string }>;
+}) {
+  const sp = await searchParams;
+  const ofertaId = parseOfertaParam(sp?.oferta);
+
   let dbAccounts: any[] = [];
   let rtCampaigns: any[] = [];
+  let offers: { id: number; nome: string }[] = [];
 
   try {
-    const accRes = await pool.query(
-      "SELECT * FROM meta_ad_accounts WHERE is_selected = true ORDER BY bm_name ASC"
-    );
+    const accSql = ofertaId == null
+      ? `SELECT * FROM meta_ad_accounts WHERE account_id IN (SELECT account_id FROM meta_account_offers) ORDER BY bm_name ASC`
+      : `SELECT * FROM meta_ad_accounts WHERE account_id IN (SELECT account_id FROM meta_account_offers WHERE oferta_id = $1) ORDER BY bm_name ASC`;
+    const campSql = ofertaId == null
+      ? `SELECT * FROM redtrack_campaign_selections WHERE oferta_id IS NOT NULL ORDER BY campaign_name ASC`
+      : `SELECT * FROM redtrack_campaign_selections WHERE oferta_id = $1 ORDER BY campaign_name ASC`;
+    const params = ofertaId == null ? [] : [ofertaId];
+    const [accRes, rtRes, ofRes] = await Promise.all([
+      pool.query(accSql, params),
+      pool.query(campSql, params),
+      pool.query(`SELECT id, nome FROM ofertas ORDER BY nome ASC`),
+    ]);
     dbAccounts = accRes.rows;
-
-    const rtRes = await pool.query(
-      "SELECT * FROM redtrack_campaign_selections ORDER BY campaign_name ASC"
-    );
     rtCampaigns = rtRes.rows;
+    offers = ofRes.rows;
   } catch (error) {
     console.error('Erro ao carregar dados para Análise:', error);
   }
 
   return (
     <V2MediaLabLayout title="Análise de Campanhas">
-      <ClientAnalise dbAccounts={dbAccounts || []} rtCampaigns={rtCampaigns || []} />
+      <ClientAnalise
+        dbAccounts={dbAccounts || []}
+        rtCampaigns={rtCampaigns || []}
+        offers={offers}
+        currentOferta={ofertaId}
+      />
     </V2MediaLabLayout>
   );
 }
