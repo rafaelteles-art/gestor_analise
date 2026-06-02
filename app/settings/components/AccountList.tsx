@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react';
-import { toggleAccountSelection, toggleAllAccountsSelection, toggleBmSelection, toggleBmBlacklist, toggleAccountBlacklist } from '../actions';
+import { toggleBmBlacklist, toggleAccountBlacklist } from '../actions';
 import { handleStaleServerAction } from '@/lib/stale-action';
-import { RefreshCw, CheckCircle2, CheckSquare, Square, ChevronDown, Ban } from 'lucide-react';
+import { RefreshCw, ChevronDown, Ban } from 'lucide-react';
 
 interface Account {
   id: string;
@@ -11,7 +11,6 @@ interface Account {
   account_name: string;
   bm_id: string;
   bm_name: string;
-  is_selected: boolean;
   is_blacklisted?: boolean;
 }
 
@@ -54,32 +53,6 @@ export default function AccountList({
 
   const groups = groupByBm(accounts);
 
-  // ── Toggles individuais ───────────────────────────────────────────────────
-  const handleToggle = async (accountId: string, currentStatus: boolean) => {
-    const newStatus = !currentStatus;
-    setAccounts(prev => prev.map(a => a.account_id === accountId ? { ...a, is_selected: newStatus } : a));
-    try {
-      await toggleAccountSelection(accountId, newStatus);
-    } catch (err) {
-      if (handleStaleServerAction(err)) return;
-      setAccounts(prev => prev.map(a => a.account_id === accountId ? { ...a, is_selected: currentStatus } : a));
-      alert('Falha ao atualizar conta.');
-    }
-  };
-
-  // ── Toggle de BM inteira ──────────────────────────────────────────────────
-  const handleToggleBm = async (bmId: string, newStatus: boolean) => {
-    const prev = [...accounts];
-    setAccounts(prevAccs => prevAccs.map(a => a.bm_id === bmId ? { ...a, is_selected: newStatus } : a));
-    try {
-      await toggleBmSelection(bmId, newStatus);
-    } catch (err) {
-      if (handleStaleServerAction(err)) return;
-      setAccounts(prev);
-      alert('Falha ao atualizar BM.');
-    }
-  };
-
   // ── Blacklist conta individual ────────────────────────────────────────────
   const handleToggleAccountBlacklist = async (accountId: string, currentlyBlacklisted: boolean) => {
     const newStatus = !currentlyBlacklisted;
@@ -107,19 +80,6 @@ export default function AccountList({
       if (handleStaleServerAction(err)) return;
       setBlacklistedBmIds(prev);
       alert('Falha ao atualizar blacklist do BM.');
-    }
-  };
-
-  // ── Toggle global ─────────────────────────────────────────────────────────
-  const handleToggleAll = async (newStatus: boolean) => {
-    const prev = [...accounts];
-    setAccounts(prevAccs => prevAccs.map(a => ({ ...a, is_selected: newStatus })));
-    try {
-      await toggleAllAccountsSelection(newStatus);
-    } catch (err) {
-      if (handleStaleServerAction(err)) return;
-      setAccounts(prev);
-      alert('Falha ao atualizar todas as contas.');
     }
   };
 
@@ -225,8 +185,6 @@ export default function AccountList({
     });
   };
 
-  const selectedCount = accounts.filter(a => a.is_selected).length;
-
   return (
     <div>
       {/* Header */}
@@ -234,22 +192,11 @@ export default function AccountList({
         <div>
           <h2 className="text-sm font-bold text-gray-800">Contas de Anúncio</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            {selectedCount} de {accounts.length} conta(s) ativa(s)
+            {accounts.length} conta(s) mapeada(s)
           </p>
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={() => handleToggleAll(true)}
-              className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-transparent"
-            >
-              <CheckSquare className="w-3.5 h-3.5" /> Ativar todas
-            </button>
-            <button
-              onClick={() => handleToggleAll(false)}
-              className="flex items-center gap-1.5 text-xs text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors"
-            >
-              <Square className="w-3.5 h-3.5" /> Desativar todas
-            </button>
-          </div>
+          <p className="text-[11px] text-gray-400 mt-1 max-w-md">
+            Contas e campanhas são sincronizadas pelas Ofertas vinculadas (ver Ofertas / Status de Contas).
+          </p>
         </div>
 
         <button
@@ -287,10 +234,7 @@ export default function AccountList({
         <div className="flex flex-col gap-3">
           {groups.map(group => {
             const isOpen = !collapsed.has(group.bm_id);
-            const bmSelected = group.accounts.filter(a => a.is_selected).length;
             const bmTotal    = group.accounts.length;
-            const allOn      = bmSelected === bmTotal;
-            const allOff     = bmSelected === 0;
             const isBlacklisted = blacklistedBmIds.has(group.bm_id);
 
             return (
@@ -313,26 +257,8 @@ export default function AccountList({
 
                   <div className="flex items-center gap-3 shrink-0 ml-4">
                     <span className="text-xs text-gray-500">
-                      {bmSelected}/{bmTotal} ativa{bmSelected !== 1 ? 's' : ''}
+                      {bmTotal} conta{bmTotal !== 1 ? 's' : ''}
                     </span>
-
-                    {/* Toggle BM inteira */}
-                    <button
-                      onClick={() => handleToggleBm(group.bm_id, !allOn)}
-                      title={allOn ? 'Desativar BM inteira' : 'Ativar BM inteira'}
-                      className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors border ${
-                        allOn
-                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
-                          : allOff
-                          ? 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                          : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                      }`}
-                    >
-                      {allOn
-                        ? <><Square className="w-3 h-3" /> Desativar BM</>
-                        : <><CheckSquare className="w-3 h-3" /> Ativar BM</>
-                      }
-                    </button>
 
                     {/* Blacklist BM inteira */}
                     <button
@@ -361,11 +287,6 @@ export default function AccountList({
                         </div>
 
                         <div className="flex items-center gap-2.5 shrink-0 ml-4">
-                          {acc.is_selected && (
-                            <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Ativa
-                            </span>
-                          )}
                           <button
                             onClick={() => handleToggleAccountBlacklist(acc.account_id, !!acc.is_blacklisted)}
                             title={acc.is_blacklisted ? 'Remover conta da blacklist' : 'Adicionar conta à blacklist (oculta de /status-contas)'}
@@ -377,18 +298,6 @@ export default function AccountList({
                           >
                             <Ban className="w-3 h-3" />
                             {acc.is_blacklisted ? 'Remover' : 'Blacklist'}
-                          </button>
-                          <button
-                            onClick={() => handleToggle(acc.account_id, acc.is_selected)}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-                              acc.is_selected ? 'bg-indigo-600' : 'bg-gray-200'
-                            }`}
-                          >
-                            <span
-                              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform ${
-                                acc.is_selected ? 'translate-x-4' : 'translate-x-0.5'
-                              }`}
-                            />
                           </button>
                         </div>
                       </div>
