@@ -392,15 +392,16 @@ export default function ClientOfertas({
                   return (
                     <label
                       key={item.id}
-                      className={`w-full px-3 py-2 rounded-lg text-xs flex items-center gap-2 ${here ? 'opacity-60' : 'hover:bg-gray-50 cursor-pointer'}`}
+                      className={`w-full px-3 py-2 rounded-lg text-xs flex items-center gap-2 text-gray-700 ${here ? 'opacity-60' : 'hover:bg-gray-50 cursor-pointer'}`}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
                         disabled={here}
                         onChange={() => togglePickerSel(item.id)}
+                        className="shrink-0 accent-indigo-600"
                       />
-                      <span className="truncate flex-1">{item.label}</span>
+                      <span className="truncate flex-1 text-gray-700">{item.label}</span>
                       {item.oferta_id != null && !here && (
                         <span className="ml-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                           em {ofertaName(item.oferta_id)}
