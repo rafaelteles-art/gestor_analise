@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import { RefreshCw, Database, ChevronRight, ChevronDown, AlertCircle } from 'lucide-react';
+import OfferSelector from '../components/OfferSelector';
 
 interface SelectedCampaign {
   campaign_id: string;
@@ -68,7 +69,15 @@ const fmtBRL = (v: number) =>
 const fmtNum = (v: number) => v.toLocaleString('pt-BR');
 const fmtRoas = (v: number) => (v > 0 ? v.toFixed(2) + 'x' : '—');
 
-export default function ClientOverview({ selectedCampaigns }: { selectedCampaigns: SelectedCampaign[] }) {
+export default function ClientOverview({
+  selectedCampaigns,
+  offers,
+  currentOferta,
+}: {
+  selectedCampaigns: SelectedCampaign[];
+  offers: { id: number; nome: string }[];
+  currentOferta: number | null;
+}) {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [rows, setRows] = useState<OverviewRow[]>([]);
   const [totals, setTotals] = useState<OverviewTotals | null>(null);
@@ -89,7 +98,8 @@ export default function ClientOverview({ selectedCampaigns }: { selectedCampaign
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/overview/db?date=${date}`);
+      const ofertaQs = currentOferta != null ? `&oferta=${currentOferta}` : '';
+      const res = await fetch(`/api/overview/db?date=${date}${ofertaQs}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro ao ler banco');
       setRows(data.rows || []);
@@ -100,7 +110,7 @@ export default function ClientOverview({ selectedCampaigns }: { selectedCampaign
     } finally {
       setLoading(false);
     }
-  }, [date, selectedCampaigns.length]);
+  }, [date, selectedCampaigns.length, currentOferta]);
 
   useEffect(() => { loadFromDb(); }, [loadFromDb]);
 
@@ -205,6 +215,8 @@ export default function ClientOverview({ selectedCampaigns }: { selectedCampaign
             <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Campanhas</span>
             <span className="text-sm font-semibold text-gray-700">{selectedCampaigns.length} selecionada(s)</span>
           </div>
+
+          <OfferSelector offers={offers} current={currentOferta} />
         </div>
 
         <div className="flex items-center gap-2">
