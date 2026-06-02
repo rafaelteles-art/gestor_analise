@@ -361,7 +361,7 @@ export default function ClientOfertas({
       {picker && typeof window !== 'undefined' && createPortal(
         <>
           <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setPicker(null)} />
-          <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-200 rounded-xl shadow-xl w-[420px] max-h-[70vh] flex flex-col">
+          <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-200 rounded-xl shadow-xl w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <h4 className="text-sm font-bold text-gray-800">
                 {picker.kind === 'campaign' ? 'Vincular campanhas' : 'Vincular vídeos'}
@@ -401,7 +401,7 @@ export default function ClientOfertas({
                         onChange={() => togglePickerSel(item.id)}
                         className="shrink-0 accent-indigo-600"
                       />
-                      <span className="truncate flex-1 text-gray-700">{item.label}</span>
+                      <span className="flex-1 text-gray-700 break-words leading-snug" title={item.label}>{item.label}</span>
                       {item.oferta_id != null && !here && (
                         <span className="ml-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                           em {ofertaName(item.oferta_id)}
@@ -454,7 +454,7 @@ function LinkGroup({
         ? <p className="text-xs text-gray-400 italic">Nenhum vinculado.</p>
         : items.map(it => (
             <div key={it.id} className="flex items-center justify-between text-xs text-gray-700 py-0.5 group">
-              <span className="truncate">{it.label}</span>
+              <span className="truncate" title={it.label}>{it.label}</span>
               <button onClick={() => onRemove(it.id)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600" title="Remover">
                 <X className="w-3 h-3" />
               </button>
