@@ -1,11 +1,11 @@
 # Graph Report - .  (2026-06-02)
 
 ## Corpus Check
-- 113 files · ~106,543 words
+- 113 files · ~106,819 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 543 nodes · 658 edges · 76 communities detected
+- 545 nodes · 661 edges · 76 communities detected
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
@@ -175,36 +175,36 @@ Cohesion: 0.22
 Nodes (2): countActiveSets(), isActive()
 
 ### Community 14 - "Community 14"
+Cohesion: 0.24
+Nodes (3): applyPicker(), commitLink(), ofertaName()
+
+### Community 15 - "Community 15"
 Cohesion: 0.36
 Nodes (9): createUser(), deleteUser(), isValidEmail(), isValidPageKey(), requireAdmin(), requireSuperAdmin(), setUserPageAccess(), togglePageAccess() (+1 more)
 
-### Community 15 - "Community 15"
+### Community 16 - "Community 16"
 Cohesion: 0.22
 Nodes (0): 
 
-### Community 16 - "Community 16"
+### Community 17 - "Community 17"
 Cohesion: 0.31
 Nodes (4): handleDiscover(), handleSync(), runPolledSync(), sleep()
 
-### Community 17 - "Community 17"
+### Community 18 - "Community 18"
 Cohesion: 0.22
 Nodes (0): 
 
-### Community 18 - "Community 18"
+### Community 19 - "Community 19"
 Cohesion: 0.28
 Nodes (3): append(), buildPayload(), handleSync()
 
-### Community 19 - "Community 19"
+### Community 20 - "Community 20"
 Cohesion: 0.39
 Nodes (6): computeBackoffMs(), maxFlat(), maxNested(), Pacer, safeParse(), usagePctFromResponse()
 
-### Community 20 - "Community 20"
+### Community 21 - "Community 21"
 Cohesion: 0.28
 Nodes (3): claimNextPageSyncJob(), createPageSyncJob(), ensureJobTable()
-
-### Community 21 - "Community 21"
-Cohesion: 0.29
-Nodes (2): ofertaName(), setLink()
 
 ### Community 22 - "Community 22"
 Cohesion: 0.25
