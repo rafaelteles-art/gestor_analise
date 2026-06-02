@@ -8,6 +8,7 @@ import {
   VturbUtmDailyMetric,
 } from '@/lib/vturb';
 import { format, subDays, parseISO, isValid, differenceInCalendarDays } from 'date-fns';
+import { ensureOfferLinkSchema, fetchLinkedPlayerIds } from '@/lib/offer-links';
 
 export const maxDuration = 300;
 
@@ -119,20 +120,47 @@ export async function POST(req: Request) {
 
   try {
     await ensureVturbTable();
+    await ensureOfferLinkSchema();
   } catch (err: any) {
     return NextResponse.json({ error: 'Erro criando tabela vturb_metrics: ' + err.message }, { status: 500 });
   }
 
-  // Busca a lista de players primeiro (fora do stream — se falhar, retorna 4xx limpo)
-  let players: Awaited<ReturnType<typeof fetchVturbPlayers>> = [];
+  let allPlayers: Awaited<ReturnType<typeof fetchVturbPlayers>> = [];
   try {
-    players = await fetchVturbPlayers(token);
+    allPlayers = await fetchVturbPlayers(token);
   } catch (err: any) {
     return NextResponse.json({ error: 'Erro listando players do vturb: ' + err.message }, { status: 502 });
   }
 
-  if (players.length === 0) {
+  if (allPlayers.length === 0) {
     return NextResponse.json({ error: 'Nenhum player encontrado na conta vturb.' }, { status: 400 });
+  }
+
+  // Registro: upsert de TODOS os players (vídeos ficam selecionáveis na UI de ofertas).
+  // Ignora placeholders sem duração. NUNCA toca oferta_id — vínculo manual é preservado.
+  const registryPlayers = allPlayers.filter(p => (p.video_duration ?? 0) > 0);
+  for (const p of registryPlayers) {
+    await pool.query(
+      `INSERT INTO vturb_players (player_id, player_name, video_duration, pitch_time, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (player_id) DO UPDATE SET
+         player_name    = EXCLUDED.player_name,
+         video_duration = EXCLUDED.video_duration,
+         pitch_time     = EXCLUDED.pitch_time,
+         updated_at     = NOW()`,
+      [p.id, p.name ?? null, p.video_duration ?? null, p.pitch_time ?? null],
+    );
+  }
+
+  // Métricas: só players vinculados a uma oferta (oferta_id IS NOT NULL).
+  const linkedIds = await fetchLinkedPlayerIds();
+  const players = registryPlayers.filter(p => linkedIds.has(p.id));
+
+  if (players.length === 0) {
+    return NextResponse.json(
+      { error: 'Nenhum vídeo vinculado a uma oferta. Vincule vídeos em Ofertas para sincronizar métricas.', synced: 0 },
+      { status: 200 },
+    );
   }
 
   const encoder = new TextEncoder();
