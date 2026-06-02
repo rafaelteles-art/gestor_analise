@@ -85,12 +85,10 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
     if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
   };
 
+  // Mount-only restore: date range, sort, and templates initialize ONCE.
+  // These must NOT reset when the user switches offer (props change), so they
+  // live in an effect with an empty dep array — independent of the offer scope.
   useEffect(() => {
-    // Default-to-ALL within the offer scope: with no manual action, every
-    // offer-scoped account is included so the user needn't pick anything.
-    let initialAccountIds: string[] = sortedAccounts.map(a => a.account_id);
-    // RT single-select default semantics: first offer-scoped campaign (or '').
-    let initialRtCampaignId = sortedRtCampaigns.length > 0 ? sortedRtCampaigns[0].campaign_id : '';
     let initialDateRange = 'today';
     const today = new Date();
     let initialDateFrom = format(today, 'yyyy-MM-dd');
@@ -101,22 +99,6 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
         const savedStr = localStorage.getItem('dopscale_prefs');
         if (savedStr) {
             const saved = JSON.parse(savedStr);
-            // Intersect any stored account ids with the current offer-scoped set.
-            // If the intersection is empty (new offer / stale ids), fall back to
-            // ALL offer-scoped accounts (the default-to-all behavior above).
-            if (Array.isArray(saved.accountIds)) {
-                const valid = saved.accountIds.filter((id: string) =>
-                    sortedAccounts.some(a => a.account_id === id)
-                );
-                if (valid.length > 0) initialAccountIds = valid;
-            } else if (saved.accountId && sortedAccounts.some(a => a.account_id === saved.accountId)) {
-                initialAccountIds = [saved.accountId];
-            }
-            // Only restore the stored RT campaign if it exists in the offer-scoped
-            // list; otherwise keep the default (first campaign / '').
-            if (saved.rtCampaignId && sortedRtCampaigns.some(c => c.campaign_id === saved.rtCampaignId)) {
-                initialRtCampaignId = saved.rtCampaignId;
-            }
             if (saved.dateRange) {
                 initialDateRange = saved.dateRange;
                 if (saved.dateRange === 'custom') {
@@ -139,8 +121,6 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
         }
     } catch(e) {}
 
-    setSelectedAccountIds(initialAccountIds);
-    setSelectedRtCampaignId(initialRtCampaignId);
     setDateRangeFilter(initialDateRange as any);
     setDateFrom(initialDateFrom);
     setDateTo(initialDateTo);
@@ -157,8 +137,44 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
         }
       }
     } catch(e) {}
-    // Re-run when the offer-scoped set changes (offer switch via navigation):
-    // a fresh load with a given ?oferta must show all that offer's accounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Scope restore: re-applies the account + RT-campaign default-to-all selection
+  // whenever the offer-scoped set changes (offer switch via navigation). A fresh
+  // load with a given ?oferta must show all that offer's accounts.
+  useEffect(() => {
+    // Default-to-ALL within the offer scope: with no manual action, every
+    // offer-scoped account is included so the user needn't pick anything.
+    let initialAccountIds: string[] = sortedAccounts.map(a => a.account_id);
+    // RT single-select default semantics: first offer-scoped campaign (or '').
+    let initialRtCampaignId = sortedRtCampaigns.length > 0 ? sortedRtCampaigns[0].campaign_id : '';
+
+    try {
+        const savedStr = localStorage.getItem('dopscale_prefs');
+        if (savedStr) {
+            const saved = JSON.parse(savedStr);
+            // Intersect any stored account ids with the current offer-scoped set.
+            // If the intersection is empty (new offer / stale ids), fall back to
+            // ALL offer-scoped accounts (the default-to-all behavior above).
+            if (Array.isArray(saved.accountIds)) {
+                const valid = saved.accountIds.filter((id: string) =>
+                    sortedAccounts.some(a => a.account_id === id)
+                );
+                if (valid.length > 0) initialAccountIds = valid;
+            } else if (saved.accountId && sortedAccounts.some(a => a.account_id === saved.accountId)) {
+                initialAccountIds = [saved.accountId];
+            }
+            // Only restore the stored RT campaign if it exists in the offer-scoped
+            // list; otherwise keep the default (first campaign / '').
+            if (saved.rtCampaignId && sortedRtCampaigns.some(c => c.campaign_id === saved.rtCampaignId)) {
+                initialRtCampaignId = saved.rtCampaignId;
+            }
+        }
+    } catch(e) {}
+
+    setSelectedAccountIds(initialAccountIds);
+    setSelectedRtCampaignId(initialRtCampaignId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountScopeKey, rtScopeKey]);
 
