@@ -118,15 +118,6 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState<CreativeCategory | 'all'>('all');
 
-  // Mount-only restore: one-time UI setup that must NOT reset when the user
-  // switches offer (props change). This component stores no date range/sort in
-  // localStorage (date is UI-only, recalculated), so there is nothing to restore
-  // here today — but account/RT defaulting deliberately lives in the scope effect
-  // below, never here, so an offer switch never disturbs the date range.
-  useEffect(() => {
-    // (no persisted date/sort to restore for Análise)
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Scope restore: re-applies the account + RT-campaign default-to-all selection
   // whenever the offer-scoped set changes (offer switch via navigation, or first
   // load with a given ?oferta). Keys derive from PROPS only to avoid render loops.
