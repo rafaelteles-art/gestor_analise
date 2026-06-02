@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import V2MediaLabLayout from '../components/V2MediaLabLayout';
 import ClientStatusContas from './ClientStatusContas';
+import { ensureOfferLinkSchema, backfillMetaAccountOffers } from '@/lib/offer-links';
 
 async function ensureColumns() {
   const alterQueries = [
@@ -48,17 +49,23 @@ async function ensureColumns() {
 
 export default async function StatusContasPage() {
   let accounts: any[] = [];
-  let ofertasOptions: string[] = [];
+  let ofertasOptions: { value: string; label: string }[] = [];
 
   try {
     await ensureColumns();
+    await ensureOfferLinkSchema();
+    await backfillMetaAccountOffers();
     const [accRes, ofertasRes] = await Promise.all([
       pool.query(`
         SELECT
           id, account_id, account_name, bm_id, bm_name, is_selected,
           COALESCE(etapa, 'Não Utilizada') AS etapa,
           COALESCE(gestor, '{}') AS gestor,
-          COALESCE(oferta, '{}') AS oferta,
+          COALESCE(
+            (SELECT array_agg(mao.oferta_id ORDER BY mao.oferta_id)
+             FROM meta_account_offers mao WHERE mao.account_id = meta_ad_accounts.account_id),
+            '{}'
+          ) AS oferta_ids,
           cartao,
           COALESCE(moeda, 'BRL') AS moeda,
           COALESCE(limite, 0) AS limite,
@@ -72,11 +79,11 @@ export default async function StatusContasPage() {
         ORDER BY bm_name ASC, account_name ASC
       `),
       pool.query(`
-        SELECT nome FROM ofertas WHERE status = 'ATIVO' ORDER BY nome ASC
-      `).catch(() => ({ rows: [] as { nome: string }[] })),
+        SELECT id, nome FROM ofertas WHERE status = 'ATIVO' ORDER BY nome ASC
+      `).catch(() => ({ rows: [] as { id: number; nome: string }[] })),
     ]);
     accounts = accRes.rows;
-    ofertasOptions = ofertasRes.rows.map((r: { nome: string }) => r.nome);
+    ofertasOptions = ofertasRes.rows.map((r: { id: number; nome: string }) => ({ value: String(r.id), label: r.nome }));
   } catch (error) {
     console.error('Erro ao carregar contas:', error);
   }
