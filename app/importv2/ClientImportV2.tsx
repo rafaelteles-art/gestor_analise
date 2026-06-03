@@ -27,11 +27,6 @@ interface ClientImportV2Props {
   currentOferta: number | null;
 }
 
-interface DashboardTemplate {
-  name: string;
-  rtCampaignId: string;
-  accountIds: string[];
-}
 
 export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, currentOferta }: ClientImportV2Props) {
   const sortedAccounts = [...dbAccounts].sort((a, b) => a.account_name.localeCompare(b.account_name));
@@ -58,8 +53,6 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [tableSearch, setTableSearch] = useState('');
 
-  const [templates, setTemplates] = useState<DashboardTemplate[]>([]);
-
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
   const [hoverTimeoutId, setHoverTimeoutId] = useState<any>(null);
@@ -85,7 +78,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
     if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
   };
 
-  // Mount-only restore: date range, sort, and templates initialize ONCE.
+  // Mount-only restore: date range and sort initialize ONCE.
   // These must NOT reset when the user switches offer (props change), so they
   // live in an effect with an empty dep array — independent of the offer scope.
   useEffect(() => {
@@ -125,18 +118,6 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
     setDateFrom(initialDateFrom);
     setDateTo(initialDateTo);
     if (initialSortConfig) setSortConfig(initialSortConfig);
-
-    try {
-      const tStr = localStorage.getItem('dopscale_templates');
-      if (tStr) {
-        const parsed = JSON.parse(tStr);
-        if (Array.isArray(parsed)) {
-          setTemplates(parsed.filter((t: any) =>
-            t && typeof t.name === 'string' && typeof t.rtCampaignId === 'string' && Array.isArray(t.accountIds)
-          ));
-        }
-      }
-    } catch(e) {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -178,63 +159,6 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountScopeKey, rtScopeKey]);
 
-  const activeTemplateName = useMemo(() => {
-    if (selectedAccountIds.length === 0 || !selectedRtCampaignId) return '';
-    const sortedSel = [...selectedAccountIds].sort();
-    const match = templates.find(t =>
-      t.rtCampaignId === selectedRtCampaignId &&
-      t.accountIds.length === selectedAccountIds.length &&
-      [...t.accountIds].sort().every((id, i) => id === sortedSel[i])
-    );
-    return match?.name ?? '';
-  }, [templates, selectedRtCampaignId, selectedAccountIds]);
-
-  const persistTemplates = (next: DashboardTemplate[]) => {
-    setTemplates(next);
-    try {
-      localStorage.setItem('dopscale_templates', JSON.stringify(next));
-    } catch(e) {}
-  };
-
-  const handleApplyTemplate = (name: string) => {
-    if (!name) return;
-    const t = templates.find(t => t.name === name);
-    if (!t) return;
-    const validAccs = t.accountIds.filter(id => sortedAccounts.some(a => a.account_id === id));
-    if (validAccs.length === 0) {
-      alert('Nenhuma das contas deste template existe mais.');
-      return;
-    }
-    if (!sortedRtCampaigns.some(c => c.campaign_id === t.rtCampaignId)) {
-      alert('A campanha RedTrack deste template não existe mais.');
-      return;
-    }
-    setSelectedRtCampaignId(t.rtCampaignId);
-    setSelectedAccountIds(validAccs);
-  };
-
-  const handleSaveTemplate = () => {
-    if (selectedAccountIds.length === 0 || !selectedRtCampaignId) {
-      alert('Selecione uma campanha RedTrack e ao menos uma conta antes de salvar.');
-      return;
-    }
-    const raw = window.prompt('Nome do template:', activeTemplateName || '');
-    if (raw === null) return;
-    const name = raw.trim();
-    if (!name) return;
-    if (templates.some(t => t.name === name) && !window.confirm(`Já existe um template "${name}". Substituir?`)) return;
-    const next = [
-      ...templates.filter(t => t.name !== name),
-      { name, rtCampaignId: selectedRtCampaignId, accountIds: [...selectedAccountIds] },
-    ].sort((a, b) => a.name.localeCompare(b.name));
-    persistTemplates(next);
-  };
-
-  const handleDeleteTemplate = () => {
-    if (!activeTemplateName) return;
-    if (!window.confirm(`Excluir template "${activeTemplateName}"?`)) return;
-    persistTemplates(templates.filter(t => t.name !== activeTemplateName));
-  };
 
   useEffect(() => {
     if (selectedAccountIds.length === 0 || !selectedRtCampaignId) return;
@@ -421,10 +345,10 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
     <div className="flex flex-col gap-6">
 
       {/* 1. Header Controls */}
-      <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="flex flex-wrap items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
 
-        <div className="flex items-center gap-3">
-            <div className="min-w-[250px]">
+        <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-[220px]">
                 <Select
                     instanceId="select-rt-campaign-v2"
                     options={sortedRtCampaigns.map(c => ({ value: c.campaign_id, label: c.campaign_name }))}
@@ -436,16 +360,27 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                 />
             </div>
 
-            <div className="min-w-[320px]">
+            <div className="min-w-[260px]">
                 <Select
                     instanceId="select-meta-account-v2"
                     isMulti
                     closeMenuOnSelect={false}
-                    options={sortedAccounts.map(a => ({ value: a.account_id, label: a.account_name }))}
+                    hideSelectedOptions={false}
+                    options={[
+                        { value: '__all__', label: `Selecionar todas (${sortedAccounts.length})` },
+                        ...sortedAccounts.map(a => ({ value: a.account_id, label: a.account_name })),
+                    ]}
                     value={sortedAccounts
                         .filter(a => selectedAccountIds.includes(a.account_id))
                         .map(a => ({ value: a.account_id, label: a.account_name }))}
-                    onChange={(selected: any) => setSelectedAccountIds((selected || []).map((o: any) => o.value))}
+                    onChange={(selected: any) => {
+                        const opts = selected || [];
+                        if (opts.some((o: any) => o.value === '__all__')) {
+                            setSelectedAccountIds(sortedAccounts.map(a => a.account_id));
+                        } else {
+                            setSelectedAccountIds(opts.map((o: any) => o.value));
+                        }
+                    }}
                     placeholder="Selecione contas Meta"
                     className="text-sm rounded-lg"
                     styles={{ control: (base) => ({ ...base, minHeight: '38px', borderRadius: '0.5rem', borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }) }}
@@ -454,34 +389,6 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
 
             <div className="flex items-center border-l border-gray-200 pl-3">
                 <OfferSelector offers={offers} current={currentOferta} />
-            </div>
-
-            <div className="flex items-center gap-1.5 border-l border-gray-200 pl-3">
-                <select
-                    value={activeTemplateName}
-                    onChange={(e) => handleApplyTemplate(e.target.value)}
-                    title="Aplicar template salvo"
-                    className="text-xs bg-gray-50 border border-gray-200 rounded-md px-2 py-1.5 outline-none cursor-pointer min-w-[140px] text-gray-700 hover:border-indigo-300"
-                >
-                    <option value="">{templates.length === 0 ? 'Sem templates' : 'Templates...'}</option>
-                    {templates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
-                </select>
-                <button
-                    onClick={handleSaveTemplate}
-                    title="Salvar configuração atual como template"
-                    className="px-2.5 py-1.5 text-xs font-semibold rounded-md border border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-400 transition-colors"
-                >
-                    Salvar
-                </button>
-                {activeTemplateName && (
-                    <button
-                        onClick={handleDeleteTemplate}
-                        title={`Excluir template "${activeTemplateName}"`}
-                        className="px-2.5 py-1.5 text-xs font-semibold rounded-md border border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-400 transition-colors"
-                    >
-                        Excluir
-                    </button>
-                )}
             </div>
 
             <button
@@ -522,7 +429,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
             </button>
         </div>
 
-        <div className="flex items-center gap-1 border border-gray-200 rounded-lg p-1 bg-white">
+        <div className="flex flex-wrap items-center gap-1 border border-gray-200 rounded-lg p-1 bg-white">
             <button onClick={() => handleDateShortcut('today')} className={getPillClass('today')}>Hoje</button>
             <button onClick={() => handleDateShortcut('yesterday')} className={getPillClass('yesterday')}>Ontem</button>
             <button onClick={() => handleDateShortcut('7d')} className={getPillClass('7d')}>7 dias</button>
@@ -530,9 +437,9 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
             <button onClick={() => handleDateShortcut('30d')} className={getPillClass('30d')}>30 dias</button>
 
             <div className={`flex items-center gap-1 px-2 ${dateRangeFilter === 'custom' ? 'bg-indigo-50 rounded' : ''}`}>
-                <input type="date" value={dateFrom} onChange={e => handleCustomDateChange('from', e.target.value)} className="text-xs bg-transparent text-gray-700 outline-none" />
+                <input type="date" value={dateFrom} onChange={e => handleCustomDateChange('from', e.target.value)} className="w-[92px] min-w-0 text-xs bg-transparent text-gray-700 outline-none" />
                 <span className="text-xs text-gray-400">até</span>
-                <input type="date" value={dateTo} onChange={e => handleCustomDateChange('to', e.target.value)} className="text-xs bg-transparent text-gray-700 outline-none" />
+                <input type="date" value={dateTo} onChange={e => handleCustomDateChange('to', e.target.value)} className="w-[92px] min-w-0 text-xs bg-transparent text-gray-700 outline-none" />
             </div>
         </div>
 
