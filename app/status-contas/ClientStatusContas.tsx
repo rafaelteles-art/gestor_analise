@@ -475,26 +475,8 @@ export default function ClientStatusContas({
     }
   }, [accounts]);
 
-  // ── Update Field (gestor, oferta — arrays) ──
+  // ── Update Field (gestor — arrays) ──
   const updateField = useCallback(async (accountId: string, field: string, value: string[]) => {
-    if (field === 'oferta') {
-      const prevIds = accounts.find(a => a.account_id === accountId)?.oferta_ids ?? [];
-      const nextIds = value.map(Number).filter(Number.isInteger);
-      setAccounts(list => list.map(a => a.account_id === accountId ? { ...a, oferta_ids: nextIds } : a));
-      try {
-        const res = await fetch('/api/status-contas', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ field: 'oferta', account_id: accountId, value: nextIds }),
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Erro');
-      } catch (err: any) {
-        setAccounts(list => list.map(a => a.account_id === accountId ? { ...a, oferta_ids: prevIds } : a));
-        alert('Falha ao atualizar oferta: ' + err.message);
-      }
-      return;
-    }
     const prev = (accounts.find(a => a.account_id === accountId)?.[field as keyof Account] ?? []) as string[];
     setAccounts(accs => accs.map(a => a.account_id === accountId ? { ...a, [field]: value } : a));
     try {
@@ -978,14 +960,20 @@ export default function ClientStatusContas({
                             />
                           </td>
                           <td className="px-4 py-3">
-                            <FieldDropdown
-                              accountId={acc.account_id}
-                              field="oferta"
-                              currentValue={acc.oferta_ids.map(String)}
-                              options={ofertasOptions}
-                              placeholder="—"
-                              onUpdate={updateField}
-                            />
+                            {acc.oferta_ids.length === 0 ? (
+                              <span className="text-gray-300 text-xs">—</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {acc.oferta_ids.map(id => {
+                                  const label = ofertasOptions.find(o => o.value === String(id))?.label ?? String(id);
+                                  return (
+                                    <span key={id} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                      {label}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-gray-400">{acc.cartao ?? <span className="text-gray-200">—</span>}</td>
                           <td className="px-4 py-3">
