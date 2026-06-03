@@ -24,20 +24,23 @@ export default function ClientOfertas({
   initialOfertas,
   campaigns: initialCampaigns,
   players: initialPlayers,
-  accountLinks,
+  accountLinks: initialAccountLinks,
+  accounts,
 }: {
   initialOfertas: Oferta[];
   campaigns: Campaign[];
   players: Player[];
   accountLinks: AccountLink[];
+  accounts: { account_id: string; account_name: string; bm_name: string | null }[];
 }) {
   const router = useRouter();
   const [syncingVideos, setSyncingVideos] = useState(false);
   const [ofertas, setOfertas] = useState<Oferta[]>(initialOfertas);
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
   const [players, setPlayers] = useState<Player[]>(initialPlayers);
+  const [accountLinks, setAccountLinks] = useState<AccountLink[]>(initialAccountLinks);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [picker, setPicker] = useState<{ ofertaId: number; kind: 'campaign' | 'player' } | null>(null);
+  const [picker, setPicker] = useState<{ ofertaId: number; kind: 'campaign' | 'player' | 'account' } | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerSelected, setPickerSelected] = useState<Set<string>>(new Set());
   const [newNome, setNewNome] = useState('');
@@ -164,7 +167,32 @@ export default function ClientOfertas({
     }
   };
 
-  const openPicker = (ofertaId: number, kind: 'campaign' | 'player') => {
+  // Vínculo de conta Meta — aditivo (N:N), sem confirmação de "mover".
+  const commitAccountLink = async (accountId: string, ofertaId: number, linked: boolean) => {
+    // optimistic
+    setAccountLinks(list => {
+      if (linked) {
+        if (list.some(l => l.account_id === accountId && l.oferta_id === ofertaId)) return list;
+        const acc = accounts.find(a => a.account_id === accountId);
+        return [...list, { oferta_id: ofertaId, account_id: accountId, account_name: acc?.account_name ?? accountId, bm_name: acc?.bm_name ?? null }];
+      }
+      return list.filter(l => !(l.account_id === accountId && l.oferta_id === ofertaId));
+    });
+    try {
+      const res = await fetch('/api/ofertas/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'account', id: accountId, oferta_id: ofertaId, linked }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Erro');
+    } catch (err: any) {
+      alert('Falha ao vincular conta: ' + err.message);
+      window.location.reload();
+    }
+  };
+
+  const openPicker = (ofertaId: number, kind: 'campaign' | 'player' | 'account') => {
     setPickerSearch('');
     setPickerSelected(new Set());
     setPicker({ ofertaId, kind });
@@ -182,6 +210,12 @@ export default function ClientOfertas({
     if (!picker) return;
     const ids = [...pickerSelected];
     if (ids.length === 0) { setPicker(null); return; }
+    // Contas Meta: aditivo (N:N), sem confirmação de "mover".
+    if (picker.kind === 'account') {
+      for (const id of ids) await commitAccountLink(id, picker.ofertaId, true);
+      setPicker(null);
+      return;
+    }
     const oidOf = (id: string) => picker.kind === 'campaign'
       ? campaigns.find(c => c.campaign_id === id)?.oferta_id ?? null
       : players.find(p => p.player_id === id)?.oferta_id ?? null;
@@ -328,18 +362,12 @@ export default function ClientOfertas({
                             onAdd={() => openPicker(oferta.id, 'player')}
                             onRemove={(id) => commitLink('player', id, null)}
                           />
-                          <div>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">
-                              Contas Meta <span className="normal-case font-normal">(edite em Status de Contas)</span>
-                            </p>
-                            {myAccounts.length === 0
-                              ? <p className="text-xs text-gray-400 italic">Nenhuma conta vinculada.</p>
-                              : myAccounts.map(a => (
-                                  <div key={a.account_id} className="text-xs text-gray-700 py-0.5">
-                                    {a.account_name} <span className="text-gray-400">· {a.bm_name}</span>
-                                  </div>
-                                ))}
-                          </div>
+                          <LinkGroup
+                            title="Contas Meta"
+                            items={myAccounts.map(a => ({ id: a.account_id, label: `${a.account_name}${a.bm_name ? ' · ' + a.bm_name : ''}` }))}
+                            onAdd={() => openPicker(oferta.id, 'account')}
+                            onRemove={(id) => commitAccountLink(id, oferta.id, false)}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -392,7 +420,7 @@ export default function ClientOfertas({
           <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-200 rounded-xl shadow-xl w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <h4 className="text-sm font-bold text-gray-800">
-                {picker.kind === 'campaign' ? 'Vincular campanhas' : 'Vincular vídeos'}
+                {picker.kind === 'campaign' ? 'Vincular campanhas' : picker.kind === 'player' ? 'Vincular vídeos' : 'Vincular contas'}
               </h4>
               <button onClick={() => setPicker(null)} className="text-gray-400 hover:text-gray-600" title="Fechar">
                 <X className="w-4 h-4" />
@@ -411,11 +439,16 @@ export default function ClientOfertas({
             <div className="flex-1 overflow-y-auto p-2">
               {(picker.kind === 'campaign'
                 ? campaigns.map(c => ({ id: c.campaign_id, label: c.campaign_name, oferta_id: c.oferta_id }))
-                : players.map(p => ({ id: p.player_id, label: p.player_name ?? p.player_id, oferta_id: p.oferta_id }))
+                : picker.kind === 'player'
+                ? players.map(p => ({ id: p.player_id, label: p.player_name ?? p.player_id, oferta_id: p.oferta_id }))
+                : accounts.map(a => ({ id: a.account_id, label: `${a.account_name}${a.bm_name ? ' · ' + a.bm_name : ''}`, oferta_id: null as number | null }))
               )
                 .filter(item => (item.label ?? '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
                 .map(item => {
-                  const here = item.oferta_id === picker.ofertaId;
+                  // Contas (N:N): "aqui" = já vinculada A ESTA oferta. Demais (single): oferta_id === ofertaId.
+                  const here = picker.kind === 'account'
+                    ? accountLinks.some(l => l.account_id === item.id && l.oferta_id === picker.ofertaId)
+                    : item.oferta_id === picker.ofertaId;
                   const checked = here || pickerSelected.has(item.id);
                   return (
                     <label
@@ -430,7 +463,8 @@ export default function ClientOfertas({
                         className="shrink-0 accent-indigo-600"
                       />
                       <span className="flex-1 text-gray-700 break-words leading-snug" title={item.label}>{item.label}</span>
-                      {item.oferta_id != null && !here && (
+                      {/* Badge âmbar "em <oferta>" só para campaign/player (single-ownership). Contas são N:N. */}
+                      {picker.kind !== 'account' && item.oferta_id != null && !here && (
                         <span className="ml-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                           em {ofertaName(item.oferta_id)}
                         </span>
