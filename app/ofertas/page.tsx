@@ -10,12 +10,13 @@ export default async function OfertasPage() {
   let campaigns: any[] = [];
   let players: any[] = [];
   let accountLinks: any[] = [];
+  let accounts: any[] = [];
 
   try {
     await ensureOfferLinkSchema();
     await backfillMetaAccountOffers();
 
-    const [ofRes, campRes, playRes, accRes] = await Promise.all([
+    const [ofRes, campRes, playRes, accRes, pickableRes] = await Promise.all([
       pool.query(`SELECT id, nome, status, created_at FROM ofertas ORDER BY nome ASC`),
       pool.query(`
         SELECT campaign_id, campaign_name, status, oferta_id
@@ -33,11 +34,20 @@ export default async function OfertasPage() {
         JOIN meta_ad_accounts m ON m.account_id = mao.account_id
         ORDER BY m.account_name ASC
       `),
+      pool.query(`
+        SELECT account_id, account_name, bm_name
+        FROM meta_ad_accounts
+        WHERE account_status = 'ACTIVE'
+          AND COALESCE(is_blacklisted, false) = false
+          AND bm_id NOT IN (SELECT bm_id FROM meta_bm_blacklist)
+        ORDER BY bm_name ASC, account_name ASC
+      `),
     ]);
     ofertas = ofRes.rows;
     campaigns = campRes.rows;
     players = playRes.rows;
     accountLinks = accRes.rows;
+    accounts = pickableRes.rows;
   } catch (error) {
     console.error('Erro ao carregar ofertas:', error);
   }
@@ -49,6 +59,7 @@ export default async function OfertasPage() {
         campaigns={campaigns}
         players={players}
         accountLinks={accountLinks}
+        accounts={accounts}
       />
     </V2MediaLabLayout>
   );
