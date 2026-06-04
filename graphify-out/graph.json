@@ -1300,7 +1300,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L1",
       "id": "app_catalogo_clientcatalogo_tsx",
-      "community": 7,
+      "community": 6,
       "norm_label": "clientcatalogo.tsx"
     },
     {
@@ -1309,7 +1309,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L54",
       "id": "clientcatalogo_brtdaymonthclient",
-      "community": 7,
+      "community": 6,
       "norm_label": "brtdaymonthclient()"
     },
     {
@@ -1318,7 +1318,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L86",
       "id": "clientcatalogo_formatnumber",
-      "community": 7,
+      "community": 6,
       "norm_label": "formatnumber()"
     },
     {
@@ -1327,7 +1327,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L171",
       "id": "clientcatalogo_loadvideodata",
-      "community": 7,
+      "community": 6,
       "norm_label": "loadvideodata()"
     },
     {
@@ -1336,7 +1336,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L192",
       "id": "clientcatalogo_openvideomodal",
-      "community": 7,
+      "community": 6,
       "norm_label": "openvideomodal()"
     },
     {
@@ -1345,7 +1345,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L204",
       "id": "clientcatalogo_closevideomodal",
-      "community": 7,
+      "community": 6,
       "norm_label": "closevideomodal()"
     },
     {
@@ -1354,7 +1354,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L216",
       "id": "clientcatalogo_handlevideosync",
-      "community": 7,
+      "community": 6,
       "norm_label": "handlevideosync()"
     },
     {
@@ -1363,7 +1363,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L246",
       "id": "clientcatalogo_handlesavevideo",
-      "community": 7,
+      "community": 6,
       "norm_label": "handlesavevideo()"
     },
     {
@@ -1372,7 +1372,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L283",
       "id": "clientcatalogo_handleignoreproduct",
-      "community": 7,
+      "community": 6,
       "norm_label": "handleignoreproduct()"
     },
     {
@@ -1381,7 +1381,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L321",
       "id": "clientcatalogo_handleunignoreproduct",
-      "community": 7,
+      "community": 6,
       "norm_label": "handleunignoreproduct()"
     },
     {
@@ -1390,7 +1390,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L358",
       "id": "clientcatalogo_opencreatemodal",
-      "community": 7,
+      "community": 6,
       "norm_label": "opencreatemodal()"
     },
     {
@@ -1399,7 +1399,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L369",
       "id": "clientcatalogo_closecreatemodal",
-      "community": 7,
+      "community": 6,
       "norm_label": "closecreatemodal()"
     },
     {
@@ -1408,7 +1408,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L381",
       "id": "clientcatalogo_applypreset",
-      "community": 7,
+      "community": 6,
       "norm_label": "applypreset()"
     },
     {
@@ -1417,7 +1417,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L388",
       "id": "clientcatalogo_savecurrentaspreset",
-      "community": 7,
+      "community": 6,
       "norm_label": "savecurrentaspreset()"
     },
     {
@@ -1426,7 +1426,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L412",
       "id": "clientcatalogo_deletecurrentpreset",
-      "community": 7,
+      "community": 6,
       "norm_label": "deletecurrentpreset()"
     },
     {
@@ -1435,7 +1435,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L437",
       "id": "clientcatalogo_handlecreateproduct",
-      "community": 7,
+      "community": 6,
       "norm_label": "handlecreateproduct()"
     },
     {
@@ -1444,7 +1444,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L528",
       "id": "clientcatalogo_reloadfromdb",
-      "community": 7,
+      "community": 6,
       "norm_label": "reloadfromdb()"
     },
     {
@@ -1453,7 +1453,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L545",
       "id": "clientcatalogo_handlesync",
-      "community": 7,
+      "community": 6,
       "norm_label": "handlesync()"
     },
     {
@@ -1462,7 +1462,7 @@
       "source_file": "app\\catalogo\\ClientCatalogo.tsx",
       "source_location": "L593",
       "id": "clientcatalogo_toggle",
-      "community": 7,
+      "community": 6,
       "norm_label": "toggle()"
     },
     {
@@ -1651,187 +1651,151 @@
       "source_file": "app\\import\\ClientImport.tsx",
       "source_location": "L1",
       "id": "app_import_clientimport_tsx",
-      "community": 5,
+      "community": 7,
       "norm_label": "clientimport.tsx"
     },
     {
       "label": "handleMouseEnterRow()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L75",
+      "source_location": "L67",
       "id": "clientimport_handlemouseenterrow",
-      "community": 5,
+      "community": 7,
       "norm_label": "handlemouseenterrow()"
     },
     {
       "label": "handleMouseLeaveRow()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L87",
+      "source_location": "L79",
       "id": "clientimport_handlemouseleaverow",
-      "community": 5,
+      "community": 7,
       "norm_label": "handlemouseleaverow()"
     },
     {
       "label": "cancelMouseLeave()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L94",
+      "source_location": "L86",
       "id": "clientimport_cancelmouseleave",
-      "community": 5,
+      "community": 7,
       "norm_label": "cancelmouseleave()"
-    },
-    {
-      "label": "persistTemplates()",
-      "file_type": "code",
-      "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L205",
-      "id": "clientimport_persisttemplates",
-      "community": 5,
-      "norm_label": "persisttemplates()"
-    },
-    {
-      "label": "handleApplyTemplate()",
-      "file_type": "code",
-      "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L212",
-      "id": "clientimport_handleapplytemplate",
-      "community": 5,
-      "norm_label": "handleapplytemplate()"
-    },
-    {
-      "label": "handleSaveTemplate()",
-      "file_type": "code",
-      "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L229",
-      "id": "clientimport_handlesavetemplate",
-      "community": 5,
-      "norm_label": "handlesavetemplate()"
-    },
-    {
-      "label": "handleDeleteTemplate()",
-      "file_type": "code",
-      "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L246",
-      "id": "clientimport_handledeletetemplate",
-      "community": 5,
-      "norm_label": "handledeletetemplate()"
     },
     {
       "label": "handleDateShortcut()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L267",
+      "source_location": "L187",
       "id": "clientimport_handledateshortcut",
-      "community": 5,
+      "community": 7,
       "norm_label": "handledateshortcut()"
     },
     {
       "label": "handleCustomDateChange()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L286",
+      "source_location": "L206",
       "id": "clientimport_handlecustomdatechange",
-      "community": 5,
+      "community": 7,
       "norm_label": "handlecustomdatechange()"
     },
     {
       "label": "handleImport()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L292",
+      "source_location": "L212",
       "id": "clientimport_handleimport",
-      "community": 5,
+      "community": 7,
       "norm_label": "handleimport()"
     },
     {
       "label": "handleSyncToday()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L328",
+      "source_location": "L248",
       "id": "clientimport_handlesynctoday",
-      "community": 5,
+      "community": 7,
       "norm_label": "handlesynctoday()"
     },
     {
       "label": "toggleRow()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L397",
+      "source_location": "L317",
       "id": "clientimport_togglerow",
-      "community": 5,
+      "community": 7,
       "norm_label": "togglerow()"
     },
     {
       "label": "formatCurrency()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L405",
+      "source_location": "L325",
       "id": "clientimport_formatcurrency",
-      "community": 5,
+      "community": 7,
       "norm_label": "formatcurrency()"
     },
     {
       "label": "formatPercent()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L406",
+      "source_location": "L326",
       "id": "clientimport_formatpercent",
-      "community": 5,
+      "community": 7,
       "norm_label": "formatpercent()"
     },
     {
       "label": "formatNumber()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L407",
+      "source_location": "L327",
       "id": "clientimport_formatnumber",
-      "community": 5,
+      "community": 7,
       "norm_label": "formatnumber()"
     },
     {
       "label": "getPillClass()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L409",
+      "source_location": "L329",
       "id": "clientimport_getpillclass",
-      "community": 5,
+      "community": 7,
       "norm_label": "getpillclass()"
     },
     {
       "label": "filterAndSortGroups()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L417",
+      "source_location": "L337",
       "id": "clientimport_filterandsortgroups",
-      "community": 5,
+      "community": 7,
       "norm_label": "filterandsortgroups()"
     },
     {
       "label": "getAccountGroups()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L442",
+      "source_location": "L362",
       "id": "clientimport_getaccountgroups",
-      "community": 5,
+      "community": 7,
       "norm_label": "getaccountgroups()"
     },
     {
       "label": "requestSort()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L475",
+      "source_location": "L395",
       "id": "clientimport_requestsort",
-      "community": 5,
+      "community": 7,
       "norm_label": "requestsort()"
     },
     {
       "label": "TableHeader()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L483",
+      "source_location": "L403",
       "id": "clientimport_tableheader",
-      "community": 5,
+      "community": 7,
       "norm_label": "tableheader()"
     },
     {
@@ -1892,7 +1856,7 @@
       "label": "handleMouseEnterRow()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L68",
+      "source_location": "L61",
       "id": "clientimportv2_handlemouseenterrow",
       "community": 8,
       "norm_label": "handlemouseenterrow()"
@@ -1901,7 +1865,7 @@
       "label": "handleMouseLeaveRow()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L78",
+      "source_location": "L71",
       "id": "clientimportv2_handlemouseleaverow",
       "community": 8,
       "norm_label": "handlemouseleaverow()"
@@ -1910,52 +1874,16 @@
       "label": "cancelMouseLeave()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L84",
+      "source_location": "L77",
       "id": "clientimportv2_cancelmouseleave",
       "community": 8,
       "norm_label": "cancelmouseleave()"
     },
     {
-      "label": "persistTemplates()",
-      "file_type": "code",
-      "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L192",
-      "id": "clientimportv2_persisttemplates",
-      "community": 8,
-      "norm_label": "persisttemplates()"
-    },
-    {
-      "label": "handleApplyTemplate()",
-      "file_type": "code",
-      "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L199",
-      "id": "clientimportv2_handleapplytemplate",
-      "community": 8,
-      "norm_label": "handleapplytemplate()"
-    },
-    {
-      "label": "handleSaveTemplate()",
-      "file_type": "code",
-      "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L216",
-      "id": "clientimportv2_handlesavetemplate",
-      "community": 8,
-      "norm_label": "handlesavetemplate()"
-    },
-    {
-      "label": "handleDeleteTemplate()",
-      "file_type": "code",
-      "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L233",
-      "id": "clientimportv2_handledeletetemplate",
-      "community": 8,
-      "norm_label": "handledeletetemplate()"
-    },
-    {
       "label": "handleDateShortcut()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L253",
+      "source_location": "L177",
       "id": "clientimportv2_handledateshortcut",
       "community": 8,
       "norm_label": "handledateshortcut()"
@@ -1964,7 +1892,7 @@
       "label": "handleCustomDateChange()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L272",
+      "source_location": "L196",
       "id": "clientimportv2_handlecustomdatechange",
       "community": 8,
       "norm_label": "handlecustomdatechange()"
@@ -1973,7 +1901,7 @@
       "label": "handleImport()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L278",
+      "source_location": "L202",
       "id": "clientimportv2_handleimport",
       "community": 8,
       "norm_label": "handleimport()"
@@ -1982,7 +1910,7 @@
       "label": "handleSyncToday()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L313",
+      "source_location": "L237",
       "id": "clientimportv2_handlesynctoday",
       "community": 8,
       "norm_label": "handlesynctoday()"
@@ -1991,7 +1919,7 @@
       "label": "formatCurrency()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L366",
+      "source_location": "L290",
       "id": "clientimportv2_formatcurrency",
       "community": 8,
       "norm_label": "formatcurrency()"
@@ -2000,7 +1928,7 @@
       "label": "formatPercent()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L367",
+      "source_location": "L291",
       "id": "clientimportv2_formatpercent",
       "community": 8,
       "norm_label": "formatpercent()"
@@ -2009,7 +1937,7 @@
       "label": "formatNumber()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L368",
+      "source_location": "L292",
       "id": "clientimportv2_formatnumber",
       "community": 8,
       "norm_label": "formatnumber()"
@@ -2018,7 +1946,7 @@
       "label": "getPillClass()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L370",
+      "source_location": "L294",
       "id": "clientimportv2_getpillclass",
       "community": 8,
       "norm_label": "getpillclass()"
@@ -2027,7 +1955,7 @@
       "label": "filterAndSortCampaigns()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L377",
+      "source_location": "L301",
       "id": "clientimportv2_filterandsortcampaigns",
       "community": 8,
       "norm_label": "filterandsortcampaigns()"
@@ -2036,7 +1964,7 @@
       "label": "requestSort()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L397",
+      "source_location": "L321",
       "id": "clientimportv2_requestsort",
       "community": 8,
       "norm_label": "requestsort()"
@@ -2045,7 +1973,7 @@
       "label": "TableHeader()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L405",
+      "source_location": "L329",
       "id": "clientimportv2_tableheader",
       "community": 8,
       "norm_label": "tableheader()"
@@ -4771,7 +4699,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "vturb analytics api (analytics.vturb.net v1)",
       "id": "vturb_analytics_api"
     },
@@ -4784,7 +4712,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "get /players/list",
       "id": "vturb_endpoint_players_list"
     },
@@ -4797,7 +4725,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "post /events/total_by_company_players",
       "id": "vturb_endpoint_total_by_company_players"
     },
@@ -4810,7 +4738,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "post /traffic_origin/stats",
       "id": "vturb_endpoint_traffic_origin_stats"
     },
@@ -4823,7 +4751,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "auth: x-api-token + x-api-version",
       "id": "vturb_auth_x_api_token"
     },
@@ -4836,7 +4764,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "grouped_field (nome|campaign_id)",
       "id": "vturb_grouped_field"
     },
@@ -4849,7 +4777,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "extractcampaignid() function",
       "id": "vturb_extract_campaign_id_fn"
     },
@@ -4914,7 +4842,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "facebook.rows (fb metrics)",
       "id": "vturb_facebook_rows"
     },
@@ -4927,7 +4855,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "frontend join by campaign_id",
       "id": "vturb_frontend_join"
     },
@@ -4940,7 +4868,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "rationale: join in frontend (not sql)",
       "id": "vturb_rationale_join_frontend"
     },
@@ -4966,7 +4894,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "rationale: filter inactive players",
       "id": "vturb_rationale_filter_active_players"
     },
@@ -4992,7 +4920,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "pitfall: grouped_field format inverted",
       "id": "vturb_pitfall_grouped_field_format"
     },
@@ -5005,7 +4933,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "pitfall: vturb rate limit",
       "id": "vturb_pitfall_rate_limit"
     },
@@ -5018,7 +4946,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "pitfall: analytics token vs embed token",
       "id": "vturb_pitfall_token_confusion"
     },
@@ -5044,7 +4972,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "pitfall: multiple products in vturb account",
       "id": "vturb_pitfall_multi_product"
     },
@@ -5057,7 +4985,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "pitfall: timezone misalignment",
       "id": "vturb_pitfall_timezone"
     },
@@ -5070,7 +4998,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "pitfall: players with duration=0",
       "id": "vturb_pitfall_players_no_duration"
     },
@@ -5083,7 +5011,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "caching: redis ~10min ttl",
       "id": "vturb_caching_strategy"
     },
@@ -5096,7 +5024,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "verification checklist",
       "id": "vturb_verification_checklist"
     },
@@ -5109,7 +5037,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "promise.allsettled (parallel calls)",
       "id": "vturb_promise_allsettled"
     }
@@ -7471,7 +7399,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L75",
+      "source_location": "L67",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handlemouseenterrow",
@@ -7483,7 +7411,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L87",
+      "source_location": "L79",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handlemouseleaverow",
@@ -7495,7 +7423,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L94",
+      "source_location": "L86",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_cancelmouseleave",
@@ -7507,55 +7435,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L205",
-      "weight": 1.0,
-      "_src": "app_import_clientimport_tsx",
-      "_tgt": "clientimport_persisttemplates",
-      "source": "app_import_clientimport_tsx",
-      "target": "clientimport_persisttemplates",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L212",
-      "weight": 1.0,
-      "_src": "app_import_clientimport_tsx",
-      "_tgt": "clientimport_handleapplytemplate",
-      "source": "app_import_clientimport_tsx",
-      "target": "clientimport_handleapplytemplate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L229",
-      "weight": 1.0,
-      "_src": "app_import_clientimport_tsx",
-      "_tgt": "clientimport_handlesavetemplate",
-      "source": "app_import_clientimport_tsx",
-      "target": "clientimport_handlesavetemplate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L246",
-      "weight": 1.0,
-      "_src": "app_import_clientimport_tsx",
-      "_tgt": "clientimport_handledeletetemplate",
-      "source": "app_import_clientimport_tsx",
-      "target": "clientimport_handledeletetemplate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L267",
+      "source_location": "L187",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handledateshortcut",
@@ -7567,7 +7447,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L286",
+      "source_location": "L206",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handlecustomdatechange",
@@ -7579,7 +7459,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L292",
+      "source_location": "L212",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handleimport",
@@ -7591,7 +7471,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L328",
+      "source_location": "L248",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handlesynctoday",
@@ -7603,7 +7483,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L397",
+      "source_location": "L317",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_togglerow",
@@ -7615,7 +7495,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L405",
+      "source_location": "L325",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_formatcurrency",
@@ -7627,7 +7507,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L406",
+      "source_location": "L326",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_formatpercent",
@@ -7639,7 +7519,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L407",
+      "source_location": "L327",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_formatnumber",
@@ -7651,7 +7531,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L409",
+      "source_location": "L329",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_getpillclass",
@@ -7663,7 +7543,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L417",
+      "source_location": "L337",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_filterandsortgroups",
@@ -7675,7 +7555,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L442",
+      "source_location": "L362",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_getaccountgroups",
@@ -7687,7 +7567,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L475",
+      "source_location": "L395",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_requestsort",
@@ -7699,7 +7579,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L483",
+      "source_location": "L403",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_tableheader",
@@ -7711,31 +7591,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L243",
-      "weight": 1.0,
-      "_src": "clientimport_handlesavetemplate",
-      "_tgt": "clientimport_persisttemplates",
-      "source": "clientimport_persisttemplates",
-      "target": "clientimport_handlesavetemplate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L249",
-      "weight": 1.0,
-      "_src": "clientimport_handledeletetemplate",
-      "_tgt": "clientimport_persisttemplates",
-      "source": "clientimport_persisttemplates",
-      "target": "clientimport_handledeletetemplate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L345",
+      "source_location": "L265",
       "weight": 1.0,
       "_src": "clientimport_handlesynctoday",
       "_tgt": "clientimport_handleimport",
@@ -7783,7 +7639,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L68",
+      "source_location": "L61",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handlemouseenterrow",
@@ -7795,7 +7651,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L78",
+      "source_location": "L71",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handlemouseleaverow",
@@ -7807,7 +7663,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L84",
+      "source_location": "L77",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_cancelmouseleave",
@@ -7819,55 +7675,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L192",
-      "weight": 1.0,
-      "_src": "app_importv2_clientimportv2_tsx",
-      "_tgt": "clientimportv2_persisttemplates",
-      "source": "app_importv2_clientimportv2_tsx",
-      "target": "clientimportv2_persisttemplates",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L199",
-      "weight": 1.0,
-      "_src": "app_importv2_clientimportv2_tsx",
-      "_tgt": "clientimportv2_handleapplytemplate",
-      "source": "app_importv2_clientimportv2_tsx",
-      "target": "clientimportv2_handleapplytemplate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L216",
-      "weight": 1.0,
-      "_src": "app_importv2_clientimportv2_tsx",
-      "_tgt": "clientimportv2_handlesavetemplate",
-      "source": "app_importv2_clientimportv2_tsx",
-      "target": "clientimportv2_handlesavetemplate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L233",
-      "weight": 1.0,
-      "_src": "app_importv2_clientimportv2_tsx",
-      "_tgt": "clientimportv2_handledeletetemplate",
-      "source": "app_importv2_clientimportv2_tsx",
-      "target": "clientimportv2_handledeletetemplate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L253",
+      "source_location": "L177",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handledateshortcut",
@@ -7879,7 +7687,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L272",
+      "source_location": "L196",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handlecustomdatechange",
@@ -7891,7 +7699,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L278",
+      "source_location": "L202",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handleimport",
@@ -7903,7 +7711,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L313",
+      "source_location": "L237",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handlesynctoday",
@@ -7915,7 +7723,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L366",
+      "source_location": "L290",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_formatcurrency",
@@ -7927,7 +7735,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L367",
+      "source_location": "L291",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_formatpercent",
@@ -7939,7 +7747,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L368",
+      "source_location": "L292",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_formatnumber",
@@ -7951,7 +7759,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L370",
+      "source_location": "L294",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_getpillclass",
@@ -7963,7 +7771,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L377",
+      "source_location": "L301",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_filterandsortcampaigns",
@@ -7975,7 +7783,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L397",
+      "source_location": "L321",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_requestsort",
@@ -7987,7 +7795,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L405",
+      "source_location": "L329",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_tableheader",
@@ -7999,31 +7807,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L230",
-      "weight": 1.0,
-      "_src": "clientimportv2_handlesavetemplate",
-      "_tgt": "clientimportv2_persisttemplates",
-      "source": "clientimportv2_persisttemplates",
-      "target": "clientimportv2_handlesavetemplate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L236",
-      "weight": 1.0,
-      "_src": "clientimportv2_handledeletetemplate",
-      "_tgt": "clientimportv2_persisttemplates",
-      "source": "clientimportv2_persisttemplates",
-      "target": "clientimportv2_handledeletetemplate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L328",
+      "source_location": "L252",
       "weight": 1.0,
       "_src": "clientimportv2_handlesynctoday",
       "_tgt": "clientimportv2_handleimport",

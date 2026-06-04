@@ -5,6 +5,8 @@ import MetaSyncPanel from './components/MetaSyncPanel';
 import VturbSyncPanel from './components/VturbSyncPanel';
 import V2MediaLabLayout from '../components/V2MediaLabLayout';
 
+export const dynamic = 'force-dynamic';
+
 async function ensureBlacklistSchema() {
   await pool.query(
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS is_blacklisted BOOLEAN DEFAULT false`

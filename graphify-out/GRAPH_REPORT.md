@@ -1,11 +1,11 @@
 # Graph Report - .  (2026-06-02)
 
 ## Corpus Check
-- 116 files · ~107,763 words
+- 116 files · ~107,052 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 541 nodes · 656 edges · 78 communities detected
+- 533 nodes · 644 edges · 78 communities detected
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
@@ -141,20 +141,20 @@ Cohesion: 0.1
 Nodes (28): Context Navigation Policy, Knowledge Graph First Rule, Next.js Agent Rules (Breaking Changes), node_modules/next/dist/docs/, graphify-out/wiki/index.md, CLAUDE.md (include AGENTS.md), app/page.tsx Entry Point, Development Server (npm run dev) (+20 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.11
-Nodes (5): handleDeleteTemplate(), handleImport(), handleSaveTemplate(), handleSyncToday(), persistTemplates()
-
-### Community 6 - "Community 6"
 Cohesion: 0.12
 Nodes (20): Vturb Analytics API (analytics.vturb.net v1), Auth: X-Api-Token + X-Api-Version, Caching: Redis ~10min TTL, GET /players/list, POST /events/total_by_company_players, POST /traffic_origin/stats, extractCampaignId() function, facebook.rows (FB metrics) (+12 more)
 
-### Community 7 - "Community 7"
+### Community 6 - "Community 6"
 Cohesion: 0.12
 Nodes (4): handleUnignoreProduct(), handleVideoSync(), loadVideoData(), openVideoModal()
 
-### Community 8 - "Community 8"
+### Community 7 - "Community 7"
 Cohesion: 0.12
-Nodes (5): handleDeleteTemplate(), handleImport(), handleSaveTemplate(), handleSyncToday(), persistTemplates()
+Nodes (2): handleImport(), handleSyncToday()
+
+### Community 8 - "Community 8"
+Cohesion: 0.14
+Nodes (2): handleImport(), handleSyncToday()
 
 ### Community 9 - "Community 9"
 Cohesion: 0.15
@@ -513,7 +513,7 @@ Nodes (0):
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vturbMap (aggregation by campaign_id)` connect `Community 4` to `Community 6`?**
+- **Why does `vturbMap (aggregation by campaign_id)` connect `Community 4` to `Community 5`?**
   _High betweenness centrality (0.004) - this node is a cross-community bridge._
 - **What connects `node_modules/next/dist/docs/`, `Knowledge Graph First Rule`, `graphify-out/wiki/index.md` to the rest of the system?**
   _16 weakly-connected nodes found - possible documentation gaps or missing edges._

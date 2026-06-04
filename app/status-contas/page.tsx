@@ -3,6 +3,8 @@ import V2MediaLabLayout from '../components/V2MediaLabLayout';
 import ClientStatusContas from './ClientStatusContas';
 import { ensureOfferLinkSchema, backfillMetaAccountOffers } from '@/lib/offer-links';
 
+export const dynamic = 'force-dynamic';
+
 async function ensureColumns() {
   const alterQueries = [
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS etapa VARCHAR(50) DEFAULT 'Não Utilizada'`,
