@@ -47,24 +47,24 @@ const formatNum = (v: number) => v.toLocaleString('pt-BR');
 const formatPct = (v: number) => v.toFixed(1) + '%';
 
 const CATEGORY_STYLE: Record<CreativeCategory, { label: string; color: string; bg: string; border: string; emoji: string }> = {
-  winner: { label: 'Vencedor', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', emoji: '🏆' },
-  promise: { label: 'Promissor', color: 'text-sky-700', bg: 'bg-sky-50', border: 'border-sky-200', emoji: '✨' },
-  stable: { label: 'Estável', color: 'text-gray-700', bg: 'bg-gray-50', border: 'border-gray-200', emoji: '⚖️' },
-  underperformer: { label: 'Abaixo da média', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', emoji: '⚠️' },
-  loser: { label: 'Prejuízo', color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200', emoji: '🩸' },
-  zombie: { label: 'Zumbi', color: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-300', emoji: '💀' },
+  winner: { label: 'Vencedor', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-200 dark:border-emerald-800', emoji: '🏆' },
+  promise: { label: 'Promissor', color: 'text-sky-700 dark:text-sky-400', bg: 'bg-sky-50 dark:bg-sky-950/40', border: 'border-sky-200 dark:border-sky-800', emoji: '✨' },
+  stable: { label: 'Estável', color: 'text-gray-700 dark:text-gray-300', bg: 'bg-gray-50 dark:bg-gray-900/40', border: 'border-gray-200 dark:border-gray-800', emoji: '⚖️' },
+  underperformer: { label: 'Abaixo da média', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-200 dark:border-amber-800', emoji: '⚠️' },
+  loser: { label: 'Prejuízo', color: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/40', border: 'border-rose-200 dark:border-rose-800', emoji: '🩸' },
+  zombie: { label: 'Zumbi', color: 'text-slate-700 dark:text-slate-300', bg: 'bg-slate-100 dark:bg-slate-900/40', border: 'border-slate-300 dark:border-slate-700', emoji: '💀' },
 };
 
 const PRIORITY_STYLE: Record<Priority, { label: string; color: string; bg: string; border: string }> = {
-  P0: { label: 'Urgente', color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-300' },
-  P1: { label: 'Importante', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300' },
-  P2: { label: 'Quando possível', color: 'text-sky-700', bg: 'bg-sky-50', border: 'border-sky-300' },
+  P0: { label: 'Urgente', color: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/40', border: 'border-rose-300 dark:border-rose-800' },
+  P1: { label: 'Importante', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-300 dark:border-amber-800' },
+  P2: { label: 'Quando possível', color: 'text-sky-700 dark:text-sky-400', bg: 'bg-sky-50 dark:bg-sky-950/40', border: 'border-sky-300 dark:border-sky-800' },
 };
 
 const VERDICT_STYLE: Record<RecoveryVerdict, { label: string; color: string; bg: string; border: string; emoji: string }> = {
-  pause:   { label: 'Pausar',    color: 'text-rose-700',    bg: 'bg-rose-50',    border: 'border-rose-200',    emoji: '⏸' },
-  observe: { label: 'Observar',  color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200',   emoji: '👀' },
-  rescue:  { label: 'Resgatar',  color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', emoji: '🛟' },
+  pause:   { label: 'Pausar',    color: 'text-rose-700 dark:text-rose-400',    bg: 'bg-rose-50 dark:bg-rose-950/40',    border: 'border-rose-200 dark:border-rose-800',    emoji: '⏸' },
+  observe: { label: 'Observar',  color: 'text-amber-700 dark:text-amber-400',  bg: 'bg-amber-50 dark:bg-amber-950/40',  border: 'border-amber-200 dark:border-amber-800',  emoji: '👀' },
+  rescue:  { label: 'Resgatar',  color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-200 dark:border-emerald-800', emoji: '🛟' },
 };
 
 const SIGNAL_EMOJI: Record<RecoverySignalType, string> = {
@@ -86,9 +86,9 @@ const ACTION_EMOJI: Record<Suggestion['action'], string> = {
 };
 
 const HEALTH_STYLE: Record<AccountDiagnostic['health'], { label: string; color: string; bg: string; dot: string }> = {
-  healthy: { label: 'Saudável', color: 'text-emerald-700', bg: 'bg-emerald-50', dot: 'bg-emerald-500' },
-  watch: { label: 'Atenção', color: 'text-amber-700', bg: 'bg-amber-50', dot: 'bg-amber-500' },
-  critical: { label: 'Crítica', color: 'text-rose-700', bg: 'bg-rose-50', dot: 'bg-rose-500' },
+  healthy: { label: 'Saudável', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', dot: 'bg-emerald-500' },
+  watch: { label: 'Atenção', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40', dot: 'bg-amber-500' },
+  critical: { label: 'Crítica', color: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/40', dot: 'bg-rose-500' },
 };
 
 // ============================================================
@@ -396,44 +396,44 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
           ============================================================ */}
       {globalSummary && !isLoading && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-          <StatPill label="Contas analisadas" value={globalSummary.accounts.toString()} color="text-gray-800" />
+          <StatPill label="Contas analisadas" value={globalSummary.accounts.toString()} color="text-gray-800 dark:text-gray-100" />
           <StatPill
             label="Saudáveis"
             value={globalSummary.healthDist.healthy.toString()}
-            color="text-emerald-600"
+            color="text-emerald-600 dark:text-emerald-400"
             dot="bg-emerald-500"
           />
           <StatPill
             label="Em atenção"
             value={globalSummary.healthDist.watch.toString()}
-            color="text-amber-600"
+            color="text-amber-600 dark:text-amber-400"
             dot="bg-amber-500"
           />
           <StatPill
             label="Críticas"
             value={globalSummary.healthDist.critical.toString()}
-            color="text-rose-600"
+            color="text-rose-600 dark:text-rose-400"
             dot="bg-rose-500"
           />
           <StatPill
             label="⏸ Pausar"
             value={globalSummary.verdictCount.pause.toString()}
-            color="text-rose-700"
+            color="text-rose-700 dark:text-rose-400"
           />
           <StatPill
             label="👀 Observar"
             value={globalSummary.verdictCount.observe.toString()}
-            color="text-amber-700"
+            color="text-amber-700 dark:text-amber-400"
           />
           <StatPill
             label="🛟 Resgatar"
             value={globalSummary.verdictCount.rescue.toString()}
-            color="text-emerald-700"
+            color="text-emerald-700 dark:text-emerald-400"
           />
           <StatPill
             label="Desperdício potencial"
             value={globalSummary.totalSavings > 0 ? formatBRL(globalSummary.totalSavings) : '—'}
-            color="text-emerald-700"
+            color="text-emerald-700 dark:text-emerald-400"
           />
         </div>
       )}
@@ -524,27 +524,27 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
 
                   {/* Métricas resumidas */}
                   <div className="flex items-center gap-6 text-xs">
-                    <InlineStat label="Gasto" value={formatBRL(diag.totals.cost)} color="text-rose-500" />
-                    <InlineStat label="Receita" value={formatBRL(diag.totals.revenue)} color="text-gray-800" />
+                    <InlineStat label="Gasto" value={formatBRL(diag.totals.cost)} color="text-rose-500 dark:text-rose-400" />
+                    <InlineStat label="Receita" value={formatBRL(diag.totals.revenue)} color="text-gray-800 dark:text-gray-100" />
                     <InlineStat
                       label="Lucro"
                       value={formatBRL(diag.totals.profit)}
-                      color={diag.totals.profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}
+                      color={diag.totals.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}
                     />
                     <InlineStat
                       label="ROAS"
                       value={diag.totals.roas > 0 ? diag.totals.roas.toFixed(2) + 'x' : '—'}
-                      color={diag.totals.roas >= 1.5 ? 'text-emerald-600' : diag.totals.roas >= 1 ? 'text-amber-600' : 'text-rose-600'}
+                      color={diag.totals.roas >= 1.5 ? 'text-emerald-600 dark:text-emerald-400' : diag.totals.roas >= 1 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}
                     />
                     <InlineStat
                       label="Vendas"
                       value={formatNum(diag.totals.conversions)}
-                      color="text-gray-800"
+                      color="text-gray-800 dark:text-gray-100"
                     />
                     <InlineStat
                       label="Criativos"
                       value={`${diag.active_creatives_count}`}
-                      color="text-gray-800"
+                      color="text-gray-800 dark:text-gray-100"
                     />
                   </div>
                 </div>
