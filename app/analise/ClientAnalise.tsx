@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import Select from 'react-select';
+import { darkAwareSelectStyles } from '@/app/lib/reactSelectStyles';
 import OfferSelector from '../components/OfferSelector';
 import {
   analyzeAccounts,
@@ -307,15 +308,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
               onChange={(s: any) => setSelectedRtCampaignId(s?.value || '')}
               placeholder="Selecione RedTrack"
               className="text-sm rounded-lg"
-              styles={{
-                control: base => ({
-                  ...base,
-                  minHeight: '38px',
-                  borderRadius: '0.5rem',
-                  borderColor: '#e5e7eb',
-                  backgroundColor: '#f9fafb',
-                }),
-              }}
+              styles={darkAwareSelectStyles}
             />
           </div>
 
@@ -331,15 +324,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
               onChange={(s: any) => setSelectedAccountIds((s || []).map((o: any) => o.value))}
               placeholder="Selecione contas Meta"
               className="text-sm rounded-lg"
-              styles={{
-                control: base => ({
-                  ...base,
-                  minHeight: '38px',
-                  borderRadius: '0.5rem',
-                  borderColor: '#e5e7eb',
-                  backgroundColor: '#f9fafb',
-                }),
-              }}
+              styles={darkAwareSelectStyles}
             />
           </div>
 

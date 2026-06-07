@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import Select from 'react-select';
+import { darkAwareSelectStyles } from '@/app/lib/reactSelectStyles';
 import CampaignHoverPopup from './CampaignHoverPopup';
 import { preloadHistoryBatch } from './hoverCache';
 import { analyzeAccounts, CreativeDiagnostic } from '../analise/diagnostics';
@@ -431,7 +432,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
                     onChange={(selected: any) => setSelectedRtCampaignId(selected?.value || '')}
                     placeholder="Selecione RedTrack"
                     className="text-sm rounded-lg"
-                    styles={{ control: (base) => ({ ...base, minHeight: '38px', borderRadius: '0.5rem', borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }) }}
+                    styles={darkAwareSelectStyles}
                 />
             </div>
 
@@ -458,7 +459,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
                     }}
                     placeholder="Selecione contas Meta"
                     className="text-sm rounded-lg"
-                    styles={{ control: (base) => ({ ...base, minHeight: '38px', borderRadius: '0.5rem', borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }) }}
+                    styles={darkAwareSelectStyles}
                 />
             </div>
 
