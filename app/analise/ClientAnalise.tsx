@@ -286,7 +286,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
     const base = 'px-4 py-1.5 text-xs font-semibold rounded-md transition-colors ';
     return dateRangeFilter === range
       ? base + 'bg-indigo-600 text-white'
-      : base + 'text-gray-600 hover:bg-gray-100 border border-transparent';
+      : base + 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-transparent';
   };
 
   return (
@@ -294,7 +294,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
       {/* ============================================================
           1. Header de controles
           ============================================================ */}
-      <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="min-w-[250px]">
             <Select
@@ -333,7 +333,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
           <button
             onClick={runAnalysis}
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 hover:border-indigo-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <svg
               className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`}
@@ -353,7 +353,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
           </button>
         </div>
 
-        <div className="flex items-center gap-1 border border-gray-200 rounded-lg p-1 bg-white">
+        <div className="flex items-center gap-1 border border-gray-200 dark:border-gray-700 rounded-lg p-1 bg-white dark:bg-gray-900">
           <button onClick={() => handleDateShortcut('7d')} className={pillClass('7d')}>
             7 dias
           </button>
@@ -367,7 +367,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
             90 dias
           </button>
 
-          <div className={`flex items-center gap-1 px-2 ${dateRangeFilter === 'custom' ? 'bg-indigo-50 rounded' : ''}`}>
+          <div className={`flex items-center gap-1 px-2 ${dateRangeFilter === 'custom' ? 'bg-indigo-50 dark:bg-indigo-950/40 rounded' : ''}`}>
             <input
               type="date"
               value={dateFrom}
@@ -375,9 +375,9 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
                 setDateRangeFilter('custom');
                 setDateFrom(e.target.value);
               }}
-              className="text-xs bg-transparent text-gray-700 outline-none"
+              className="text-xs bg-transparent text-gray-700 dark:text-gray-300 outline-none"
             />
-            <span className="text-xs text-gray-400">até</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">até</span>
             <input
               type="date"
               value={dateTo}
@@ -385,7 +385,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
                 setDateRangeFilter('custom');
                 setDateTo(e.target.value);
               }}
-              className="text-xs bg-transparent text-gray-700 outline-none"
+              className="text-xs bg-transparent text-gray-700 dark:text-gray-300 outline-none"
             />
           </div>
         </div>
@@ -442,8 +442,8 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
           3. Filtros secundários
           ============================================================ */}
       {diagnostics.length > 0 && (
-        <div className="bg-white border border-gray-100 rounded-xl p-3 flex items-center gap-3 shadow-sm flex-wrap">
-          <span className="text-xs text-gray-400 font-semibold">Filtro de criativos:</span>
+        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-3 flex items-center gap-3 shadow-sm flex-wrap">
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">Filtro de criativos:</span>
           <CategoryChip active={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')} label="Todos" />
           {(Object.keys(CATEGORY_STYLE) as CreativeCategory[]).map(cat => (
             <CategoryChip
@@ -461,17 +461,17 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
           4. Erros / Loading / Empty
           ============================================================ */}
       {error && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700">
+        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl p-4 text-sm text-rose-700 dark:text-rose-400">
           <strong>Erro:</strong> {error}
         </div>
       )}
       {isLoading && (
-        <div className="bg-white border border-gray-100 rounded-xl p-12 text-center text-gray-400 text-sm">
+        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-12 text-center text-gray-400 dark:text-gray-500 text-sm">
           Analisando campanhas...
         </div>
       )}
       {!isLoading && diagnostics.length === 0 && !error && (
-        <div className="bg-white border border-gray-100 rounded-xl p-12 text-center text-gray-400 text-sm">
+        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-12 text-center text-gray-400 dark:text-gray-500 text-sm">
           Selecione uma campanha RedTrack e pelo menos uma conta Meta para começar.
         </div>
       )}
@@ -491,15 +491,15 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
           return (
             <div
               key={diag.account_id}
-              className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden"
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden"
             >
               {/* Cabeçalho da conta */}
               <div
                 onClick={() => toggleAccount(diag.account_id)}
-                className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50/40 to-transparent cursor-pointer hover:from-indigo-50/80 transition-colors"
+                className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-indigo-50/40 dark:from-indigo-950/20 to-transparent cursor-pointer hover:from-indigo-50/80 dark:hover:from-indigo-950/30 transition-colors"
               >
                 <div className="flex items-center gap-4 flex-wrap">
-                  <div className={`w-6 h-6 flex items-center justify-center rounded bg-gray-100 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                  <div className={`w-6 h-6 flex items-center justify-center rounded bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
@@ -511,7 +511,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-base font-bold text-gray-900 truncate">{diag.account_name}</h3>
+                      <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 truncate">{diag.account_name}</h3>
                       <span
                         className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${hs.bg} ${hs.color}`}
                       >
@@ -519,7 +519,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
                         {hs.label}
                       </span>
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-0.5">{diag.health_note}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{diag.health_note}</p>
                   </div>
 
                   {/* Métricas resumidas */}
@@ -584,7 +584,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
                       );
                     });
                   })()}
-                  <span className="text-[10px] text-gray-400 ml-2">
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-2">
                     Concentração top-3: {formatPct(diag.concentration_top3_pct)} do gasto
                   </span>
                 </div>
@@ -613,7 +613,7 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
 function SectionSuggestions({ suggestions, accountName }: { suggestions: Suggestion[]; accountName: string }) {
   if (suggestions.length === 0) {
     return (
-      <div className="border border-emerald-200 bg-emerald-50 rounded-xl p-4 text-sm text-emerald-800">
+      <div className="border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl p-4 text-sm text-emerald-800 dark:text-emerald-400">
         <strong>✅ Sem sugestões críticas para {accountName}.</strong> A conta opera de forma saudável no período
         selecionado. Continue monitorando fadiga de criativos e mantenha pipeline de testes aberto.
       </div>
@@ -622,7 +622,7 @@ function SectionSuggestions({ suggestions, accountName }: { suggestions: Suggest
 
   return (
     <div>
-      <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+      <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
         <span className="w-1 h-4 bg-indigo-500 rounded-sm" />
         Sugestões priorizadas ({suggestions.length})
       </h4>
@@ -644,7 +644,7 @@ function SuggestionCard({ suggestion }: { suggestion: Suggestion }) {
 
   return (
     <div
-      className={`rounded-xl border p-4 transition-all ${done ? 'opacity-50 bg-gray-50 border-gray-200' : `${p.bg} ${p.border}`}`}
+      className={`rounded-xl border p-4 transition-all ${done ? 'opacity-50 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700' : `${p.bg} ${p.border}`}`}
     >
       <div className="flex items-start gap-3">
         <div className="text-2xl shrink-0 mt-0.5">{ACTION_EMOJI[suggestion.action]}</div>
@@ -655,20 +655,20 @@ function SuggestionCard({ suggestion }: { suggestion: Suggestion }) {
             >
               {suggestion.priority} · {p.label}
             </span>
-            <span className="text-[9px] uppercase tracking-wider text-gray-400 font-semibold">
+            <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
               {actionLabel(suggestion.action)}
             </span>
             {suggestion.estimated_daily_brl !== undefined && suggestion.estimated_daily_brl < 0 && (
-              <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-semibold">
+              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded font-semibold">
                 Economiza {formatBRL(Math.abs(suggestion.estimated_daily_brl))}/período
               </span>
             )}
           </div>
-          <h5 className={`text-sm font-bold ${done ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+          <h5 className={`text-sm font-bold ${done ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-gray-100'}`}>
             {suggestion.title}
           </h5>
-          <p className="text-xs text-gray-700 mt-1 leading-relaxed">{suggestion.detail}</p>
-          <div className="mt-2 flex items-start gap-1.5 text-[11px] text-gray-500">
+          <p className="text-xs text-gray-700 dark:text-gray-300 mt-1 leading-relaxed">{suggestion.detail}</p>
+          <div className="mt-2 flex items-start gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
             <svg
               className="w-3.5 h-3.5 shrink-0 mt-0.5"
               fill="none"
@@ -683,10 +683,10 @@ function SuggestionCard({ suggestion }: { suggestion: Suggestion }) {
               />
             </svg>
             <span>
-              <strong className="text-gray-700">Motivo:</strong> {suggestion.reason}
+              <strong className="text-gray-700 dark:text-gray-300">Motivo:</strong> {suggestion.reason}
             </span>
           </div>
-          <div className="mt-1 flex items-start gap-1.5 text-[11px] text-gray-500">
+          <div className="mt-1 flex items-start gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
             <svg
               className="w-3.5 h-3.5 shrink-0 mt-0.5"
               fill="none"
@@ -701,7 +701,7 @@ function SuggestionCard({ suggestion }: { suggestion: Suggestion }) {
               />
             </svg>
             <span>
-              <strong className="text-gray-700">Impacto:</strong> {suggestion.impact}
+              <strong className="text-gray-700 dark:text-gray-300">Impacto:</strong> {suggestion.impact}
             </span>
           </div>
           {suggestion.targets.length > 0 && (
@@ -709,13 +709,13 @@ function SuggestionCard({ suggestion }: { suggestion: Suggestion }) {
               {suggestion.targets.slice(0, 8).map((t, i) => (
                 <span
                   key={i}
-                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-white border border-gray-200 text-gray-600"
+                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300"
                 >
                   {t}
                 </span>
               ))}
               {suggestion.targets.length > 8 && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] text-gray-400">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] text-gray-400 dark:text-gray-500">
                   +{suggestion.targets.length - 8}
                 </span>
               )}
@@ -726,14 +726,14 @@ function SuggestionCard({ suggestion }: { suggestion: Suggestion }) {
           <button
             onClick={() => setDone(!done)}
             title={done ? 'Marcar como pendente' : 'Marcar como feita'}
-            className={`p-1.5 rounded-md text-xs transition-colors ${done ? 'bg-emerald-100 text-emerald-700' : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+            className={`p-1.5 rounded-md text-xs transition-colors ${done ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'}`}
           >
             ✓
           </button>
           <button
             onClick={() => setDismissed(true)}
             title="Descartar sugestão"
-            className="p-1.5 rounded-md text-xs text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+            className="p-1.5 rounded-md text-xs text-gray-400 dark:text-gray-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
           >
             ✕
           </button>
@@ -771,11 +771,11 @@ function SectionCreatives({
   if (creatives.length === 0) {
     return (
       <div>
-        <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+        <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
           <span className="w-1 h-4 bg-indigo-500 rounded-sm" />
           Criativos
         </h4>
-        <div className="text-xs text-gray-400 text-center py-6">
+        <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-6">
           Nenhum criativo nesta categoria para esta conta.
         </div>
       </div>
@@ -799,13 +799,13 @@ function SectionCreatives({
 
   return (
     <div>
-      <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+      <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
         <span className="w-1 h-4 bg-indigo-500 rounded-sm" />
         Criativos {activeFilter === 'all' ? `(${creatives.length})` : `· ${CATEGORY_STYLE[activeFilter].label}`}
       </h4>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase tracking-wider">
+          <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wider">
             <tr>
               <th className="px-3 py-2 text-left font-semibold">Categoria</th>
               <th className="px-3 py-2 text-left font-semibold">Criativo (rt_ad)</th>
@@ -819,7 +819,7 @@ function SectionCreatives({
               <th className="px-3 py-2 text-left font-semibold">Diagnóstico / Sinais de Recuperação</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {sorted.map((c, i) => (
               <CreativeRow key={i} creative={c} />
             ))}
@@ -846,7 +846,7 @@ function CreativeRow({ creative: c }: { creative: CreativeDiagnostic }) {
   return (
     <>
       <tr
-        className={`hover:bg-gray-50 transition-colors ${expanded ? 'bg-indigo-50/20' : ''} ${rec && rec.signals.length > 0 ? 'cursor-pointer' : ''}`}
+        className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${expanded ? 'bg-indigo-50/20 dark:bg-indigo-950/10' : ''} ${rec && rec.signals.length > 0 ? 'cursor-pointer' : ''}`}
         onClick={() => rec && rec.signals.length > 0 && setExpanded(e => !e)}
       >
         <td className="px-3 py-2.5">
@@ -864,42 +864,42 @@ function CreativeRow({ creative: c }: { creative: CreativeDiagnostic }) {
             </span>
           )}
         </td>
-        <td className="px-3 py-2.5 font-mono font-semibold text-gray-800">
+        <td className="px-3 py-2.5 font-mono font-semibold text-gray-800 dark:text-gray-100">
           {c.rt_ad}
           {c.concentrated && c.category === 'winner' && (
-            <span className="ml-1.5 text-[9px] text-sky-600 font-semibold">· expansível</span>
+            <span className="ml-1.5 text-[9px] text-sky-600 dark:text-sky-400 font-semibold">· expansível</span>
           )}
         </td>
         <td className="px-3 py-2.5 text-right font-mono text-rose-500">{formatBRL(c.cost)}</td>
         <td className={`px-3 py-2.5 text-right font-mono font-bold ${roasColor}`}>
           {c.roas > 0 ? c.roas.toFixed(2) + 'x' : '—'}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-gray-700">{formatNum(c.conversions)}</td>
-        <td className="px-3 py-2.5 text-right font-mono text-gray-600">
+        <td className="px-3 py-2.5 text-right font-mono text-gray-700 dark:text-gray-300">{formatNum(c.conversions)}</td>
+        <td className="px-3 py-2.5 text-right font-mono text-gray-600 dark:text-gray-300">
           {c.cpa > 0 ? formatBRL(c.cpa) : '—'}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-gray-600">
+        <td className="px-3 py-2.5 text-right font-mono text-gray-600 dark:text-gray-300">
           {c.ctr > 0 ? c.ctr.toFixed(2) + '%' : '—'}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-gray-600">
+        <td className="px-3 py-2.5 text-right font-mono text-gray-600 dark:text-gray-300">
           {c.cpm > 0 ? formatBRL(c.cpm) : '—'}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-gray-700">{c.meta_campaigns_count}</td>
-        <td className="px-3 py-2.5 text-gray-500 text-[11px] max-w-[360px]">
+        <td className="px-3 py-2.5 text-right font-mono text-gray-700 dark:text-gray-300">{c.meta_campaigns_count}</td>
+        <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 text-[11px] max-w-[360px]">
           <div>{c.reason}</div>
           {rec && rec.signals.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1 items-center">
               {rec.signals.map((sig, i) => (
                 <span
                   key={i}
-                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white border border-gray-200 text-gray-600"
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300"
                   title={sig.detail}
                 >
                   {SIGNAL_EMOJI[sig.type]} {sig.label}
                 </span>
               ))}
               <button
-                className="ml-1 text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold underline-offset-2 hover:underline"
+                className="ml-1 text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold underline-offset-2 hover:underline"
                 onClick={e => {
                   e.stopPropagation();
                   setExpanded(x => !x);
@@ -910,29 +910,29 @@ function CreativeRow({ creative: c }: { creative: CreativeDiagnostic }) {
             </div>
           )}
           {rec && rec.signals.length === 0 && isBad && (
-            <div className="mt-1 text-[10px] text-rose-600 italic">
+            <div className="mt-1 text-[10px] text-rose-600 dark:text-rose-400 italic">
               Sem sinais de recuperação — pausa recomendada.
             </div>
           )}
         </td>
       </tr>
       {expanded && rec && rec.signals.length > 0 && (
-        <tr className="bg-indigo-50/10">
-          <td colSpan={10} className="px-8 py-4 border-b border-indigo-100">
+        <tr className="bg-indigo-50/10 dark:bg-indigo-950/10">
+          <td colSpan={10} className="px-8 py-4 border-b border-indigo-100 dark:border-indigo-900">
             <div className="max-w-3xl">
               <div className="flex items-center gap-2 mb-2">
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${verdict!.bg} ${verdict!.color} ${verdict!.border}`}>
                   {verdict!.emoji} Veredicto: {verdict!.label}
                 </span>
-                <span className="text-[11px] text-gray-600">{rec.verdict_reason}</span>
+                <span className="text-[11px] text-gray-600 dark:text-gray-300">{rec.verdict_reason}</span>
               </div>
               <div className="space-y-1.5">
                 {rec.signals.map((sig, i) => (
                   <div key={i} className="flex items-start gap-2 text-[11px]">
                     <span className="shrink-0 text-base leading-none mt-0.5">{SIGNAL_EMOJI[sig.type]}</span>
                     <div>
-                      <strong className="text-gray-800">{sig.label}:</strong>{' '}
-                      <span className="text-gray-600">{sig.detail}</span>
+                      <strong className="text-gray-800 dark:text-gray-100">{sig.label}:</strong>{' '}
+                      <span className="text-gray-600 dark:text-gray-300">{sig.detail}</span>
                     </div>
                   </div>
                 ))}
@@ -960,10 +960,10 @@ function StatPill({
   dot?: string;
 }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-3 shadow-sm">
+    <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-3 shadow-sm">
       <div className="flex items-center gap-1.5 mb-1">
         {dot && <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />}
-        <span className="text-[9px] text-gray-400 font-bold tracking-wider uppercase">{label}</span>
+        <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold tracking-wider uppercase">{label}</span>
       </div>
       <span className={`text-lg font-bold ${color}`}>{value}</span>
     </div>
@@ -973,7 +973,7 @@ function StatPill({
 function InlineStat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="flex flex-col">
-      <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">{label}</span>
+      <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">{label}</span>
       <span className={`font-mono font-semibold ${color}`}>{value}</span>
     </div>
   );
@@ -997,8 +997,8 @@ function CategoryChip({
         active
           ? style
             ? `${style.bg} ${style.color} ${style.border}`
-            : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+            : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
+          : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
       }`}
     >
       {label}
