@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config';
 // is constructed lazily and never actually connects during these pure-logic tests.
 export default defineConfig({
   test: {
-    include: ['lib/**/*.test.ts'],
+    include: ['lib/**/*.test.ts', 'app/lib/**/*.test.ts'],
     environment: 'node',
     env: { DATABASE_URL: 'postgres://test:test@localhost:5432/test' },
   },
