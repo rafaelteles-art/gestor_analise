@@ -296,7 +296,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
     const base = "px-4 py-1.5 text-xs font-semibold rounded-md transition-colors ";
     return dateRangeFilter === range
         ? base + "bg-indigo-600 text-white"
-        : base + "text-gray-600 hover:bg-gray-100 border border-transparent";
+        : base + "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-transparent";
   };
 
   const filterAndSortCampaigns = (campaigns: any[]) => {
@@ -331,11 +331,11 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
       const isActive = sortConfig?.key === sortKey;
       return (
         <div
-            className={`px-4 py-3 cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-1.5 select-none ${alignLeft ? 'justify-start' : 'justify-end'} ${colSpan > 1 ? 'col-span-2 px-6' : ''}`}
+            className={`px-4 py-3 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5 select-none ${alignLeft ? 'justify-start' : 'justify-end'} ${colSpan > 1 ? 'col-span-2 px-6' : ''}`}
             onClick={() => requestSort(sortKey)}
         >
             {label}
-            <span className={`text-[9px] ${isActive ? 'text-indigo-600' : 'text-gray-300'}`}>
+            <span className={`text-[9px] ${isActive ? 'text-indigo-600' : 'text-gray-300 dark:text-gray-600'}`}>
                 {isActive ? (sortConfig?.direction === 'asc' ? '▲' : '▼') : '↕'}
             </span>
         </div>
@@ -346,7 +346,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
     <div className="flex flex-col gap-6">
 
       {/* 1. Header Controls */}
-      <div className="flex flex-wrap items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
 
         <div className="flex flex-wrap items-center gap-2">
             <div className="min-w-[220px]">
@@ -388,7 +388,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                 />
             </div>
 
-            <div className="flex items-center border-l border-gray-200 pl-3">
+            <div className="flex items-center border-l border-gray-200 dark:border-gray-700 pl-3">
                 <OfferSelector offers={offers} current={currentOferta} />
             </div>
 
@@ -396,7 +396,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                 onClick={() => handleImport()}
                 disabled={isImporting}
                 title="Carregar dados do banco de dados"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-indigo-600 hover:border-indigo-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-indigo-600 hover:border-indigo-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 <svg className={`h-3.5 w-3.5 ${isImporting ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -408,7 +408,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                 onClick={() => handleImport()}
                 disabled={isImporting || isSyncingToday}
                 title="Recarregar dados do banco (para sincronizar com Meta e RedTrack, use Configurações)"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-amber-200 text-amber-600 hover:bg-amber-50 hover:border-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-amber-200 dark:border-amber-800 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 <svg className={`h-3.5 w-3.5 ${isImporting ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -420,7 +420,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                 onClick={handleSyncToday}
                 disabled={isImporting || isSyncingToday}
                 title="Buscar dados de hoje via API (Meta + RedTrack) e atualizar o banco"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 dark:border-emerald-800 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:border-emerald-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 <svg className={`h-3.5 w-3.5 ${isSyncingToday ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m8.66-13l-.87.5M4.21 15.5l-.87.5M20.66 15.5l-.87-.5M4.21 8.5l-.87-.5M21 12h-1M4 12H3" />
@@ -430,17 +430,17 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
             </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 border border-gray-200 rounded-lg p-1 bg-white">
+        <div className="flex flex-wrap items-center gap-1 border border-gray-200 dark:border-gray-700 rounded-lg p-1 bg-white dark:bg-gray-900">
             <button onClick={() => handleDateShortcut('today')} className={getPillClass('today')}>Hoje</button>
             <button onClick={() => handleDateShortcut('yesterday')} className={getPillClass('yesterday')}>Ontem</button>
             <button onClick={() => handleDateShortcut('7d')} className={getPillClass('7d')}>7 dias</button>
             <button onClick={() => handleDateShortcut('14d')} className={getPillClass('14d')}>14 dias</button>
             <button onClick={() => handleDateShortcut('30d')} className={getPillClass('30d')}>30 dias</button>
 
-            <div className={`flex items-center gap-1 px-2 ${dateRangeFilter === 'custom' ? 'bg-indigo-50 rounded' : ''}`}>
-                <input type="date" value={dateFrom} onChange={e => handleCustomDateChange('from', e.target.value)} className="w-[92px] min-w-0 text-xs bg-transparent text-gray-700 outline-none" />
-                <span className="text-xs text-gray-400">até</span>
-                <input type="date" value={dateTo} onChange={e => handleCustomDateChange('to', e.target.value)} className="w-[92px] min-w-0 text-xs bg-transparent text-gray-700 outline-none" />
+            <div className={`flex items-center gap-1 px-2 ${dateRangeFilter === 'custom' ? 'bg-indigo-50 dark:bg-indigo-950/40 rounded' : ''}`}>
+                <input type="date" value={dateFrom} onChange={e => handleCustomDateChange('from', e.target.value)} className="w-[92px] min-w-0 text-xs bg-transparent text-gray-700 dark:text-gray-300 outline-none" />
+                <span className="text-xs text-gray-400 dark:text-gray-500">até</span>
+                <input type="date" value={dateTo} onChange={e => handleCustomDateChange('to', e.target.value)} className="w-[92px] min-w-0 text-xs bg-transparent text-gray-700 dark:text-gray-300 outline-none" />
             </div>
         </div>
 
@@ -450,24 +450,24 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
       {rtTotals && (
         <div className="flex w-full gap-4 overflow-x-auto pb-2">
             {[
-                { title: 'RECEITA', value: formatCurrency(rtTotals.revenue), color: 'text-gray-800' },
+                { title: 'RECEITA', value: formatCurrency(rtTotals.revenue), color: 'text-gray-800 dark:text-gray-100' },
                 { title: 'GASTO', value: formatCurrency(rtTotals.cost), color: 'text-rose-500' },
                 { title: 'LUCRO', value: formatCurrency(rtTotals.profit), color: rtTotals.profit >= 0 ? 'text-emerald-500' : 'text-rose-500' },
-                { title: 'ROAS', value: rtTotals.roas > 0 ? rtTotals.roas.toFixed(2) + 'x' : '0.00x', color: rtTotals.roas >= 1 ? 'text-amber-500' : 'text-gray-500' },
-                { title: 'VENDAS', value: rtTotals.conversions.toString(), color: 'text-gray-800' },
-                { title: 'CPA', value: formatCurrency(rtTotals.cpa), color: 'text-gray-800' },
+                { title: 'ROAS', value: rtTotals.roas > 0 ? rtTotals.roas.toFixed(2) + 'x' : '0.00x', color: rtTotals.roas >= 1 ? 'text-amber-500' : 'text-gray-500 dark:text-gray-400' },
+                { title: 'VENDAS', value: rtTotals.conversions.toString(), color: 'text-gray-800 dark:text-gray-100' },
+                { title: 'CPA', value: formatCurrency(rtTotals.cpa), color: 'text-gray-800 dark:text-gray-100' },
                 { title: 'RET. PITCH', value: rtTotals.vturb_over_pitch_rate != null ? formatPercent(rtTotals.vturb_over_pitch_rate) : '—', color: 'text-fuchsia-500' },
                 { title: 'CONV. VTURB', value: rtTotals.vturb_conversion_rate != null ? formatPercent(rtTotals.vturb_conversion_rate) : '—', color: 'text-fuchsia-500' },
             ].map((card, i) => (
-                <div key={i} className="flex-1 bg-white min-w-[150px] p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-center">
-                    <h3 className="text-[10px] text-gray-400 font-bold tracking-wider mb-2 uppercase">{card.title}</h3>
+                <div key={i} className="flex-1 bg-white dark:bg-gray-900 min-w-[150px] p-5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-center">
+                    <h3 className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider mb-2 uppercase">{card.title}</h3>
                     <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
                 </div>
             ))}
             {exchangeRate !== null && (
-              <div className="flex flex-col justify-center self-stretch px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm whitespace-nowrap">
-                <h3 className="text-[10px] text-gray-400 font-bold tracking-wider mb-2 uppercase">USD/BRL</h3>
-                <p className="text-2xl font-bold text-gray-800">R$ {exchangeRate.toFixed(4).replace('.', ',')}</p>
+              <div className="flex flex-col justify-center self-stretch px-4 py-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm whitespace-nowrap">
+                <h3 className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider mb-2 uppercase">USD/BRL</h3>
+                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">R$ {exchangeRate.toFixed(4).replace('.', ',')}</p>
               </div>
             )}
         </div>
@@ -475,7 +475,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
 
       {/* 3. Uma tabela por conta selecionada — campanhas Meta sem agrupamento por rt_ad */}
       {importResults.length === 0 && !isImporting && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-12 text-center text-gray-400 text-sm">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-12 text-center text-gray-400 dark:text-gray-500 text-sm">
             Nenhum resultado encontrado para o período selecionado.
         </div>
       )}
@@ -488,64 +488,64 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
         const accProfit = accTotals?.profit ?? 0;
         const accRoas = accTotals?.roas ?? 0;
         const accProfitColor = accProfit >= 0 ? 'text-emerald-500' : 'text-rose-500';
-        const accRoasColor = accRoas >= 1 ? 'text-emerald-500' : accRoas > 0 ? 'text-amber-500' : 'text-gray-400';
+        const accRoasColor = accRoas >= 1 ? 'text-emerald-500' : accRoas > 0 ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500';
 
         return (
-        <div key={accId} className="bg-white border text-gray-800 border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+        <div key={accId} className="bg-white dark:bg-gray-900 border text-gray-800 dark:text-gray-100 border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden flex flex-col">
 
-          <div className="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-indigo-50/40 to-transparent flex flex-wrap items-center gap-x-8 gap-y-2">
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-indigo-50/40 dark:from-indigo-950/40 to-transparent flex flex-wrap items-center gap-x-8 gap-y-2">
             <div className="flex items-center gap-2 min-w-[200px]">
               <div className="w-1.5 h-6 bg-indigo-500 rounded-sm" />
               <div>
-                <div className="text-[10px] text-gray-400 font-bold tracking-wider uppercase">Conta</div>
-                <div className="text-sm font-bold text-gray-800 truncate max-w-[280px]" title={accName}>{accName}</div>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider uppercase">Conta</div>
+                <div className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate max-w-[280px]" title={accName}>{accName}</div>
               </div>
             </div>
             {accTotals && (
               <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs ml-auto">
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Gasto</span>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Gasto</span>
                   <span className="font-mono font-semibold text-rose-500">{formatCurrency(accTotals.cost)}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Receita</span>
-                  <span className="font-mono font-semibold text-gray-800">{formatCurrency(accTotals.revenue)}</span>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Receita</span>
+                  <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(accTotals.revenue)}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Lucro</span>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Lucro</span>
                   <span className={`font-mono font-bold ${accProfitColor}`}>{formatCurrency(accTotals.profit)}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">ROAS</span>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">ROAS</span>
                   <span className={`font-mono font-bold ${accRoasColor}`}>{accTotals.roas > 0 ? accTotals.roas.toFixed(2)+'x' : '—'}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Vendas</span>
-                  <span className="font-mono font-semibold text-gray-800">{formatNumber(accTotals.conversions)}</span>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Vendas</span>
+                  <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{formatNumber(accTotals.conversions)}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">CPA</span>
-                  <span className="font-mono font-semibold text-gray-800">{accTotals.cpa > 0 ? formatCurrency(accTotals.cpa) : '—'}</span>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">CPA</span>
+                  <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{accTotals.cpa > 0 ? formatCurrency(accTotals.cpa) : '—'}</span>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="p-4 border-b border-gray-100 flex items-center gap-4 bg-white">
-              <span className="text-xs text-gray-400 font-semibold">{accSorted.length} campanhas</span>
+          <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-4 bg-white dark:bg-gray-900">
+              <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">{accSorted.length} campanhas</span>
               <div className="relative">
-                  <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                  <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                   <input
                       type="text"
                       placeholder="Filtrar campanha..."
-                      className="pl-9 pr-4 py-1.5 border border-gray-200 rounded-md text-xs w-64 outline-none focus:border-indigo-500 bg-gray-50"
+                      className="pl-9 pr-4 py-1.5 border border-gray-200 dark:border-gray-700 rounded-md text-xs w-64 outline-none focus:border-indigo-500 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                       value={tableSearch}
                       onChange={e => setTableSearch(e.target.value)}
                   />
               </div>
           </div>
 
-          <div className="grid grid-cols-12 bg-gray-50 text-[10px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-200">
+          <div className="grid grid-cols-12 bg-gray-50 dark:bg-gray-800 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
             <TableHeader label="Campanha Facebook" sortKey="campaign_name" alignLeft={true} colSpan={2} />
             <TableHeader label="Gasto" sortKey="spend" />
             <TableHeader label="Receita" sortKey="revenue" />
@@ -560,15 +560,15 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
           </div>
 
           {accSorted.length === 0 && (
-            <div className="p-8 text-center text-gray-400 text-xs">
+            <div className="p-8 text-center text-gray-400 dark:text-gray-500 text-xs">
               Sem campanhas desta conta no período.
             </div>
           )}
 
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {accSorted.map((mc: any, idx: number) => {
                 const profitColor = mc.profit >= 0 ? 'text-emerald-500' : 'text-rose-500';
-                const roasColor = mc.roas >= 1 ? 'text-emerald-500' : mc.roas > 0 ? 'text-amber-500' : 'text-gray-400';
+                const roasColor = mc.roas >= 1 ? 'text-emerald-500' : mc.roas > 0 ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500';
 
                 // Constrói um group sintético com uma única campanha para o popup de hover.
                 // O popup usa rt_ad para fetch de histórico — passando o nome completo
@@ -582,23 +582,23 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                 return (
                 <div
                   key={mc.campaign_id + '-' + idx}
-                  className="grid grid-cols-12 text-xs hover:bg-gray-50 transition-colors group relative cursor-help"
+                  className="grid grid-cols-12 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group relative cursor-help"
                   onMouseEnter={(e) => handleMouseEnterRow(e, hoverGroup, accId)}
                   onMouseLeave={handleMouseLeaveRow}
                 >
                     <div className="col-span-2 px-6 py-3.5 flex items-center gap-3">
-                        <span className="font-medium text-gray-700 break-words whitespace-normal leading-relaxed">
+                        <span className="font-medium text-gray-700 dark:text-gray-300 break-words whitespace-normal leading-relaxed">
                             {mc.campaign_name}
                         </span>
                     </div>
                     <div className="px-4 py-3.5 text-right font-mono font-medium">{formatCurrency(mc.spend)}</div>
                     <div className="px-4 py-3.5 text-right font-mono font-medium">{mc.revenue > 0 ? formatCurrency(mc.revenue) : '—'}</div>
-                    <div className="px-4 py-3.5 text-right font-mono font-bold">{mc.conversions > 0 ? mc.conversions : '—'} <span className="text-gray-400 text-[10px] font-sans">v</span></div>
+                    <div className="px-4 py-3.5 text-right font-mono font-bold">{mc.conversions > 0 ? mc.conversions : '—'} <span className="text-gray-400 dark:text-gray-500 text-[10px] font-sans">v</span></div>
                     <div className="px-4 py-3.5 text-right font-mono font-medium">{mc.cpa > 0 ? formatCurrency(mc.cpa) : '—'}</div>
-                    <div className={`px-4 py-3.5 text-right font-mono font-bold ${mc.revenue > 0 ? profitColor : 'text-gray-400'}`}>{mc.revenue > 0 ? formatCurrency(mc.profit) : '—'}</div>
-                    <div className={`px-4 py-3.5 text-right font-mono font-bold ${mc.revenue > 0 ? roasColor : 'text-gray-400'}`}>{mc.roas > 0 ? mc.roas.toFixed(2)+'x' : '—'}</div>
-                    <div className="px-4 py-3.5 text-right font-mono text-gray-500">{mc.cpm > 0 ? formatCurrency(mc.cpm) : '—'}</div>
-                    <div className="px-4 py-3.5 text-right font-mono text-gray-500">{mc.ctr > 0 ? formatPercent(mc.ctr) : '—'}</div>
+                    <div className={`px-4 py-3.5 text-right font-mono font-bold ${mc.revenue > 0 ? profitColor : 'text-gray-400 dark:text-gray-500'}`}>{mc.revenue > 0 ? formatCurrency(mc.profit) : '—'}</div>
+                    <div className={`px-4 py-3.5 text-right font-mono font-bold ${mc.revenue > 0 ? roasColor : 'text-gray-400 dark:text-gray-500'}`}>{mc.roas > 0 ? mc.roas.toFixed(2)+'x' : '—'}</div>
+                    <div className="px-4 py-3.5 text-right font-mono text-gray-500 dark:text-gray-400">{mc.cpm > 0 ? formatCurrency(mc.cpm) : '—'}</div>
+                    <div className="px-4 py-3.5 text-right font-mono text-gray-500 dark:text-gray-400">{mc.ctr > 0 ? formatPercent(mc.ctr) : '—'}</div>
                     <div className="px-4 py-3.5 text-right font-mono text-fuchsia-500">{mc.vturb_over_pitch_rate != null ? formatPercent(mc.vturb_over_pitch_rate) : '—'}</div>
                     <div className="px-4 py-3.5 text-right font-mono text-fuchsia-500">{mc.vturb_conversion_rate != null ? formatPercent(mc.vturb_conversion_rate) : '—'}</div>
                 </div>
