@@ -64,9 +64,9 @@
     {
       "label": "next-env.d.ts",
       "file_type": "code",
-      "source_file": "next-env.d.ts",
+      "source_file": "app\\next-env.d.ts",
       "source_location": "L1",
-      "id": "next_env_d_ts",
+      "id": "app_next_env_d_ts",
       "community": 68,
       "norm_label": "next-env.d.ts"
     },
