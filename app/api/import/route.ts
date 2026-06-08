@@ -3,6 +3,7 @@ import { pool } from '@/lib/db';
 import { getUsdToBrl } from '@/lib/usd-brl';
 import { getVturbApiToken } from '@/lib/config';
 import { buildVturbCampaignMap, normalizeCampaignName, VturbAggregatedCampaign } from '@/lib/vturb';
+import { matchRtCampaignCost, type RtAgg } from '@/lib/redtrack-cost';
 
 // ============================================================
 // COMBINADORES — agregam entradas diárias do import_cache
@@ -17,15 +18,16 @@ function combineDailyRtAd(rows: { data: any[] }[]): { rt_ad: string }[] {
   return Array.from(seen).map(rt_ad => ({ rt_ad }));
 }
 
-/** Soma total_revenue e convtype2 por nome de campanha RT entre os dias consultados. */
-function combineDailyRtCamp(rows: { data: any[] }[]): { rt_campaign: string; total_revenue: string; convtype2: string }[] {
-  const map = new Map<string, { total_revenue: number; convtype2: number }>();
+/** Soma total_revenue, convtype2 e cost por nome de campanha RT entre os dias consultados. */
+function combineDailyRtCamp(rows: { data: any[] }[]): { rt_campaign: string; total_revenue: string; convtype2: string; cost: string }[] {
+  const map = new Map<string, { total_revenue: number; convtype2: number; cost: number }>();
   for (const row of rows) {
     for (const entry of (row.data || [])) {
       if (!entry.rt_campaign) continue;
-      const cur = map.get(entry.rt_campaign) ?? { total_revenue: 0, convtype2: 0 };
+      const cur = map.get(entry.rt_campaign) ?? { total_revenue: 0, convtype2: 0, cost: 0 };
       cur.total_revenue += parseFloat(entry.total_revenue || '0');
       cur.convtype2     += parseInt(entry.convtype2 || '0', 10);
+      cur.cost          += parseFloat(entry.cost || '0');
       map.set(entry.rt_campaign, cur);
     }
   }
@@ -33,19 +35,21 @@ function combineDailyRtCamp(rows: { data: any[] }[]): { rt_campaign: string; tot
     rt_campaign,
     total_revenue: String(v.total_revenue),
     convtype2:     String(v.convtype2),
+    cost:          String(v.cost),
   }));
 }
 
-/** Soma total_revenue e convtype2 por Meta campaign_id (sub3) entre os dias consultados. */
-function combineDailyRtCampById(rows: { data: any[] }[]): Map<string, { total_revenue: number; convtype2: number }> {
-  const map = new Map<string, { total_revenue: number; convtype2: number }>();
+/** Soma total_revenue, convtype2 e cost por Meta campaign_id (sub3) entre os dias consultados. */
+function combineDailyRtCampById(rows: { data: any[] }[]): Map<string, { total_revenue: number; convtype2: number; cost: number }> {
+  const map = new Map<string, { total_revenue: number; convtype2: number; cost: number }>();
   for (const row of rows) {
     for (const entry of (row.data || [])) {
       const metaId = entry.sub3;
       if (!metaId) continue;
-      const cur = map.get(metaId) ?? { total_revenue: 0, convtype2: 0 };
+      const cur = map.get(metaId) ?? { total_revenue: 0, convtype2: 0, cost: 0 };
       cur.total_revenue += parseFloat(entry.total_revenue || '0');
       cur.convtype2     += parseInt(entry.convtype2 || '0', 10);
+      cur.cost          += parseFloat(entry.cost || '0');
       map.set(metaId, cur);
     }
   }
@@ -219,48 +223,24 @@ export async function POST(req: NextRequest) {
       } catch { console.warn("Invalid regex:", filterRegex); }
     }
 
-    // Índice rt_campaigns por nome (exato)
-    const rtCampByName = new Map<string, any>();
+    // Índice rt_campaigns por nome → RtAgg (revenue, conv, cost)
+    const rtCampByName = new Map<string, RtAgg>();
     rtCampaignsReport.forEach((rc: any) => {
-      if (rc.rt_campaign) rtCampByName.set(rc.rt_campaign, rc);
+      if (!rc.rt_campaign) return;
+      rtCampByName.set(rc.rt_campaign, {
+        total_revenue: parseFloat(rc.total_revenue || '0'),
+        convtype2:     parseInt(rc.convtype2 || '0', 10),
+        cost:          parseFloat(rc.cost || '0'),
+      });
     });
 
-    // Lookup com merge: encontra match exato + qualquer entrada RT cujo nome
-    // está contido no nome Meta (cobre campanhas renomeadas com prefixo "ATIVAR - " etc.)
-    const findRtCamp = (metaCampaignName: string) => {
-      const metaLower = metaCampaignName.toLowerCase();
-      const matches: any[] = [];
-      for (const [rtName, rtCamp] of rtCampByName) {
-        const isExact   = rtName === metaCampaignName;
-        const isPartial = rtName.length > 10 && metaLower.includes(rtName.toLowerCase());
-        if (isExact || isPartial) matches.push(rtCamp);
-      }
-      if (matches.length === 0) return null;
-      if (matches.length === 1) return matches[0];
-      return {
-        convtype2:     String(matches.reduce((s, c) => s + parseInt(c.convtype2    || '0', 10), 0)),
-        total_revenue: String(matches.reduce((s, c) => s + parseFloat(c.total_revenue || '0'), 0)),
-      };
-    };
-
-    // Lookup robusto: soma sub3 (Meta campaign_id) de TODAS as campanhas que
-    // compartilham o nome — preserva a imunidade a renomeações e cobre o caso
-    // comum de várias ad sets duplicadas no Meta com o mesmo nome. Cai no match
-    // por nome só se nenhuma das ids tiver entrada no rt_camp_id.
-    const findRevenue = (mc: any) => {
-      const ids: string[] = mc.campaign_ids || [mc.campaign_id];
-      let totalRev = 0, totalConv = 0, anyHit = false;
-      for (const id of ids) {
-        const byId = rtByMetaId.get(id);
-        if (byId) {
-          anyHit = true;
-          totalRev  += byId.total_revenue;
-          totalConv += byId.convtype2;
-        }
-      }
-      if (anyHit) return { total_revenue: String(totalRev), convtype2: String(totalConv) };
-      return findRtCamp(mc.campaign_name);
-    };
+    // Match Meta → rt_campaign (sub3 primeiro, nome fallback) trazendo cost.
+    const findRtMatch = (mc: any): RtAgg | null =>
+      matchRtCampaignCost(
+        { campaign_ids: mc.campaign_ids || [mc.campaign_id], campaign_name: mc.campaign_name },
+        rtByMetaId,
+        rtCampByName,
+      );
 
     // Lookup vturb por NOME de campanha (normalizado): o utm_campaign dos ads
     // contém só o nome, e o vturb codifica espaços como `+`. Ambos os lados
@@ -277,10 +257,11 @@ export async function POST(req: NextRequest) {
       if (matchingMeta.length === 0) return null;
 
       const enrichedCampaigns = matchingMeta.map(mc => {
-        const rtCamp      = findRevenue(mc);
-        const spendBrl    = mc.spend * usdToBrl;
-        const rtRevenue   = rtCamp ? parseFloat(rtCamp.total_revenue || '0') : 0;
-        const rtConversions = rtCamp ? parseInt(rtCamp.convtype2 || '0', 10) : 0;
+        const rtCamp        = findRtMatch(mc);
+        const rtRevenue     = rtCamp ? rtCamp.total_revenue : 0;
+        const rtConversions = rtCamp ? rtCamp.convtype2 : 0;
+        // Custo agora vem do RedTrack (BRL), não mais do spend do Meta.
+        const spendBrl      = rtCamp ? rtCamp.cost : 0;
 
         // Vturb por campanha: match por nome (utm_campaign = nome com `+` no
         // lugar dos espaços). Totais brutos guardados pra agregar no grupo/total.
