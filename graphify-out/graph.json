@@ -58,16 +58,16 @@
       "source_file": "auth.ts",
       "source_location": "L1",
       "id": "auth_ts",
-      "community": 61,
+      "community": 67,
       "norm_label": "auth.ts"
     },
     {
       "label": "next-env.d.ts",
       "file_type": "code",
-      "source_file": "app\\next-env.d.ts",
+      "source_file": "next-env.d.ts",
       "source_location": "L1",
-      "id": "app_next_env_d_ts",
-      "community": 62,
+      "id": "next_env_d_ts",
+      "community": 68,
       "norm_label": "next-env.d.ts"
     },
     {
@@ -76,7 +76,7 @@
       "source_file": "app\\next.config.ts",
       "source_location": "L1",
       "id": "app_next_config_ts",
-      "community": 63,
+      "community": 69,
       "norm_label": "next.config.ts"
     },
     {
@@ -85,7 +85,7 @@
       "source_file": "proxy.ts",
       "source_location": "L1",
       "id": "proxy_ts",
-      "community": 64,
+      "community": 70,
       "norm_label": "proxy.ts"
     },
     {
@@ -94,7 +94,7 @@
       "source_file": "app\\test_rt_pag.js",
       "source_location": "L1",
       "id": "app_test_rt_pag_js",
-      "community": 41,
+      "community": 43,
       "norm_label": "test_rt_pag.js"
     },
     {
@@ -103,7 +103,7 @@
       "source_file": "app\\test_rt_pag.js",
       "source_location": "L5",
       "id": "test_rt_pag_run",
-      "community": 41,
+      "community": 43,
       "norm_label": "run()"
     },
     {
@@ -112,7 +112,7 @@
       "source_file": "vitest.config.ts",
       "source_location": "L1",
       "id": "vitest_config_ts",
-      "community": 65,
+      "community": 71,
       "norm_label": "vitest.config.ts"
     },
     {
@@ -121,7 +121,7 @@
       "source_file": "app\\HomeSignOut.tsx",
       "source_location": "L1",
       "id": "app_homesignout_tsx",
-      "community": 42,
+      "community": 44,
       "norm_label": "homesignout.tsx"
     },
     {
@@ -130,25 +130,25 @@
       "source_file": "app\\HomeSignOut.tsx",
       "source_location": "L5",
       "id": "homesignout_homesignout",
-      "community": 42,
+      "community": 44,
       "norm_label": "homesignout()"
     },
     {
       "label": "layout.tsx",
       "file_type": "code",
-      "source_file": "app\\app\\layout.tsx",
+      "source_file": "app\\layout.tsx",
       "source_location": "L1",
-      "id": "app_app_layout_tsx",
-      "community": 43,
+      "id": "app_layout_tsx",
+      "community": 45,
       "norm_label": "layout.tsx"
     },
     {
       "label": "RootLayout()",
       "file_type": "code",
-      "source_file": "app\\app\\layout.tsx",
-      "source_location": "L21",
+      "source_file": "app\\layout.tsx",
+      "source_location": "L23",
       "id": "layout_rootlayout",
-      "community": 43,
+      "community": 45,
       "norm_label": "rootlayout()"
     },
     {
@@ -157,7 +157,7 @@
       "source_file": "app\\page.tsx",
       "source_location": "L1",
       "id": "app_page_tsx",
-      "community": 66,
+      "community": 72,
       "norm_label": "page.tsx"
     },
     {
@@ -173,7 +173,7 @@
       "label": "formatBRL()",
       "file_type": "code",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L41",
+      "source_location": "L42",
       "id": "clientanalise_formatbrl",
       "community": 16,
       "norm_label": "formatbrl()"
@@ -182,7 +182,7 @@
       "label": "formatBRLD()",
       "file_type": "code",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L43",
+      "source_location": "L44",
       "id": "clientanalise_formatbrld",
       "community": 16,
       "norm_label": "formatbrld()"
@@ -191,7 +191,7 @@
       "label": "formatNum()",
       "file_type": "code",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L45",
+      "source_location": "L46",
       "id": "clientanalise_formatnum",
       "community": 16,
       "norm_label": "formatnum()"
@@ -200,7 +200,7 @@
       "label": "formatPct()",
       "file_type": "code",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L46",
+      "source_location": "L47",
       "id": "clientanalise_formatpct",
       "community": 16,
       "norm_label": "formatpct()"
@@ -209,7 +209,7 @@
       "label": "handleDateShortcut()",
       "file_type": "code",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L166",
+      "source_location": "L167",
       "id": "clientanalise_handledateshortcut",
       "community": 16,
       "norm_label": "handledateshortcut()"
@@ -218,7 +218,7 @@
       "label": "runAnalysis()",
       "file_type": "code",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L174",
+      "source_location": "L175",
       "id": "clientanalise_runanalysis",
       "community": 16,
       "norm_label": "runanalysis()"
@@ -227,7 +227,7 @@
       "label": "toggleAccount()",
       "file_type": "code",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L276",
+      "source_location": "L277",
       "id": "clientanalise_toggleaccount",
       "community": 16,
       "norm_label": "toggleaccount()"
@@ -236,7 +236,7 @@
       "label": "pillClass()",
       "file_type": "code",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L284",
+      "source_location": "L285",
       "id": "clientanalise_pillclass",
       "community": 16,
       "norm_label": "pillclass()"
@@ -310,7 +310,7 @@
       "source_file": "app\\analise\\page.tsx",
       "source_location": "L1",
       "id": "app_analise_page_tsx",
-      "community": 44,
+      "community": 46,
       "norm_label": "page.tsx"
     },
     {
@@ -319,7 +319,7 @@
       "source_file": "app\\analise\\page.tsx",
       "source_location": "L8",
       "id": "page_analisepage",
-      "community": 44,
+      "community": 46,
       "norm_label": "analisepage()"
     },
     {
@@ -355,7 +355,7 @@
       "source_file": "app\\app\\api\\auth\\[...nextauth]\\route.ts",
       "source_location": "L1",
       "id": "app_app_api_auth_nextauth_route_ts",
-      "community": 67,
+      "community": 73,
       "norm_label": "route.ts"
     },
     {
@@ -364,7 +364,7 @@
       "source_file": "app\\api\\campaigns\\_helpers.ts",
       "source_location": "L1",
       "id": "app_api_campaigns_helpers_ts",
-      "community": 34,
+      "community": 35,
       "norm_label": "_helpers.ts"
     },
     {
@@ -373,7 +373,7 @@
       "source_file": "app\\api\\campaigns\\_helpers.ts",
       "source_location": "L14",
       "id": "helpers_loadaccountauth",
-      "community": 34,
+      "community": 35,
       "norm_label": "loadaccountauth()"
     },
     {
@@ -382,7 +382,7 @@
       "source_file": "app\\api\\campaigns\\_helpers.ts",
       "source_location": "L34",
       "id": "helpers_resolveauth",
-      "community": 34,
+      "community": 35,
       "norm_label": "resolveauth()"
     },
     {
@@ -677,7 +677,7 @@
       "label": "aggregateByKey()",
       "file_type": "code",
       "source_file": "app\\api\\history\\route.ts",
-      "source_location": "L22",
+      "source_location": "L23",
       "id": "route_aggregatebykey",
       "community": 0,
       "norm_label": "aggregatebykey()"
@@ -695,7 +695,7 @@
       "label": "combineDailyRtAd()",
       "file_type": "code",
       "source_file": "app\\api\\import\\route.ts",
-      "source_location": "L12",
+      "source_location": "L13",
       "id": "route_combinedailyrtad",
       "community": 0,
       "norm_label": "combinedailyrtad()"
@@ -704,7 +704,7 @@
       "label": "combineDailyRtCamp()",
       "file_type": "code",
       "source_file": "app\\api\\import\\route.ts",
-      "source_location": "L21",
+      "source_location": "L22",
       "id": "route_combinedailyrtcamp",
       "community": 0,
       "norm_label": "combinedailyrtcamp()"
@@ -713,7 +713,7 @@
       "label": "combineDailyRtCampById()",
       "file_type": "code",
       "source_file": "app\\api\\import\\route.ts",
-      "source_location": "L40",
+      "source_location": "L43",
       "id": "route_combinedailyrtcampbyid",
       "community": 0,
       "norm_label": "combinedailyrtcampbyid()"
@@ -958,7 +958,7 @@
       "source_file": "app\\app\\api-config\\page.tsx",
       "source_location": "L1",
       "id": "app_app_api_config_page_tsx",
-      "community": 45,
+      "community": 47,
       "norm_label": "page.tsx"
     },
     {
@@ -967,7 +967,7 @@
       "source_file": "app\\app\\api-config\\page.tsx",
       "source_location": "L4",
       "id": "page_apiconfigpage",
-      "community": 45,
+      "community": 47,
       "norm_label": "apiconfigpage()"
     },
     {
@@ -1282,7 +1282,7 @@
       "source_file": "app\\campaigns\\page.tsx",
       "source_location": "L1",
       "id": "app_campaigns_page_tsx",
-      "community": 46,
+      "community": 48,
       "norm_label": "page.tsx"
     },
     {
@@ -1291,7 +1291,7 @@
       "source_file": "app\\campaigns\\page.tsx",
       "source_location": "L19",
       "id": "page_campaignspage",
-      "community": 46,
+      "community": 48,
       "norm_label": "campaignspage()"
     },
     {
@@ -1471,7 +1471,7 @@
       "source_file": "app\\catalogo\\page.tsx",
       "source_location": "L1",
       "id": "app_catalogo_page_tsx",
-      "community": 47,
+      "community": 49,
       "norm_label": "page.tsx"
     },
     {
@@ -1480,7 +1480,7 @@
       "source_file": "app\\catalogo\\page.tsx",
       "source_location": "L7",
       "id": "page_catalogopage",
-      "community": 47,
+      "community": 49,
       "norm_label": "catalogopage()"
     },
     {
@@ -1489,7 +1489,7 @@
       "source_file": "app\\app\\components\\DopScaleLayout.tsx",
       "source_location": "L1",
       "id": "app_app_components_dopscalelayout_tsx",
-      "community": 68,
+      "community": 74,
       "norm_label": "dopscalelayout.tsx"
     },
     {
@@ -1498,7 +1498,7 @@
       "source_file": "app\\components\\OfferSelector.tsx",
       "source_location": "L1",
       "id": "app_components_offerselector_tsx",
-      "community": 48,
+      "community": 50,
       "norm_label": "offerselector.tsx"
     },
     {
@@ -1507,7 +1507,7 @@
       "source_file": "app\\components\\OfferSelector.tsx",
       "source_location": "L10",
       "id": "offerselector_offerselector",
-      "community": 48,
+      "community": 50,
       "norm_label": "offerselector()"
     },
     {
@@ -1516,7 +1516,7 @@
       "source_file": "app\\app\\components\\SessionProvider.tsx",
       "source_location": "L1",
       "id": "app_app_components_sessionprovider_tsx",
-      "community": 49,
+      "community": 51,
       "norm_label": "sessionprovider.tsx"
     },
     {
@@ -1525,8 +1525,53 @@
       "source_file": "app\\app\\components\\SessionProvider.tsx",
       "source_location": "L5",
       "id": "sessionprovider_sessionprovider",
-      "community": 49,
+      "community": 51,
       "norm_label": "sessionprovider()"
+    },
+    {
+      "label": "ThemeProvider.tsx",
+      "file_type": "code",
+      "source_file": "app\\components\\ThemeProvider.tsx",
+      "source_location": "L1",
+      "id": "app_components_themeprovider_tsx",
+      "community": 36,
+      "norm_label": "themeprovider.tsx"
+    },
+    {
+      "label": "systemPrefersDark()",
+      "file_type": "code",
+      "source_file": "app\\components\\ThemeProvider.tsx",
+      "source_location": "L21",
+      "id": "themeprovider_systemprefersdark",
+      "community": 36,
+      "norm_label": "systemprefersdark()"
+    },
+    {
+      "label": "onChange()",
+      "file_type": "code",
+      "source_file": "app\\components\\ThemeProvider.tsx",
+      "source_location": "L46",
+      "id": "themeprovider_onchange",
+      "community": 36,
+      "norm_label": "onchange()"
+    },
+    {
+      "label": "ThemeToggle.tsx",
+      "file_type": "code",
+      "source_file": "app\\components\\ThemeToggle.tsx",
+      "source_location": "L1",
+      "id": "app_components_themetoggle_tsx",
+      "community": 52,
+      "norm_label": "themetoggle.tsx"
+    },
+    {
+      "label": "ThemeToggle()",
+      "file_type": "code",
+      "source_file": "app\\components\\ThemeToggle.tsx",
+      "source_location": "L14",
+      "id": "themetoggle_themetoggle",
+      "community": 52,
+      "norm_label": "themetoggle()"
     },
     {
       "label": "V2MediaLabLayout.tsx",
@@ -1534,7 +1579,7 @@
       "source_file": "app\\components\\V2MediaLabLayout.tsx",
       "source_location": "L1",
       "id": "app_components_v2medialablayout_tsx",
-      "community": 69,
+      "community": 75,
       "norm_label": "v2medialablayout.tsx"
     },
     {
@@ -1543,7 +1588,7 @@
       "source_file": "app\\data-studio\\page.tsx",
       "source_location": "L1",
       "id": "app_data_studio_page_tsx",
-      "community": 50,
+      "community": 53,
       "norm_label": "page.tsx"
     },
     {
@@ -1552,7 +1597,7 @@
       "source_file": "app\\data-studio\\page.tsx",
       "source_location": "L5",
       "id": "page_datastudiopage",
-      "community": 50,
+      "community": 53,
       "norm_label": "datastudiopage()"
     },
     {
@@ -1658,7 +1703,7 @@
       "label": "handleMouseEnterRow()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L67",
+      "source_location": "L70",
       "id": "clientimport_handlemouseenterrow",
       "community": 7,
       "norm_label": "handlemouseenterrow()"
@@ -1667,7 +1712,7 @@
       "label": "handleMouseLeaveRow()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L79",
+      "source_location": "L82",
       "id": "clientimport_handlemouseleaverow",
       "community": 7,
       "norm_label": "handlemouseleaverow()"
@@ -1676,7 +1721,7 @@
       "label": "cancelMouseLeave()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L86",
+      "source_location": "L89",
       "id": "clientimport_cancelmouseleave",
       "community": 7,
       "norm_label": "cancelmouseleave()"
@@ -1685,7 +1730,7 @@
       "label": "handleDateShortcut()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L187",
+      "source_location": "L190",
       "id": "clientimport_handledateshortcut",
       "community": 7,
       "norm_label": "handledateshortcut()"
@@ -1694,7 +1739,7 @@
       "label": "handleCustomDateChange()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L206",
+      "source_location": "L209",
       "id": "clientimport_handlecustomdatechange",
       "community": 7,
       "norm_label": "handlecustomdatechange()"
@@ -1703,7 +1748,7 @@
       "label": "handleImport()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L212",
+      "source_location": "L215",
       "id": "clientimport_handleimport",
       "community": 7,
       "norm_label": "handleimport()"
@@ -1712,7 +1757,7 @@
       "label": "handleSyncToday()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L248",
+      "source_location": "L251",
       "id": "clientimport_handlesynctoday",
       "community": 7,
       "norm_label": "handlesynctoday()"
@@ -1721,7 +1766,7 @@
       "label": "toggleRow()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L317",
+      "source_location": "L320",
       "id": "clientimport_togglerow",
       "community": 7,
       "norm_label": "togglerow()"
@@ -1730,7 +1775,7 @@
       "label": "formatCurrency()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L325",
+      "source_location": "L328",
       "id": "clientimport_formatcurrency",
       "community": 7,
       "norm_label": "formatcurrency()"
@@ -1739,7 +1784,7 @@
       "label": "formatPercent()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L326",
+      "source_location": "L329",
       "id": "clientimport_formatpercent",
       "community": 7,
       "norm_label": "formatpercent()"
@@ -1748,7 +1793,7 @@
       "label": "formatNumber()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L327",
+      "source_location": "L330",
       "id": "clientimport_formatnumber",
       "community": 7,
       "norm_label": "formatnumber()"
@@ -1757,7 +1802,7 @@
       "label": "getPillClass()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L329",
+      "source_location": "L332",
       "id": "clientimport_getpillclass",
       "community": 7,
       "norm_label": "getpillclass()"
@@ -1766,7 +1811,7 @@
       "label": "filterAndSortGroups()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L337",
+      "source_location": "L340",
       "id": "clientimport_filterandsortgroups",
       "community": 7,
       "norm_label": "filterandsortgroups()"
@@ -1775,7 +1820,7 @@
       "label": "getAccountGroups()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L362",
+      "source_location": "L365",
       "id": "clientimport_getaccountgroups",
       "community": 7,
       "norm_label": "getaccountgroups()"
@@ -1784,7 +1829,7 @@
       "label": "requestSort()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L395",
+      "source_location": "L398",
       "id": "clientimport_requestsort",
       "community": 7,
       "norm_label": "requestsort()"
@@ -1793,7 +1838,7 @@
       "label": "TableHeader()",
       "file_type": "code",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L403",
+      "source_location": "L406",
       "id": "clientimport_tableheader",
       "community": 7,
       "norm_label": "tableheader()"
@@ -1804,7 +1849,7 @@
       "source_file": "app\\import\\hoverCache.ts",
       "source_location": "L1",
       "id": "app_import_hovercache_ts",
-      "community": 35,
+      "community": 37,
       "norm_label": "hovercache.ts"
     },
     {
@@ -1813,7 +1858,7 @@
       "source_file": "app\\import\\hoverCache.ts",
       "source_location": "L5",
       "id": "hovercache_cachekey",
-      "community": 35,
+      "community": 37,
       "norm_label": "cachekey()"
     },
     {
@@ -1822,7 +1867,7 @@
       "source_file": "app\\import\\hoverCache.ts",
       "source_location": "L13",
       "id": "hovercache_preloadhistorybatch",
-      "community": 35,
+      "community": 37,
       "norm_label": "preloadhistorybatch()"
     },
     {
@@ -1831,7 +1876,7 @@
       "source_file": "app\\import\\page.tsx",
       "source_location": "L1",
       "id": "app_import_page_tsx",
-      "community": 51,
+      "community": 54,
       "norm_label": "page.tsx"
     },
     {
@@ -1840,7 +1885,7 @@
       "source_file": "app\\import\\page.tsx",
       "source_location": "L8",
       "id": "page_importpage",
-      "community": 51,
+      "community": 54,
       "norm_label": "importpage()"
     },
     {
@@ -1856,7 +1901,7 @@
       "label": "handleMouseEnterRow()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L61",
+      "source_location": "L64",
       "id": "clientimportv2_handlemouseenterrow",
       "community": 8,
       "norm_label": "handlemouseenterrow()"
@@ -1865,7 +1910,7 @@
       "label": "handleMouseLeaveRow()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L71",
+      "source_location": "L74",
       "id": "clientimportv2_handlemouseleaverow",
       "community": 8,
       "norm_label": "handlemouseleaverow()"
@@ -1874,7 +1919,7 @@
       "label": "cancelMouseLeave()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L77",
+      "source_location": "L80",
       "id": "clientimportv2_cancelmouseleave",
       "community": 8,
       "norm_label": "cancelmouseleave()"
@@ -1883,7 +1928,7 @@
       "label": "handleDateShortcut()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L177",
+      "source_location": "L180",
       "id": "clientimportv2_handledateshortcut",
       "community": 8,
       "norm_label": "handledateshortcut()"
@@ -1892,7 +1937,7 @@
       "label": "handleCustomDateChange()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L196",
+      "source_location": "L199",
       "id": "clientimportv2_handlecustomdatechange",
       "community": 8,
       "norm_label": "handlecustomdatechange()"
@@ -1901,7 +1946,7 @@
       "label": "handleImport()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L202",
+      "source_location": "L205",
       "id": "clientimportv2_handleimport",
       "community": 8,
       "norm_label": "handleimport()"
@@ -1910,7 +1955,7 @@
       "label": "handleSyncToday()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L237",
+      "source_location": "L240",
       "id": "clientimportv2_handlesynctoday",
       "community": 8,
       "norm_label": "handlesynctoday()"
@@ -1919,7 +1964,7 @@
       "label": "formatCurrency()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L290",
+      "source_location": "L293",
       "id": "clientimportv2_formatcurrency",
       "community": 8,
       "norm_label": "formatcurrency()"
@@ -1928,7 +1973,7 @@
       "label": "formatPercent()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L291",
+      "source_location": "L294",
       "id": "clientimportv2_formatpercent",
       "community": 8,
       "norm_label": "formatpercent()"
@@ -1937,7 +1982,7 @@
       "label": "formatNumber()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L292",
+      "source_location": "L295",
       "id": "clientimportv2_formatnumber",
       "community": 8,
       "norm_label": "formatnumber()"
@@ -1946,7 +1991,7 @@
       "label": "getPillClass()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L294",
+      "source_location": "L297",
       "id": "clientimportv2_getpillclass",
       "community": 8,
       "norm_label": "getpillclass()"
@@ -1955,7 +2000,7 @@
       "label": "filterAndSortCampaigns()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L301",
+      "source_location": "L304",
       "id": "clientimportv2_filterandsortcampaigns",
       "community": 8,
       "norm_label": "filterandsortcampaigns()"
@@ -1964,7 +2009,7 @@
       "label": "requestSort()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L321",
+      "source_location": "L324",
       "id": "clientimportv2_requestsort",
       "community": 8,
       "norm_label": "requestsort()"
@@ -1973,7 +2018,7 @@
       "label": "TableHeader()",
       "file_type": "code",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L329",
+      "source_location": "L332",
       "id": "clientimportv2_tableheader",
       "community": 8,
       "norm_label": "tableheader()"
@@ -1984,7 +2029,7 @@
       "source_file": "app\\importv2\\page.tsx",
       "source_location": "L1",
       "id": "app_importv2_page_tsx",
-      "community": 52,
+      "community": 55,
       "norm_label": "page.tsx"
     },
     {
@@ -1993,8 +2038,80 @@
       "source_file": "app\\importv2\\page.tsx",
       "source_location": "L8",
       "id": "page_importv2page",
-      "community": 52,
+      "community": 55,
       "norm_label": "importv2page()"
+    },
+    {
+      "label": "accountStatus.tsx",
+      "file_type": "code",
+      "source_file": "app\\lib\\accountStatus.tsx",
+      "source_location": "L1",
+      "id": "app_lib_accountstatus_tsx",
+      "community": 56,
+      "norm_label": "accountstatus.tsx"
+    },
+    {
+      "label": "AccountStatusBadge()",
+      "file_type": "code",
+      "source_file": "app\\lib\\accountStatus.tsx",
+      "source_location": "L20",
+      "id": "accountstatus_accountstatusbadge",
+      "community": 56,
+      "norm_label": "accountstatusbadge()"
+    },
+    {
+      "label": "reactSelectStyles.ts",
+      "file_type": "code",
+      "source_file": "app\\lib\\reactSelectStyles.ts",
+      "source_location": "L1",
+      "id": "app_lib_reactselectstyles_ts",
+      "community": 76,
+      "norm_label": "reactselectstyles.ts"
+    },
+    {
+      "label": "theme.test.ts",
+      "file_type": "code",
+      "source_file": "app\\lib\\theme.test.ts",
+      "source_location": "L1",
+      "id": "app_lib_theme_test_ts",
+      "community": 77,
+      "norm_label": "theme.test.ts"
+    },
+    {
+      "label": "theme.ts",
+      "file_type": "code",
+      "source_file": "app\\lib\\theme.ts",
+      "source_location": "L1",
+      "id": "app_lib_theme_ts",
+      "community": 32,
+      "norm_label": "theme.ts"
+    },
+    {
+      "label": "normalizeTheme()",
+      "file_type": "code",
+      "source_file": "app\\lib\\theme.ts",
+      "source_location": "L7",
+      "id": "theme_normalizetheme",
+      "community": 32,
+      "norm_label": "normalizetheme()"
+    },
+    {
+      "label": "resolveTheme()",
+      "file_type": "code",
+      "source_file": "app\\lib\\theme.ts",
+      "source_location": "L14",
+      "id": "theme_resolvetheme",
+      "community": 32,
+      "norm_label": "resolvetheme()"
+    },
+    {
+      "label": "applyTheme()",
+      "file_type": "code",
+      "source_file": "app\\lib\\theme.ts",
+      "source_location": "L20",
+      "id": "theme_applytheme",
+      "community": 32,
+      "norm_label": "applytheme()"
     },
     {
       "label": "page.tsx",
@@ -2002,7 +2119,7 @@
       "source_file": "app\\login\\page.tsx",
       "source_location": "L1",
       "id": "app_login_page_tsx",
-      "community": 70,
+      "community": 78,
       "norm_label": "page.tsx"
     },
     {
@@ -2119,7 +2236,7 @@
       "source_file": "app\\ofertas\\page.tsx",
       "source_location": "L1",
       "id": "app_ofertas_page_tsx",
-      "community": 53,
+      "community": 57,
       "norm_label": "page.tsx"
     },
     {
@@ -2128,7 +2245,7 @@
       "source_file": "app\\ofertas\\page.tsx",
       "source_location": "L8",
       "id": "page_ofertaspage",
-      "community": 53,
+      "community": 57,
       "norm_label": "ofertaspage()"
     },
     {
@@ -2209,7 +2326,7 @@
       "source_file": "app\\overview\\page.tsx",
       "source_location": "L1",
       "id": "app_overview_page_tsx",
-      "community": 54,
+      "community": 58,
       "norm_label": "page.tsx"
     },
     {
@@ -2218,7 +2335,7 @@
       "source_file": "app\\overview\\page.tsx",
       "source_location": "L8",
       "id": "page_overviewpage",
-      "community": 54,
+      "community": 58,
       "norm_label": "overviewpage()"
     },
     {
@@ -2308,7 +2425,7 @@
       "source_file": "app\\paginas\\page.tsx",
       "source_location": "L1",
       "id": "app_paginas_page_tsx",
-      "community": 36,
+      "community": 38,
       "norm_label": "page.tsx"
     },
     {
@@ -2317,7 +2434,7 @@
       "source_file": "app\\paginas\\page.tsx",
       "source_location": "L8",
       "id": "page_ensuretable",
-      "community": 36,
+      "community": 38,
       "norm_label": "ensuretable()"
     },
     {
@@ -2326,7 +2443,7 @@
       "source_file": "app\\paginas\\page.tsx",
       "source_location": "L21",
       "id": "page_paginaspage",
-      "community": 36,
+      "community": 38,
       "norm_label": "paginaspage()"
     },
     {
@@ -2335,7 +2452,7 @@
       "source_file": "app\\settings\\actions.ts",
       "source_location": "L1",
       "id": "app_settings_actions_ts",
-      "community": 37,
+      "community": 39,
       "norm_label": "actions.ts"
     },
     {
@@ -2344,7 +2461,7 @@
       "source_file": "app\\settings\\actions.ts",
       "source_location": "L7",
       "id": "actions_toggleaccountblacklist",
-      "community": 37,
+      "community": 39,
       "norm_label": "toggleaccountblacklist()"
     },
     {
@@ -2353,7 +2470,7 @@
       "source_file": "app\\settings\\actions.ts",
       "source_location": "L21",
       "id": "actions_togglebmblacklist",
-      "community": 37,
+      "community": 39,
       "norm_label": "togglebmblacklist()"
     },
     {
@@ -2362,25 +2479,25 @@
       "source_file": "app\\settings\\page.tsx",
       "source_location": "L1",
       "id": "app_settings_page_tsx",
-      "community": 38,
+      "community": 40,
       "norm_label": "page.tsx"
     },
     {
       "label": "ensureBlacklistSchema()",
       "file_type": "code",
       "source_file": "app\\settings\\page.tsx",
-      "source_location": "L8",
+      "source_location": "L10",
       "id": "page_ensureblacklistschema",
-      "community": 38,
+      "community": 40,
       "norm_label": "ensureblacklistschema()"
     },
     {
       "label": "SettingsPage()",
       "file_type": "code",
       "source_file": "app\\settings\\page.tsx",
-      "source_location": "L21",
+      "source_location": "L23",
       "id": "page_settingspage",
-      "community": 38,
+      "community": 40,
       "norm_label": "settingspage()"
     },
     {
@@ -2767,25 +2884,25 @@
       "source_file": "app\\status-contas\\page.tsx",
       "source_location": "L1",
       "id": "app_status_contas_page_tsx",
-      "community": 39,
+      "community": 41,
       "norm_label": "page.tsx"
     },
     {
       "label": "ensureColumns()",
       "file_type": "code",
       "source_file": "app\\status-contas\\page.tsx",
-      "source_location": "L6",
+      "source_location": "L8",
       "id": "page_ensurecolumns",
-      "community": 39,
+      "community": 41,
       "norm_label": "ensurecolumns()"
     },
     {
       "label": "StatusContasPage()",
       "file_type": "code",
       "source_file": "app\\status-contas\\page.tsx",
-      "source_location": "L50",
+      "source_location": "L52",
       "id": "page_statuscontaspage",
-      "community": 39,
+      "community": 41,
       "norm_label": "statuscontaspage()"
     },
     {
@@ -2884,7 +3001,7 @@
       "source_file": "app\\users\\page.tsx",
       "source_location": "L1",
       "id": "app_users_page_tsx",
-      "community": 55,
+      "community": 59,
       "norm_label": "page.tsx"
     },
     {
@@ -2893,7 +3010,7 @@
       "source_file": "app\\users\\page.tsx",
       "source_location": "L10",
       "id": "page_userspage",
-      "community": 55,
+      "community": 59,
       "norm_label": "userspage()"
     },
     {
@@ -2902,7 +3019,7 @@
       "source_file": "app\\users\\UsersClient.tsx",
       "source_location": "L1",
       "id": "app_users_usersclient_tsx",
-      "community": 56,
+      "community": 60,
       "norm_label": "usersclient.tsx"
     },
     {
@@ -2911,7 +3028,7 @@
       "source_file": "app\\users\\UsersClient.tsx",
       "source_location": "L49",
       "id": "usersclient_run",
-      "community": 56,
+      "community": 60,
       "norm_label": "run()"
     },
     {
@@ -2920,7 +3037,7 @@
       "source_file": "lib\\access-server.ts",
       "source_location": "L1",
       "id": "lib_access_server_ts",
-      "community": 57,
+      "community": 61,
       "norm_label": "access-server.ts"
     },
     {
@@ -2929,7 +3046,7 @@
       "source_file": "lib\\access-server.ts",
       "source_location": "L5",
       "id": "access_server_loaduseraccess",
-      "community": 57,
+      "community": 61,
       "norm_label": "loaduseraccess()"
     },
     {
@@ -3037,7 +3154,7 @@
       "source_file": "app\\lib\\db.ts",
       "source_location": "L1",
       "id": "app_lib_db_ts",
-      "community": 71,
+      "community": 79,
       "norm_label": "db.ts"
     },
     {
@@ -3460,7 +3577,7 @@
       "source_file": "lib\\meta-pages-pacing.test.ts",
       "source_location": "L1",
       "id": "lib_meta_pages_pacing_test_ts",
-      "community": 58,
+      "community": 62,
       "norm_label": "meta-pages-pacing.test.ts"
     },
     {
@@ -3469,7 +3586,7 @@
       "source_file": "lib\\meta-pages-pacing.test.ts",
       "source_location": "L21",
       "id": "meta_pages_pacing_test_reswith",
-      "community": 58,
+      "community": 62,
       "norm_label": "reswith()"
     },
     {
@@ -3559,7 +3676,7 @@
       "source_file": "lib\\meta-pages.test.ts",
       "source_location": "L1",
       "id": "lib_meta_pages_test_ts",
-      "community": 72,
+      "community": 80,
       "norm_label": "meta-pages.test.ts"
     },
     {
@@ -3964,7 +4081,7 @@
       "source_file": "lib\\meta.ts",
       "source_location": "L1",
       "id": "lib_meta_ts",
-      "community": 32,
+      "community": 33,
       "norm_label": "meta.ts"
     },
     {
@@ -3973,7 +4090,7 @@
       "source_file": "lib\\meta.ts",
       "source_location": "L5",
       "id": "meta_resolvemetatoken",
-      "community": 32,
+      "community": 33,
       "norm_label": "resolvemetatoken()"
     },
     {
@@ -3982,7 +4099,7 @@
       "source_file": "lib\\meta.ts",
       "source_location": "L24",
       "id": "meta_fetchmetametrics",
-      "community": 32,
+      "community": 33,
       "norm_label": "fetchmetametrics()"
     },
     {
@@ -3991,7 +4108,7 @@
       "source_file": "lib\\meta.ts",
       "source_location": "L90",
       "id": "meta_fetchmetametricsperday",
-      "community": 32,
+      "community": 33,
       "norm_label": "fetchmetametricsperday()"
     },
     {
@@ -4000,7 +4117,7 @@
       "source_file": "lib\\offer-links.test.ts",
       "source_location": "L1",
       "id": "lib_offer_links_test_ts",
-      "community": 73,
+      "community": 81,
       "norm_label": "offer-links.test.ts"
     },
     {
@@ -4054,7 +4171,7 @@
       "source_file": "lib\\offer-scope.test.ts",
       "source_location": "L1",
       "id": "lib_offer_scope_test_ts",
-      "community": 74,
+      "community": 82,
       "norm_label": "offer-scope.test.ts"
     },
     {
@@ -4063,7 +4180,7 @@
       "source_file": "lib\\offer-scope.ts",
       "source_location": "L1",
       "id": "lib_offer_scope_ts",
-      "community": 59,
+      "community": 63,
       "norm_label": "offer-scope.ts"
     },
     {
@@ -4072,7 +4189,7 @@
       "source_file": "lib\\offer-scope.ts",
       "source_location": "L5",
       "id": "offer_scope_parseofertaparam",
-      "community": 59,
+      "community": 63,
       "norm_label": "parseofertaparam()"
     },
     {
@@ -4081,7 +4198,7 @@
       "source_file": "lib\\redtrack-campaigns.ts",
       "source_location": "L1",
       "id": "lib_redtrack_campaigns_ts",
-      "community": 60,
+      "community": 64,
       "norm_label": "redtrack-campaigns.ts"
     },
     {
@@ -4090,8 +4207,44 @@
       "source_file": "lib\\redtrack-campaigns.ts",
       "source_location": "L4",
       "id": "redtrack_campaigns_fetchandsyncredtrackcampaigns",
-      "community": 60,
+      "community": 64,
       "norm_label": "fetchandsyncredtrackcampaigns()"
+    },
+    {
+      "label": "redtrack-cost.test.ts",
+      "file_type": "code",
+      "source_file": "lib\\redtrack-cost.test.ts",
+      "source_location": "L1",
+      "id": "lib_redtrack_cost_test_ts",
+      "community": 65,
+      "norm_label": "redtrack-cost.test.ts"
+    },
+    {
+      "label": "agg()",
+      "file_type": "code",
+      "source_file": "lib\\redtrack-cost.test.ts",
+      "source_location": "L4",
+      "id": "redtrack_cost_test_agg",
+      "community": 65,
+      "norm_label": "agg()"
+    },
+    {
+      "label": "redtrack-cost.ts",
+      "file_type": "code",
+      "source_file": "lib\\redtrack-cost.ts",
+      "source_location": "L1",
+      "id": "lib_redtrack_cost_ts",
+      "community": 66,
+      "norm_label": "redtrack-cost.ts"
+    },
+    {
+      "label": "matchRtCampaignCost()",
+      "file_type": "code",
+      "source_file": "lib\\redtrack-cost.ts",
+      "source_location": "L25",
+      "id": "redtrack_cost_matchrtcampaigncost",
+      "community": 66,
+      "norm_label": "matchrtcampaigncost()"
     },
     {
       "label": "redtrack.ts",
@@ -4099,7 +4252,7 @@
       "source_file": "lib\\redtrack.ts",
       "source_location": "L1",
       "id": "lib_redtrack_ts",
-      "community": 33,
+      "community": 34,
       "norm_label": "redtrack.ts"
     },
     {
@@ -4108,7 +4261,7 @@
       "source_file": "lib\\redtrack.ts",
       "source_location": "L21",
       "id": "redtrack_fetchpaginatedredtrack",
-      "community": 33,
+      "community": 34,
       "norm_label": "fetchpaginatedredtrack()"
     },
     {
@@ -4117,7 +4270,7 @@
       "source_file": "lib\\redtrack.ts",
       "source_location": "L62",
       "id": "redtrack_fetchredtrackmetrics",
-      "community": 33,
+      "community": 34,
       "norm_label": "fetchredtrackmetrics()"
     },
     {
@@ -4126,7 +4279,7 @@
       "source_file": "lib\\redtrack.ts",
       "source_location": "L121",
       "id": "redtrack_fetchredtrackbyrtad",
-      "community": 33,
+      "community": 34,
       "norm_label": "fetchredtrackbyrtad()"
     },
     {
@@ -4135,7 +4288,7 @@
       "source_file": "lib\\stale-action.ts",
       "source_location": "L1",
       "id": "lib_stale_action_ts",
-      "community": 40,
+      "community": 42,
       "norm_label": "stale-action.ts"
     },
     {
@@ -4144,7 +4297,7 @@
       "source_file": "lib\\stale-action.ts",
       "source_location": "L12",
       "id": "stale_action_isstaleserveractionerror",
-      "community": 40,
+      "community": 42,
       "norm_label": "isstaleserveractionerror()"
     },
     {
@@ -4153,7 +4306,7 @@
       "source_file": "lib\\stale-action.ts",
       "source_location": "L17",
       "id": "stale_action_handlestaleserveraction",
-      "community": 40,
+      "community": 42,
       "norm_label": "handlestaleserveraction()"
     },
     {
@@ -4162,7 +4315,7 @@
       "source_file": "app\\lib\\supabase.ts",
       "source_location": "L1",
       "id": "app_lib_supabase_ts",
-      "community": 75,
+      "community": 83,
       "norm_label": "supabase.ts"
     },
     {
@@ -4252,7 +4405,7 @@
       "source_file": "app\\lib\\types.ts",
       "source_location": "L1",
       "id": "app_lib_types_ts",
-      "community": 76,
+      "community": 84,
       "norm_label": "types.ts"
     },
     {
@@ -4414,7 +4567,7 @@
       "source_file": "types\\next-auth.d.ts",
       "source_location": "L1",
       "id": "types_next_auth_d_ts",
-      "community": 77,
+      "community": 85,
       "norm_label": "next-auth.d.ts"
     },
     {
@@ -5070,12 +5223,12 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "app\\app\\layout.tsx",
-      "source_location": "L21",
+      "source_file": "app\\layout.tsx",
+      "source_location": "L23",
       "weight": 1.0,
-      "_src": "app_app_layout_tsx",
+      "_src": "app_layout_tsx",
       "_tgt": "layout_rootlayout",
-      "source": "app_app_layout_tsx",
+      "source": "app_layout_tsx",
       "target": "layout_rootlayout",
       "confidence_score": 1.0
     },
@@ -5083,7 +5236,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L41",
+      "source_location": "L42",
       "weight": 1.0,
       "_src": "app_analise_clientanalise_tsx",
       "_tgt": "clientanalise_formatbrl",
@@ -5095,7 +5248,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L43",
+      "source_location": "L44",
       "weight": 1.0,
       "_src": "app_analise_clientanalise_tsx",
       "_tgt": "clientanalise_formatbrld",
@@ -5107,7 +5260,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L45",
+      "source_location": "L46",
       "weight": 1.0,
       "_src": "app_analise_clientanalise_tsx",
       "_tgt": "clientanalise_formatnum",
@@ -5119,7 +5272,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L46",
+      "source_location": "L47",
       "weight": 1.0,
       "_src": "app_analise_clientanalise_tsx",
       "_tgt": "clientanalise_formatpct",
@@ -5131,7 +5284,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L166",
+      "source_location": "L167",
       "weight": 1.0,
       "_src": "app_analise_clientanalise_tsx",
       "_tgt": "clientanalise_handledateshortcut",
@@ -5143,7 +5296,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L174",
+      "source_location": "L175",
       "weight": 1.0,
       "_src": "app_analise_clientanalise_tsx",
       "_tgt": "clientanalise_runanalysis",
@@ -5155,7 +5308,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L276",
+      "source_location": "L277",
       "weight": 1.0,
       "_src": "app_analise_clientanalise_tsx",
       "_tgt": "clientanalise_toggleaccount",
@@ -5167,7 +5320,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\analise\\ClientAnalise.tsx",
-      "source_location": "L284",
+      "source_location": "L285",
       "weight": 1.0,
       "_src": "app_analise_clientanalise_tsx",
       "_tgt": "clientanalise_pillclass",
@@ -5851,7 +6004,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\history\\route.ts",
-      "source_location": "L47",
+      "source_location": "L49",
       "weight": 1.0,
       "_src": "app_api_history_route_ts",
       "_tgt": "route_post",
@@ -5863,7 +6016,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\history\\route.ts",
-      "source_location": "L137",
+      "source_location": "L136",
       "weight": 1.0,
       "_src": "route_post",
       "_tgt": "route_aggregatebykey",
@@ -5875,7 +6028,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\import\\route.ts",
-      "source_location": "L62",
+      "source_location": "L66",
       "weight": 1.0,
       "_src": "app_api_import_route_ts",
       "_tgt": "route_post",
@@ -5887,7 +6040,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\import\\route.ts",
-      "source_location": "L161",
+      "source_location": "L165",
       "weight": 1.0,
       "_src": "route_post",
       "_tgt": "route_combinedailyrtad",
@@ -5899,7 +6052,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\import\\route.ts",
-      "source_location": "L162",
+      "source_location": "L166",
       "weight": 1.0,
       "_src": "route_post",
       "_tgt": "route_combinedailyrtcamp",
@@ -5911,7 +6064,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\import\\route.ts",
-      "source_location": "L163",
+      "source_location": "L167",
       "weight": 1.0,
       "_src": "route_post",
       "_tgt": "route_combinedailyrtcampbyid",
@@ -6271,7 +6424,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\history\\route.ts",
-      "source_location": "L22",
+      "source_location": "L23",
       "weight": 1.0,
       "_src": "app_api_history_route_ts",
       "_tgt": "route_aggregatebykey",
@@ -6283,7 +6436,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\import\\route.ts",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0,
       "_src": "app_api_import_route_ts",
       "_tgt": "route_combinedailyrtad",
@@ -6295,7 +6448,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\import\\route.ts",
-      "source_location": "L21",
+      "source_location": "L22",
       "weight": 1.0,
       "_src": "app_api_import_route_ts",
       "_tgt": "route_combinedailyrtcamp",
@@ -6307,7 +6460,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\import\\route.ts",
-      "source_location": "L40",
+      "source_location": "L43",
       "weight": 1.0,
       "_src": "app_api_import_route_ts",
       "_tgt": "route_combinedailyrtcampbyid",
@@ -7266,6 +7419,42 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "app\\components\\ThemeProvider.tsx",
+      "source_location": "L21",
+      "weight": 1.0,
+      "_src": "app_components_themeprovider_tsx",
+      "_tgt": "themeprovider_systemprefersdark",
+      "source": "app_components_themeprovider_tsx",
+      "target": "themeprovider_systemprefersdark",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app\\components\\ThemeProvider.tsx",
+      "source_location": "L46",
+      "weight": 1.0,
+      "_src": "app_components_themeprovider_tsx",
+      "_tgt": "themeprovider_onchange",
+      "source": "app_components_themeprovider_tsx",
+      "target": "themeprovider_onchange",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app\\components\\ThemeToggle.tsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_src": "app_components_themetoggle_tsx",
+      "_tgt": "themetoggle_themetoggle",
+      "source": "app_components_themetoggle_tsx",
+      "target": "themetoggle_themetoggle",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "app\\data-studio\\page.tsx",
       "source_location": "L5",
       "weight": 1.0,
@@ -7399,7 +7588,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L67",
+      "source_location": "L70",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handlemouseenterrow",
@@ -7411,7 +7600,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L79",
+      "source_location": "L82",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handlemouseleaverow",
@@ -7423,7 +7612,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L86",
+      "source_location": "L89",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_cancelmouseleave",
@@ -7435,7 +7624,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L187",
+      "source_location": "L190",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handledateshortcut",
@@ -7447,7 +7636,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L206",
+      "source_location": "L209",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handlecustomdatechange",
@@ -7459,7 +7648,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L212",
+      "source_location": "L215",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handleimport",
@@ -7471,7 +7660,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L248",
+      "source_location": "L251",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_handlesynctoday",
@@ -7483,7 +7672,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L317",
+      "source_location": "L320",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_togglerow",
@@ -7495,7 +7684,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L325",
+      "source_location": "L328",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_formatcurrency",
@@ -7507,7 +7696,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L326",
+      "source_location": "L329",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_formatpercent",
@@ -7519,7 +7708,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L327",
+      "source_location": "L330",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_formatnumber",
@@ -7531,7 +7720,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L329",
+      "source_location": "L332",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_getpillclass",
@@ -7543,7 +7732,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L337",
+      "source_location": "L340",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_filterandsortgroups",
@@ -7555,7 +7744,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L362",
+      "source_location": "L365",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_getaccountgroups",
@@ -7567,7 +7756,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L395",
+      "source_location": "L398",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_requestsort",
@@ -7579,7 +7768,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L403",
+      "source_location": "L406",
       "weight": 1.0,
       "_src": "app_import_clientimport_tsx",
       "_tgt": "clientimport_tableheader",
@@ -7591,7 +7780,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\import\\ClientImport.tsx",
-      "source_location": "L265",
+      "source_location": "L268",
       "weight": 1.0,
       "_src": "clientimport_handlesynctoday",
       "_tgt": "clientimport_handleimport",
@@ -7639,7 +7828,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L61",
+      "source_location": "L64",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handlemouseenterrow",
@@ -7651,7 +7840,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L71",
+      "source_location": "L74",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handlemouseleaverow",
@@ -7663,7 +7852,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L77",
+      "source_location": "L80",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_cancelmouseleave",
@@ -7675,7 +7864,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L177",
+      "source_location": "L180",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handledateshortcut",
@@ -7687,7 +7876,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L196",
+      "source_location": "L199",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handlecustomdatechange",
@@ -7699,7 +7888,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L202",
+      "source_location": "L205",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handleimport",
@@ -7711,7 +7900,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L237",
+      "source_location": "L240",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_handlesynctoday",
@@ -7723,7 +7912,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L290",
+      "source_location": "L293",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_formatcurrency",
@@ -7735,7 +7924,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L291",
+      "source_location": "L294",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_formatpercent",
@@ -7747,7 +7936,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L292",
+      "source_location": "L295",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_formatnumber",
@@ -7759,7 +7948,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L294",
+      "source_location": "L297",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_getpillclass",
@@ -7771,7 +7960,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L301",
+      "source_location": "L304",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_filterandsortcampaigns",
@@ -7783,7 +7972,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L321",
+      "source_location": "L324",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_requestsort",
@@ -7795,7 +7984,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L329",
+      "source_location": "L332",
       "weight": 1.0,
       "_src": "app_importv2_clientimportv2_tsx",
       "_tgt": "clientimportv2_tableheader",
@@ -7807,7 +7996,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\importv2\\ClientImportV2.tsx",
-      "source_location": "L252",
+      "source_location": "L255",
       "weight": 1.0,
       "_src": "clientimportv2_handlesynctoday",
       "_tgt": "clientimportv2_handleimport",
@@ -7825,6 +8014,54 @@
       "_tgt": "page_importv2page",
       "source": "app_importv2_page_tsx",
       "target": "page_importv2page",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app\\lib\\accountStatus.tsx",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_src": "app_lib_accountstatus_tsx",
+      "_tgt": "accountstatus_accountstatusbadge",
+      "source": "app_lib_accountstatus_tsx",
+      "target": "accountstatus_accountstatusbadge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app\\lib\\theme.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_src": "app_lib_theme_ts",
+      "_tgt": "theme_normalizetheme",
+      "source": "app_lib_theme_ts",
+      "target": "theme_normalizetheme",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app\\lib\\theme.ts",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_src": "app_lib_theme_ts",
+      "_tgt": "theme_resolvetheme",
+      "source": "app_lib_theme_ts",
+      "target": "theme_resolvetheme",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app\\lib\\theme.ts",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_src": "app_lib_theme_ts",
+      "_tgt": "theme_applytheme",
+      "source": "app_lib_theme_ts",
+      "target": "theme_applytheme",
       "confidence_score": 1.0
     },
     {
@@ -8299,7 +8536,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\settings\\page.tsx",
-      "source_location": "L8",
+      "source_location": "L10",
       "weight": 1.0,
       "_src": "app_settings_page_tsx",
       "_tgt": "page_ensureblacklistschema",
@@ -8311,7 +8548,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\settings\\page.tsx",
-      "source_location": "L21",
+      "source_location": "L23",
       "weight": 1.0,
       "_src": "app_settings_page_tsx",
       "_tgt": "page_settingspage",
@@ -8323,7 +8560,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\settings\\page.tsx",
-      "source_location": "L27",
+      "source_location": "L29",
       "weight": 1.0,
       "_src": "page_settingspage",
       "_tgt": "page_ensureblacklistschema",
@@ -8839,7 +9076,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\status-contas\\page.tsx",
-      "source_location": "L6",
+      "source_location": "L8",
       "weight": 1.0,
       "_src": "app_status_contas_page_tsx",
       "_tgt": "page_ensurecolumns",
@@ -8851,7 +9088,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\status-contas\\page.tsx",
-      "source_location": "L50",
+      "source_location": "L52",
       "weight": 1.0,
       "_src": "app_status_contas_page_tsx",
       "_tgt": "page_statuscontaspage",
@@ -8863,7 +9100,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\status-contas\\page.tsx",
-      "source_location": "L55",
+      "source_location": "L57",
       "weight": 1.0,
       "_src": "page_statuscontaspage",
       "_tgt": "page_ensurecolumns",
@@ -11509,6 +11746,30 @@
       "_tgt": "redtrack_campaigns_fetchandsyncredtrackcampaigns",
       "source": "lib_redtrack_campaigns_ts",
       "target": "redtrack_campaigns_fetchandsyncredtrackcampaigns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib\\redtrack-cost.test.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_src": "lib_redtrack_cost_test_ts",
+      "_tgt": "redtrack_cost_test_agg",
+      "source": "lib_redtrack_cost_test_ts",
+      "target": "redtrack_cost_test_agg",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib\\redtrack-cost.ts",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_src": "lib_redtrack_cost_ts",
+      "_tgt": "redtrack_cost_matchrtcampaigncost",
+      "source": "lib_redtrack_cost_ts",
+      "target": "redtrack_cost_matchrtcampaigncost",
       "confidence_score": 1.0
     },
     {
