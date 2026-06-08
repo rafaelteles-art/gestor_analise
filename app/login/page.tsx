@@ -10,7 +10,7 @@ function LoginCard() {
   const error = searchParams.get('error');
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10 w-full max-w-sm flex flex-col items-center gap-6">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10 w-full max-w-sm flex flex-col items-center gap-6 dark:bg-gray-900 dark:border-gray-700">
       {/* Logo */}
       <div className="flex flex-col items-center gap-3">
         <Image
@@ -21,14 +21,14 @@ function LoginCard() {
           className="rounded-full object-cover"
         />
         <div className="text-center">
-          <p className="text-lg font-bold text-gray-900">V2 Media Lab</p>
-          <p className="text-xs text-gray-400 font-medium tracking-wider uppercase">Analytics</p>
+          <p className="text-lg font-bold text-gray-900 dark:text-gray-100">V2 Media Lab</p>
+          <p className="text-xs text-gray-400 font-medium tracking-wider uppercase dark:text-gray-500">Analytics</p>
         </div>
       </div>
 
       {/* Mensagem de erro */}
       {error && (
-        <div className="w-full bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 text-center">
+        <div className="w-full bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 text-center dark:bg-red-950/40 dark:border-red-800 dark:text-red-400">
           {error === 'AccessDenied'
             ? 'Acesso negado. Use um email @v2globalteam.com para entrar.'
             : error === 'no_access'
@@ -39,8 +39,8 @@ function LoginCard() {
 
       {/* Título */}
       <div className="text-center">
-        <h1 className="text-xl font-semibold text-gray-900">Bem-vindo</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Bem-vindo</h1>
+        <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
           Faça login com sua conta Google corporativa
         </p>
       </div>
@@ -48,7 +48,7 @@ function LoginCard() {
       {/* Botão Google */}
       <button
         onClick={() => signIn('google', { callbackUrl: '/' })}
-        className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+        className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm cursor-pointer dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
       >
         <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -59,8 +59,8 @@ function LoginCard() {
         Entrar com Google
       </button>
 
-      <p className="text-xs text-gray-400 text-center">
-        Apenas emails <span className="font-medium text-gray-500">@v2globalteam.com</span> têm acesso
+      <p className="text-xs text-gray-400 text-center dark:text-gray-500">
+        Apenas emails <span className="font-medium text-gray-500 dark:text-gray-400">@v2globalteam.com</span> têm acesso
       </p>
     </div>
   );
@@ -68,7 +68,7 @@ function LoginCard() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-[#f4f7fb] flex items-center justify-center">
+    <div className="min-h-screen bg-[#f4f7fb] flex items-center justify-center dark:bg-gray-950">
       <Suspense>
         <LoginCard />
       </Suspense>
