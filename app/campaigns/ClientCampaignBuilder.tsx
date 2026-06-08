@@ -353,8 +353,8 @@ function AccountMultiSelect({
           'flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-md border bg-white dark:bg-gray-900 outline-none transition-colors',
           'disabled:opacity-50',
           selected.length > 1
-            ? 'border-indigo-400 ring-1 ring-indigo-200'
-            : 'border-gray-200 hover:border-gray-300'
+            ? 'border-indigo-400 ring-1 ring-indigo-200 dark:ring-indigo-800'
+            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
         )}
       >
         <span className="truncate text-left flex-1">{summary}</span>
@@ -408,7 +408,7 @@ function AccountMultiSelect({
                           {a.account_name}
                           <span className="text-gray-400 dark:text-gray-500"> ({a.account_id})</span>
                           {a.account_status && a.account_status !== 'ACTIVE' && (
-                            <span className="text-amber-600"> · {a.account_status}</span>
+                            <span className="text-amber-600 dark:text-amber-400"> · {a.account_status}</span>
                           )}
                         </span>
                         {isPrimary && selected.length > 1 && (
@@ -849,7 +849,7 @@ function LookalikeBuilder({
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)}
-        className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold">
+        className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold">
         + Criar lookalike a partir de um público
       </button>
     );
@@ -882,7 +882,7 @@ function LookalikeBuilder({
           </select>
         </Field>
       </div>
-      {err && <p className="text-[11px] text-rose-600">{err}</p>}
+      {err && <p className="text-[11px] text-rose-600 dark:text-rose-400">{err}</p>}
       <div className="flex gap-2 justify-end">
         <button type="button" onClick={() => setOpen(false)} disabled={busy}
           className="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -968,11 +968,11 @@ function CampaignNameModal({
   if (!open) return null;
 
   const chips: { token: string; label: string; sample: string; tone: string }[] = [
-    { token: '{{conta}}',     label: 'Conta',         sample: vars.conta,     tone: 'bg-cyan-50 border-cyan-300 text-cyan-800 hover:bg-cyan-100' },
-    { token: '{{orcamento}}', label: 'Orçamento',     sample: vars.orcamento, tone: 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100' },
-    { token: '{{estrutura}}', label: 'Estrutura',     sample: vars.estrutura, tone: 'bg-fuchsia-50 border-fuchsia-300 text-fuchsia-800 hover:bg-fuchsia-100' },
-    { token: '{{criativo}}',  label: 'Criativo',      sample: vars.criativo,  tone: 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100' },
-    { token: '{{data}}',      label: 'Data (DD/MM)',  sample: vars.data,      tone: 'bg-rose-50 border-rose-300 text-rose-800 hover:bg-rose-100' },
+    { token: '{{conta}}',     label: 'Conta',         sample: vars.conta,     tone: 'bg-cyan-50 dark:bg-cyan-950/40 border-cyan-300 dark:border-cyan-800 text-cyan-800 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-900/40' },
+    { token: '{{orcamento}}', label: 'Orçamento',     sample: vars.orcamento, tone: 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40' },
+    { token: '{{estrutura}}', label: 'Estrutura',     sample: vars.estrutura, tone: 'bg-fuchsia-50 dark:bg-fuchsia-950/40 border-fuchsia-300 dark:border-fuchsia-800 text-fuchsia-800 dark:text-fuchsia-400 hover:bg-fuchsia-100 dark:hover:bg-fuchsia-900/40' },
+    { token: '{{criativo}}',  label: 'Criativo',      sample: vars.criativo,  tone: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40' },
+    { token: '{{data}}',      label: 'Data (DD/MM)',  sample: vars.data,      tone: 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40' },
   ];
 
   const handleSave = () => { try { localStorage.setItem(CAMPAIGN_NAME_TPL_KEY, tpl); } catch {} };
@@ -1049,7 +1049,7 @@ function CampaignNameModal({
                 className="w-full text-xs font-mono px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-y"
                 placeholder="Ex.: [{{conta}}] {{orcamento}} - {{criativo}} - {{data}}"
               />
-              <p className="text-[10px] text-gray-400 mt-1">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
                 Use chips ao lado ou digite manualmente. Variáveis disponíveis: <code>{'{{conta}}'}</code>, <code>{'{{orcamento}}'}</code>, <code>{'{{estrutura}}'}</code>, <code>{'{{criativo}}'}</code>, <code>{'{{data}}'}</code>.
               </p>
             </div>
@@ -2135,7 +2135,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           </div>
         </div>
         {syncing && syncMsg && <p className="text-[11px] text-gray-400 dark:text-gray-500">{syncMsg}</p>}
-        {syncError && <p className="text-[11px] text-rose-600">Erro ao sincronizar: {syncError}</p>}
+        {syncError && <p className="text-[11px] text-rose-600 dark:text-rose-400">Erro ao sincronizar: {syncError}</p>}
       </MainSection>
 
       {/* ───────── 1. Configurações da Campanha ───────── */}
@@ -2377,7 +2377,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                     </Field>
                   </div>
                   {!loadingBusinesses && businesses.length === 0 && !manualBmMode && (
-                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
                       Nenhum BM visível ao token deste perfil. Use o botão <strong>ID</strong> ao lado pra digitar o <code>bm_id</code> manualmente, ou sincronize as contas em <em>Status Contas</em> primeiro.
                     </p>
                   )}
@@ -2392,10 +2392,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                     </button>
                   </div>
                   {businessesError && (
-                    <p className="text-[11px] text-rose-600">Erro ao listar BMs: {businessesError}</p>
+                    <p className="text-[11px] text-rose-600 dark:text-rose-400">Erro ao listar BMs: {businessesError}</p>
                   )}
                   {createCatalogError && (
-                    <p className="text-[11px] text-rose-600">{createCatalogError}</p>
+                    <p className="text-[11px] text-rose-600 dark:text-rose-400">{createCatalogError}</p>
                   )}
                   <p className="text-[10px] text-gray-500 dark:text-gray-400">
                     O catálogo será criado com vertical <code>commerce</code> no BM selecionado. Você precisa ser admin desse BM.
@@ -2533,7 +2533,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                       onClick={fetchProductPresets}
                       disabled={loadingProductPresets}
                       title="Recarregar presets"
-                      className="px-3 py-2 text-[11px] font-semibold rounded border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-40 whitespace-nowrap"
+                      className="px-3 py-2 text-[11px] font-semibold rounded border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40 whitespace-nowrap"
                     >
                       ↻
                     </button>
@@ -2649,7 +2649,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             <div
               className={cls(
                 'flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-300',
-                publishPaused ? 'bg-slate-200 text-slate-600' : 'bg-emerald-200 text-emerald-700'
+                publishPaused ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300' : 'bg-emerald-200 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-400'
               )}
             >
               {publishPaused ? (
@@ -2877,7 +2877,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 <Field label="Adicionar interesse ou comportamento">
                   <button type="button" disabled
                     className={cls(inputBase, 'flex items-center justify-between cursor-not-allowed')}>
-                    <span className="text-gray-400">+ Adicionar interesse</span>
+                    <span className="text-gray-400 dark:text-gray-500">+ Adicionar interesse</span>
                     <EmBreve />
                   </button>
                 </Field>
@@ -3060,7 +3060,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                           <tr key={p.id} className="border-t border-gray-200 dark:border-gray-700">
                             <td className="px-3 py-1.5 text-gray-800 dark:text-gray-100">
                               {p.name}
-                              {p.instagram_business_account && <span className="ml-1 text-rose-500">· IG</span>}
+                              {p.instagram_business_account && <span className="ml-1 text-rose-500 dark:text-rose-400">· IG</span>}
                             </td>
                             <td className={cls('px-3 py-1.5 text-right font-mono', avail == null ? 'text-gray-400 dark:text-gray-500' : over ? 'text-rose-600 dark:text-rose-400' : 'text-gray-700 dark:text-gray-300')}>
                               {avail == null ? '∞' : avail}
@@ -3145,7 +3145,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               />
             ))}
             <button type="button" onClick={addAd}
-              className="self-start text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold">
+              className="self-start text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold">
               + Adicionar outro criativo
             </button>
           </div>
@@ -3155,7 +3155,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         <SubBlock label="Configurações Avançadas">
           {/* RASTREAMENTO — URL params */}
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3">
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Rastreamento</p>
+            <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rastreamento</p>
             <Field label="Parâmetros de URL">
               <textarea className={cls(inputBase, 'font-mono min-h-[50px]')} value={urlTagsTpl}
                 onChange={e => setUrlTagsTpl(e.target.value)}
@@ -3206,7 +3206,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                   <span className="text-[11px] text-gray-700 dark:text-gray-300">💬 Comentários Relevantes</span>
                   <Toggle checked={adv.all || adv.relevant_comments} onChange={v => setAdv(prev => ({ ...prev, relevant_comments: v }))} />
                 </div>
-                <div className="rounded-md border border-gray-100 px-2 py-1.5 flex items-center justify-between col-span-2">
+                <div className="rounded-md border border-gray-100 dark:border-gray-800 px-2 py-1.5 flex items-center justify-between col-span-2">
                   <span className="text-[11px] text-gray-700 dark:text-gray-300">📝 Melhorar CTA</span>
                   <Toggle checked={adv.all || adv.cta_optimization} onChange={v => setAdv(prev => ({ ...prev, cta_optimization: v }))} />
                 </div>
@@ -3478,7 +3478,7 @@ function AdEditor({
         </div>
         {canRemove && (
           <button type="button" onClick={onRemove}
-            className="text-[11px] text-rose-500 hover:text-rose-700 font-semibold">Remover</button>
+            className="text-[11px] text-rose-500 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold">Remover</button>
         )}
       </div>
 
@@ -3579,7 +3579,7 @@ function AdEditor({
           </div>
           {ad.child_attachments.length < 10 && (
             <button type="button" onClick={addChild}
-              className="self-start text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold">
+              className="self-start text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold">
               + Adicionar card
             </button>
           )}
@@ -3589,8 +3589,8 @@ function AdEditor({
       {isDPA && (
         <>
           <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 mt-4">Link e Ação (DPA)</p>
-          <p className="text-[11px] text-gray-500 mb-2">
-            DPA usa <code className="bg-gray-200 px-1 rounded">{'{{product.url}}'}</code>, <code className="bg-gray-200 px-1 rounded">{'{{product.name}}'}</code>, etc. — não precisa subir imagem (vem do catálogo).
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
+            DPA usa <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.url}}'}</code>, <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.name}}'}</code>, etc. — não precisa subir imagem (vem do catálogo).
           </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="URL Template (opcional)" hint="Default: {{product.url}}">
@@ -3662,7 +3662,7 @@ function CarouselCardEditor({
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Card #{index + 1}</span>
         {canRemove && (
-          <button type="button" onClick={onRemove} className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold">Remover</button>
+          <button type="button" onClick={onRemove} className="text-[10px] text-rose-500 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold">Remover</button>
         )}
       </div>
       <input className={inputBase} value={card.headline} onChange={e => onChange({ headline: e.target.value })} placeholder="Título" />
