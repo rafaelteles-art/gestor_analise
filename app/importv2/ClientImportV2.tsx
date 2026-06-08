@@ -7,12 +7,14 @@ import { darkAwareSelectStyles } from '@/app/lib/reactSelectStyles';
 import CampaignHoverPopup from '../import/CampaignHoverPopup';
 import { preloadHistoryBatch } from '../import/hoverCache';
 import OfferSelector from '../components/OfferSelector';
+import { AccountStatusBadge } from '@/app/lib/accountStatus';
 
 interface AdAccount {
   account_id: string;
   account_name: string;
   bm_id: string;
   bm_name: string;
+  account_status?: string | null;
 }
 
 interface RtCampaign {
@@ -368,12 +370,12 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                     closeMenuOnSelect={false}
                     hideSelectedOptions={false}
                     options={[
-                        { value: '__all__', label: `Selecionar todas (${sortedAccounts.length})` },
-                        ...sortedAccounts.map(a => ({ value: a.account_id, label: a.account_name })),
+                        { value: '__all__', label: `Selecionar todas (${sortedAccounts.length})`, status: null },
+                        ...sortedAccounts.map(a => ({ value: a.account_id, label: a.account_name, status: a.account_status ?? null })),
                     ]}
                     value={sortedAccounts
                         .filter(a => selectedAccountIds.includes(a.account_id))
-                        .map(a => ({ value: a.account_id, label: a.account_name }))}
+                        .map(a => ({ value: a.account_id, label: a.account_name, status: a.account_status ?? null }))}
                     onChange={(selected: any) => {
                         const opts = selected || [];
                         if (opts.some((o: any) => o.value === '__all__')) {
@@ -382,6 +384,14 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                             setSelectedAccountIds(opts.map((o: any) => o.value));
                         }
                     }}
+                    formatOptionLabel={(opt: any, meta: any) =>
+                        meta.context === 'menu' ? (
+                            <div className="flex items-center justify-between gap-2">
+                                <span>{opt.label}</span>
+                                <AccountStatusBadge status={opt.status} />
+                            </div>
+                        ) : opt.label
+                    }
                     placeholder="Selecione contas Meta"
                     className="text-sm rounded-lg"
                     styles={darkAwareSelectStyles}
@@ -481,7 +491,9 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
       )}
 
       {selectedAccountIds.map((accId) => {
-        const accName = sortedAccounts.find(a => a.account_id === accId)?.account_name ?? accId;
+        const acc = sortedAccounts.find(a => a.account_id === accId);
+        const accName = acc?.account_name ?? accId;
+        const accStatus = acc?.account_status ?? null;
         const accTotals = perAccountTotals.find((t: any) => t.account_id === accId);
         const accCampaigns = campaignsByAccount[accId] || [];
         const accSorted = filterAndSortCampaigns(accCampaigns);
@@ -498,7 +510,10 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
               <div className="w-1.5 h-6 bg-indigo-500 rounded-sm" />
               <div>
                 <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider uppercase">Conta</div>
-                <div className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate max-w-[280px]" title={accName}>{accName}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate max-w-[280px]" title={accName}>{accName}</div>
+                  <AccountStatusBadge status={accStatus} />
+                </div>
               </div>
             </div>
             {accTotals && (
