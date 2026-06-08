@@ -131,11 +131,11 @@ export default function BlacklistPanel({
     <div>
       <div className="flex items-end justify-between mb-5">
         <div>
-          <h2 className="flex items-center gap-2 text-sm font-bold text-gray-800">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-gray-800 dark:text-gray-100">
             <Ban className="w-4 h-4 text-rose-500" />
             Blacklist
           </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">
             Contas e BMs aqui ficam ocultos em <span className="font-mono">/status-contas</span>, independente da situação.
           </p>
         </div>
@@ -143,41 +143,41 @@ export default function BlacklistPanel({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* BMs Blacklistados */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden dark:bg-gray-900 dark:border-gray-700">
+          <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 dark:bg-gray-800 dark:border-gray-700">
             <div>
-              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">BMs blacklistados</h3>
-              <p className="text-[11px] text-gray-400 mt-0.5">{blacklistedBms.length} item{blacklistedBms.length !== 1 ? 's' : ''}</p>
+              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider dark:text-gray-100">BMs blacklistados</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 dark:text-gray-500">{blacklistedBms.length} item{blacklistedBms.length !== 1 ? 's' : ''}</p>
             </div>
             <button
               onClick={() => { setShowAddBm(v => !v); setShowAddAccount(false); }}
-              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors"
+              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/40"
             >
               <Plus className="w-3 h-3" /> Adicionar
             </button>
           </div>
 
           {showAddBm && (
-            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/60">
+            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/60">
               <input
                 autoFocus
                 value={bmQuery}
                 onChange={e => setBmQuery(e.target.value)}
                 placeholder="Buscar BM por nome ou ID…"
-                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-indigo-400 bg-white"
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-indigo-400 bg-white dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               />
               <div className="mt-2 max-h-56 overflow-y-auto flex flex-col gap-1">
                 {availableBms.length === 0 ? (
-                  <p className="text-[11px] text-gray-400 italic px-1 py-2">Nenhum BM encontrado.</p>
+                  <p className="text-[11px] text-gray-400 italic px-1 py-2 dark:text-gray-500">Nenhum BM encontrado.</p>
                 ) : (
                   availableBms.map(bm => (
                     <button
                       key={bm.bm_id}
                       onClick={() => addBm(bm)}
-                      className="text-left px-2 py-1.5 rounded-md hover:bg-rose-50 transition-colors"
+                      className="text-left px-2 py-1.5 rounded-md hover:bg-rose-50 transition-colors dark:hover:bg-rose-950/40"
                     >
-                      <p className="text-xs font-medium text-gray-800 truncate">{bm.bm_name}</p>
-                      <p className="text-[10px] text-gray-400 font-mono">{bm.bm_id}</p>
+                      <p className="text-xs font-medium text-gray-800 truncate dark:text-gray-100">{bm.bm_name}</p>
+                      <p className="text-[10px] text-gray-400 font-mono dark:text-gray-500">{bm.bm_id}</p>
                     </button>
                   ))
                 )}
@@ -186,19 +186,19 @@ export default function BlacklistPanel({
           )}
 
           {blacklistedBms.length === 0 ? (
-            <p className="px-5 py-6 text-xs text-gray-400 text-center">Nenhum BM blacklistado.</p>
+            <p className="px-5 py-6 text-xs text-gray-400 text-center dark:text-gray-500">Nenhum BM blacklistado.</p>
           ) : (
-            <ul className="divide-y divide-gray-50">
+            <ul className="divide-y divide-gray-50 dark:divide-gray-800">
               {blacklistedBms.map(bm => (
                 <li key={bm.bm_id} className="flex items-center justify-between px-5 py-2.5">
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-800 truncate">{bm.bm_name || '—'}</p>
-                    <p className="text-[10px] text-gray-400 font-mono">{bm.bm_id}</p>
+                    <p className="text-xs font-medium text-gray-800 truncate dark:text-gray-100">{bm.bm_name || '—'}</p>
+                    <p className="text-[10px] text-gray-400 font-mono dark:text-gray-500">{bm.bm_id}</p>
                   </div>
                   <button
                     onClick={() => removeBm(bm)}
                     title="Remover da blacklist"
-                    className="text-gray-300 hover:text-rose-500 transition-colors"
+                    className="text-gray-300 hover:text-rose-500 transition-colors dark:text-gray-600"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -209,41 +209,41 @@ export default function BlacklistPanel({
         </div>
 
         {/* Contas Blacklistadas */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden dark:bg-gray-900 dark:border-gray-700">
+          <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 dark:bg-gray-800 dark:border-gray-700">
             <div>
-              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Contas blacklistadas</h3>
-              <p className="text-[11px] text-gray-400 mt-0.5">{blacklistedAccounts.length} item{blacklistedAccounts.length !== 1 ? 's' : ''}</p>
+              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider dark:text-gray-100">Contas blacklistadas</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 dark:text-gray-500">{blacklistedAccounts.length} item{blacklistedAccounts.length !== 1 ? 's' : ''}</p>
             </div>
             <button
               onClick={() => { setShowAddAccount(v => !v); setShowAddBm(false); }}
-              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors"
+              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/40"
             >
               <Plus className="w-3 h-3" /> Adicionar
             </button>
           </div>
 
           {showAddAccount && (
-            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/60">
+            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/60">
               <input
                 autoFocus
                 value={accountQuery}
                 onChange={e => setAccountQuery(e.target.value)}
                 placeholder="Buscar conta por nome, ID ou BM…"
-                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-indigo-400 bg-white"
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-indigo-400 bg-white dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               />
               <div className="mt-2 max-h-56 overflow-y-auto flex flex-col gap-1">
                 {availableAccounts.length === 0 ? (
-                  <p className="text-[11px] text-gray-400 italic px-1 py-2">Nenhuma conta encontrada.</p>
+                  <p className="text-[11px] text-gray-400 italic px-1 py-2 dark:text-gray-500">Nenhuma conta encontrada.</p>
                 ) : (
                   availableAccounts.map(acc => (
                     <button
                       key={acc.account_id}
                       onClick={() => addAccount(acc)}
-                      className="text-left px-2 py-1.5 rounded-md hover:bg-rose-50 transition-colors"
+                      className="text-left px-2 py-1.5 rounded-md hover:bg-rose-50 transition-colors dark:hover:bg-rose-950/40"
                     >
-                      <p className="text-xs font-medium text-gray-800 truncate">{acc.account_name}</p>
-                      <p className="text-[10px] text-gray-400 font-mono">
+                      <p className="text-xs font-medium text-gray-800 truncate dark:text-gray-100">{acc.account_name}</p>
+                      <p className="text-[10px] text-gray-400 font-mono dark:text-gray-500">
                         {acc.account_id} · {acc.bm_name}
                       </p>
                     </button>
@@ -254,21 +254,21 @@ export default function BlacklistPanel({
           )}
 
           {blacklistedAccounts.length === 0 ? (
-            <p className="px-5 py-6 text-xs text-gray-400 text-center">Nenhuma conta blacklistada.</p>
+            <p className="px-5 py-6 text-xs text-gray-400 text-center dark:text-gray-500">Nenhuma conta blacklistada.</p>
           ) : (
-            <ul className="divide-y divide-gray-50">
+            <ul className="divide-y divide-gray-50 dark:divide-gray-800">
               {blacklistedAccounts.map(acc => (
                 <li key={acc.account_id} className="flex items-center justify-between px-5 py-2.5">
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-800 truncate">{acc.account_name}</p>
-                    <p className="text-[10px] text-gray-400 font-mono">
+                    <p className="text-xs font-medium text-gray-800 truncate dark:text-gray-100">{acc.account_name}</p>
+                    <p className="text-[10px] text-gray-400 font-mono dark:text-gray-500">
                       {acc.account_id} · {acc.bm_name}
                     </p>
                   </div>
                   <button
                     onClick={() => removeAccount(acc)}
                     title="Remover da blacklist"
-                    className="text-gray-300 hover:text-rose-500 transition-colors"
+                    className="text-gray-300 hover:text-rose-500 transition-colors dark:text-gray-600"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>

@@ -240,11 +240,11 @@ function MainSection({
   title, subtitle, badge, children,
 }: { title: string; subtitle?: string; badge?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+    <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
       <header className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-bold text-gray-800">{title}</h2>
-          {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{title}</h2>
+          {subtitle && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
         </div>
         {badge}
       </header>
@@ -261,11 +261,11 @@ function SubBlock({
     <div className="flex flex-col gap-2">
       {(label || badge) && (
         <div className="flex items-center justify-between">
-          {label && <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{label}</p>}
+          {label && <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{label}</p>}
           {badge}
         </div>
       )}
-      {hint && <p className="text-[11px] text-gray-400 -mt-1">{hint}</p>}
+      {hint && <p className="text-[11px] text-gray-400 dark:text-gray-500 -mt-1">{hint}</p>}
       {children}
     </div>
   );
@@ -274,14 +274,14 @@ function SubBlock({
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold text-gray-600">{label}</span>
+      <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">{label}</span>
       {children}
-      {hint && <span className="text-[10px] text-gray-400">{hint}</span>}
+      {hint && <span className="text-[10px] text-gray-400 dark:text-gray-500">{hint}</span>}
     </label>
   );
 }
 
-const inputBase = 'text-xs px-3 py-2 rounded-md border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50';
+const inputBase = 'text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50';
 
 /**
  * Multi-select de contas agrupado por BM. Quando ≥2 contas marcadas, vira
@@ -350,28 +350,28 @@ function AccountMultiSelect({
         onClick={() => setExpanded(v => !v)}
         disabled={accounts.length === 0}
         className={cls(
-          'flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-md border bg-white outline-none transition-colors',
+          'flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-md border bg-white dark:bg-gray-900 outline-none transition-colors',
           'disabled:opacity-50',
           selected.length > 1
-            ? 'border-indigo-400 ring-1 ring-indigo-200'
-            : 'border-gray-200 hover:border-gray-300'
+            ? 'border-indigo-400 ring-1 ring-indigo-200 dark:ring-indigo-800'
+            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
         )}
       >
         <span className="truncate text-left flex-1">{summary}</span>
         <span className="flex items-center gap-2 shrink-0">
           {selected.length > 1 && (
-            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded">
               broadcast: {selected.length}
             </span>
           )}
-          <span className="text-gray-400 text-[10px]">{expanded ? '▲' : '▼'}</span>
+          <span className="text-gray-400 dark:text-gray-500 text-[10px]">{expanded ? '▲' : '▼'}</span>
         </span>
       </button>
 
       {expanded && (
-        <div className="border border-gray-200 rounded-md bg-white max-h-72 overflow-y-auto divide-y divide-gray-100">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 max-h-72 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
           {accounts.length === 0 && (
-            <div className="px-3 py-3 text-[11px] text-gray-400">— nenhuma conta deste perfil —</div>
+            <div className="px-3 py-3 text-[11px] text-gray-400 dark:text-gray-500">— nenhuma conta deste perfil —</div>
           )}
           {grouped.map(([bmName, list]) => {
             const ids = list.map(a => a.account_id);
@@ -379,7 +379,7 @@ function AccountMultiSelect({
             const someSel = ids.some(id => selectedSet.has(id));
             return (
               <div key={bmName} className="px-2 py-1.5">
-                <label className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
+                <label className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={allSel}
@@ -387,8 +387,8 @@ function AccountMultiSelect({
                     onChange={() => toggleBM(bmName)}
                     className="w-3.5 h-3.5 accent-indigo-600"
                   />
-                  <span className="text-[11px] font-semibold text-gray-700 flex-1 truncate">{bmName}</span>
-                  <span className="text-[10px] text-gray-400">{list.length} conta(s)</span>
+                  <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex-1 truncate">{bmName}</span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500">{list.length} conta(s)</span>
                 </label>
                 <div className="ml-5 mt-0.5">
                   {list.map(a => {
@@ -396,7 +396,7 @@ function AccountMultiSelect({
                     return (
                       <label
                         key={a.account_id}
-                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer"
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                       >
                         <input
                           type="checkbox"
@@ -404,15 +404,15 @@ function AccountMultiSelect({
                           onChange={() => toggle(a.account_id)}
                           className="w-3.5 h-3.5 accent-indigo-600"
                         />
-                        <span className="text-[11px] text-gray-700 flex-1 truncate">
+                        <span className="text-[11px] text-gray-700 dark:text-gray-300 flex-1 truncate">
                           {a.account_name}
-                          <span className="text-gray-400"> ({a.account_id})</span>
+                          <span className="text-gray-400 dark:text-gray-500"> ({a.account_id})</span>
                           {a.account_status && a.account_status !== 'ACTIVE' && (
-                            <span className="text-amber-600"> · {a.account_status}</span>
+                            <span className="text-amber-600 dark:text-amber-400"> · {a.account_status}</span>
                           )}
                         </span>
                         {isPrimary && selected.length > 1 && (
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded">
                             primária
                           </span>
                         )}
@@ -485,8 +485,8 @@ function Toggle({
       </span>
       {(label || hint) && (
         <span className="flex flex-col text-left">
-          {label && <span className="text-[11px] font-semibold text-gray-700">{label}</span>}
-          {hint && <span className="text-[10px] text-gray-400">{hint}</span>}
+          {label && <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{label}</span>}
+          {hint && <span className="text-[10px] text-gray-400 dark:text-gray-500">{hint}</span>}
         </span>
       )}
     </button>
@@ -513,20 +513,20 @@ function OptionCard<T extends string>({
       className={cls(
         'flex flex-col items-start gap-1 p-3 rounded-lg border text-left transition-all',
         selected
-          ? 'border-indigo-500 bg-indigo-50/50 ring-1 ring-indigo-500'
-          : 'border-gray-200 bg-white hover:border-gray-300',
+          ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 ring-1 ring-indigo-500'
+          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600',
         disabled && 'opacity-50 cursor-not-allowed'
       )}
     >
       <div className="flex items-center gap-2 w-full">
         <span className={cls(
           'inline-block w-3 h-3 rounded-full border-2',
-          selected ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300'
+          selected ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300 dark:border-gray-600'
         )} />
-        <span className="text-[12px] font-semibold text-gray-800">{title}</span>
+        <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">{title}</span>
         {badge && <span className="ml-auto">{badge}</span>}
       </div>
-      {desc && <p className="text-[10px] text-gray-500 leading-tight">{desc}</p>}
+      {desc && <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">{desc}</p>}
     </button>
   );
 }
@@ -599,19 +599,19 @@ function SearchableSelect({
           disabled && 'cursor-not-allowed'
         )}
       >
-        <span className={cls('truncate', selected || (value === '' && emptyOption) ? 'text-gray-800' : 'text-gray-400')}>
+        <span className={cls('truncate', selected || (value === '' && emptyOption) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500')}>
           {displayLabel}
         </span>
-        <span className="text-gray-400 text-[10px] shrink-0">{open ? '▲' : '▼'}</span>
+        <span className="text-gray-400 dark:text-gray-500 text-[10px] shrink-0">{open ? '▲' : '▼'}</span>
       </button>
       {open && !disabled && (
-        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg flex flex-col overflow-hidden">
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg flex flex-col overflow-hidden">
           <input
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Buscar…"
-            className="text-xs px-3 py-2 border-b border-gray-100 outline-none focus:border-indigo-300"
+            className="text-xs px-3 py-2 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-indigo-300"
           />
           <div className="overflow-y-auto max-h-56">
             {emptyOption && (
@@ -619,15 +619,15 @@ function SearchableSelect({
                 type="button"
                 onClick={() => { onChange(''); setOpen(false); setQuery(''); }}
                 className={cls(
-                  'block w-full text-left px-3 py-1.5 text-xs italic text-gray-500 hover:bg-indigo-50 hover:text-indigo-700',
-                  value === '' && 'bg-indigo-50 text-indigo-700'
+                  'block w-full text-left px-3 py-1.5 text-xs italic text-gray-500 dark:text-gray-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-400',
+                  value === '' && 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400'
                 )}
               >
                 {emptyOption.label}
               </button>
             )}
             {filtered.length === 0 ? (
-              <p className="text-[11px] text-gray-400 px-3 py-2 italic">
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 px-3 py-2 italic">
                 {options.length === 0 ? 'Nenhuma opção disponível' : `Nenhum resultado para "${query}"`}
               </p>
             ) : (
@@ -637,13 +637,13 @@ function SearchableSelect({
                   key={o.value}
                   onClick={() => { onChange(o.value); setOpen(false); setQuery(''); }}
                   className={cls(
-                    'block w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 hover:text-indigo-700',
-                    o.value === value && 'bg-indigo-50 text-indigo-700 font-semibold'
+                    'block w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-400',
+                    o.value === value && 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 font-semibold'
                   )}
                 >
                   <span className="truncate">{o.label}</span>
                   {o.secondary && (
-                    <span className="text-[10px] text-gray-400 ml-1">({o.secondary})</span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">({o.secondary})</span>
                   )}
                 </button>
               ))
@@ -657,7 +657,7 @@ function SearchableSelect({
 
 function EmBreve() {
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-200">
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
       Em breve
     </span>
   );
@@ -685,18 +685,18 @@ function AudiencePicker({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="min-h-[60px] border border-gray-200 rounded-md bg-white px-2 py-1.5 flex flex-wrap gap-1.5 content-start">
+      <div className="min-h-[60px] border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 px-2 py-1.5 flex flex-wrap gap-1.5 content-start">
         {selectedIds.length === 0 && (
-          <span className="text-[11px] text-gray-400 italic px-1 py-1">{emptyText}</span>
+          <span className="text-[11px] text-gray-400 dark:text-gray-500 italic px-1 py-1">{emptyText}</span>
         )}
         {selectedIds.map(id => {
           const a = byId.get(id);
           if (!a) {
             return (
-              <span key={id} className="inline-flex items-center gap-1 bg-gray-100 text-gray-500 border border-gray-200 rounded-full px-2 py-0.5 text-[11px]">
+              <span key={id} className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-full px-2 py-0.5 text-[11px]">
                 <span className="truncate max-w-[220px]" title={id}>id: {id}</span>
                 <button type="button" onClick={() => remove(id)}
-                  className="text-gray-400 hover:text-rose-500 leading-none text-sm font-bold"
+                  className="text-gray-400 dark:text-gray-500 hover:text-rose-500 dark:hover:text-rose-400 leading-none text-sm font-bold"
                   aria-label="Remover">×</button>
               </span>
             );
@@ -704,10 +704,10 @@ function AudiencePicker({
           const label = a.subtype ? `[${a.subtype}] ${a.name}` : a.name;
           return (
             <span key={id}
-              className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full px-2 py-0.5 text-[11px] font-medium">
+              className="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-full px-2 py-0.5 text-[11px] font-medium">
               <span className="truncate max-w-[220px]" title={label}>{label}</span>
               <button type="button" onClick={() => remove(id)}
-                className="text-indigo-400 hover:text-rose-500 leading-none text-sm font-bold"
+                className="text-indigo-400 dark:text-indigo-500 hover:text-rose-500 dark:hover:text-rose-400 leading-none text-sm font-bold"
                 aria-label="Remover">×</button>
             </span>
           );
@@ -757,16 +757,16 @@ function ChipPicker<T extends string | number>({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="min-h-[40px] border border-gray-200 rounded-md bg-white px-2 py-1.5 flex flex-wrap gap-1.5 content-start">
-        {selected.length === 0 && <span className="text-[11px] text-gray-400 italic px-1 py-1">{emptyText}</span>}
+      <div className="min-h-[40px] border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 px-2 py-1.5 flex flex-wrap gap-1.5 content-start">
+        {selected.length === 0 && <span className="text-[11px] text-gray-400 dark:text-gray-500 italic px-1 py-1">{emptyText}</span>}
         {selected.map(v => {
           const o = byVal.get(v);
           return (
             <span key={String(v)}
-              className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full px-2 py-0.5 text-[11px] font-medium">
+              className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 rounded-full px-2 py-0.5 text-[11px] font-medium">
               <span>{o?.label ?? String(v)}</span>
               <button type="button" onClick={() => remove(v)}
-                className="text-rose-400 hover:text-rose-600 leading-none text-sm font-bold">×</button>
+                className="text-rose-400 dark:text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 leading-none text-sm font-bold">×</button>
             </span>
           );
         })}
@@ -849,14 +849,14 @@ function LookalikeBuilder({
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)}
-        className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold">
+        className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold">
         + Criar lookalike a partir de um público
       </button>
     );
   }
 
   return (
-    <div className="border border-indigo-100 bg-indigo-50/40 rounded-lg p-3 flex flex-col gap-2">
+    <div className="border border-indigo-100 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/30 rounded-lg p-3 flex flex-col gap-2">
       <div className="grid grid-cols-2 gap-2">
         <Field label="Nome">
           <input className={inputBase} value={name} onChange={e => setName(e.target.value)} placeholder="LAL 1% BR — Compradores 90d" />
@@ -882,10 +882,10 @@ function LookalikeBuilder({
           </select>
         </Field>
       </div>
-      {err && <p className="text-[11px] text-rose-600">{err}</p>}
+      {err && <p className="text-[11px] text-rose-600 dark:text-rose-400">{err}</p>}
       <div className="flex gap-2 justify-end">
         <button type="button" onClick={() => setOpen(false)} disabled={busy}
-          className="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50">
+          className="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800">
           Cancelar
         </button>
         <button type="button" onClick={handleCreate} disabled={busy || !name || !seed}
@@ -968,11 +968,11 @@ function CampaignNameModal({
   if (!open) return null;
 
   const chips: { token: string; label: string; sample: string; tone: string }[] = [
-    { token: '{{conta}}',     label: 'Conta',         sample: vars.conta,     tone: 'bg-cyan-50 border-cyan-300 text-cyan-800 hover:bg-cyan-100' },
-    { token: '{{orcamento}}', label: 'Orçamento',     sample: vars.orcamento, tone: 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100' },
-    { token: '{{estrutura}}', label: 'Estrutura',     sample: vars.estrutura, tone: 'bg-fuchsia-50 border-fuchsia-300 text-fuchsia-800 hover:bg-fuchsia-100' },
-    { token: '{{criativo}}',  label: 'Criativo',      sample: vars.criativo,  tone: 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100' },
-    { token: '{{data}}',      label: 'Data (DD/MM)',  sample: vars.data,      tone: 'bg-rose-50 border-rose-300 text-rose-800 hover:bg-rose-100' },
+    { token: '{{conta}}',     label: 'Conta',         sample: vars.conta,     tone: 'bg-cyan-50 dark:bg-cyan-950/40 border-cyan-300 dark:border-cyan-800 text-cyan-800 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-900/40' },
+    { token: '{{orcamento}}', label: 'Orçamento',     sample: vars.orcamento, tone: 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40' },
+    { token: '{{estrutura}}', label: 'Estrutura',     sample: vars.estrutura, tone: 'bg-fuchsia-50 dark:bg-fuchsia-950/40 border-fuchsia-300 dark:border-fuchsia-800 text-fuchsia-800 dark:text-fuchsia-400 hover:bg-fuchsia-100 dark:hover:bg-fuchsia-900/40' },
+    { token: '{{criativo}}',  label: 'Criativo',      sample: vars.criativo,  tone: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40' },
+    { token: '{{data}}',      label: 'Data (DD/MM)',  sample: vars.data,      tone: 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40' },
   ];
 
   const handleSave = () => { try { localStorage.setItem(CAMPAIGN_NAME_TPL_KEY, tpl); } catch {} };
@@ -990,19 +990,19 @@ function CampaignNameModal({
       aria-modal="true"
     >
       <div
-        className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
+        className="w-full max-w-3xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        <header className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+        <header className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-base">✨</span>
-            <h3 className="text-sm font-bold text-gray-800">Nomenclatura</h3>
-            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-indigo-100 text-indigo-700">Campanha</span>
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Nomenclatura</h3>
+            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400">Campanha</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 text-2xl leading-none w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100"
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl leading-none w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800"
             aria-label="Fechar"
           >
             ×
@@ -1011,8 +1011,8 @@ function CampaignNameModal({
 
         <div className="grid grid-cols-[220px_1fr]">
           {/* Sidebar de variáveis */}
-          <aside className="border-r border-gray-200 bg-gray-50 px-3 py-4 flex flex-col gap-3">
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Variáveis</p>
+          <aside className="border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-4 flex flex-col gap-3">
+            <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Variáveis</p>
             <div className="flex flex-col gap-2">
               {chips.map(c => (
                 <button
@@ -1032,7 +1032,7 @@ function CampaignNameModal({
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-gray-400 mt-1 leading-snug">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 leading-snug">
               Clique para inserir a variável no template. Os valores ao lado são uma prévia do estado atual.
             </p>
           </aside>
@@ -1040,50 +1040,50 @@ function CampaignNameModal({
           {/* Editor + Preview */}
           <div className="px-5 py-4 flex flex-col gap-4 min-w-0">
             <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Template</p>
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Template</p>
               <textarea
                 ref={inputRef}
                 value={tpl}
                 onChange={e => setTpl(e.target.value)}
                 rows={2}
-                className="w-full text-xs font-mono px-3 py-2 rounded-md border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-y"
+                className="w-full text-xs font-mono px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-y"
                 placeholder="Ex.: [{{conta}}] {{orcamento}} - {{criativo}} - {{data}}"
               />
-              <p className="text-[10px] text-gray-400 mt-1">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
                 Use chips ao lado ou digite manualmente. Variáveis disponíveis: <code>{'{{conta}}'}</code>, <code>{'{{orcamento}}'}</code>, <code>{'{{estrutura}}'}</code>, <code>{'{{criativo}}'}</code>, <code>{'{{data}}'}</code>.
               </p>
             </div>
 
             <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Pré-visualização</p>
-              <div className="rounded-md border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-[12px] font-mono text-indigo-900 break-all min-h-[36px]">
-                {preview || <span className="text-gray-400">—</span>}
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Pré-visualização</p>
+              <div className="rounded-md border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/40 px-3 py-2 text-[12px] font-mono text-indigo-900 dark:text-indigo-300 break-all min-h-[36px]">
+                {preview || <span className="text-gray-400 dark:text-gray-500">—</span>}
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">{preview.length} caracteres</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{preview.length} caracteres</p>
             </div>
           </div>
         </div>
 
-        <footer className="px-5 py-3 border-t border-gray-200 flex items-center justify-between gap-3 bg-gray-50">
+        <footer className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800">
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setTpl(DEFAULT_CAMPAIGN_NAME_TPL)}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100"
+              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               Padrão
             </button>
             <button
               type="button"
               onClick={() => setTpl('')}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100"
+              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               Limpar
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100"
+              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
               title="Salvar template no navegador"
             >
               Salvar template
@@ -1093,7 +1093,7 @@ function CampaignNameModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100"
+              className="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               Cancelar
             </button>
@@ -2097,14 +2097,14 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   // ── Render guards ─────────────────────────────────────────────────────────
   if (accounts.length === 0) {
     return (
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-sm text-amber-800">
+      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-sm text-amber-800 dark:text-amber-400">
         Nenhuma conta Meta selecionada com token válido. Vá em <a href="/settings" className="underline font-semibold">Contas de anúncios</a> para selecionar.
       </div>
     );
   }
   if (availableProfiles.length === 0) {
     return (
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-sm text-amber-800">
+      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-sm text-amber-800 dark:text-amber-400">
         Nenhum perfil Meta configurado em <a href="/api-config" className="underline font-semibold">Configurações</a>, ou os tokens não batem com as contas selecionadas.
       </div>
     );
@@ -2125,24 +2125,24 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               })}
             </select>
           </Field>
-          <div className="flex items-end justify-between gap-3 text-[11px] text-gray-500">
+          <div className="flex items-end justify-between gap-3 text-[11px] text-gray-500 dark:text-gray-400">
             <span>{accountsForProfile.length} conta(s) deste perfil disponível(is) abaixo.</span>
             <button type="button" onClick={handleSyncAccounts} disabled={syncing}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50">
               <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Sincronizando…' : 'Sincronizar contas'}
             </button>
           </div>
         </div>
-        {syncing && syncMsg && <p className="text-[11px] text-gray-400">{syncMsg}</p>}
-        {syncError && <p className="text-[11px] text-rose-600">Erro ao sincronizar: {syncError}</p>}
+        {syncing && syncMsg && <p className="text-[11px] text-gray-400 dark:text-gray-500">{syncMsg}</p>}
+        {syncError && <p className="text-[11px] text-rose-600 dark:text-rose-400">Erro ao sincronizar: {syncError}</p>}
       </MainSection>
 
       {/* ───────── 1. Configurações da Campanha ───────── */}
       <MainSection
         title="Configurações da Campanha"
         subtitle="Defina o objetivo e as configurações principais"
-        badge={<span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">Vendas</span>}
+        badge={<span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded">Vendas</span>}
       >
         {/* PRESETS */}
         <SubBlock label="Presets" hint="Salva/aplica configurações genéricas (modo, segmentação, posicionamentos, etc.). Conta, pixel, catálogo, páginas e criativos ficam intactos.">
@@ -2162,7 +2162,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               onClick={handleSavePreset}
               disabled={presetBusy}
               title="Salvar configuração atual como preset"
-              className="px-3 py-2 text-[11px] font-semibold rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+              className="px-3 py-2 text-[11px] font-semibold rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50"
             >
               Salvar
             </button>
@@ -2171,7 +2171,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               onClick={handleDeletePreset}
               disabled={presetBusy || !activePresetName}
               title={activePresetName ? `Excluir preset "${activePresetName}"` : 'Selecione um preset'}
-              className="px-3 py-2 text-[11px] font-semibold rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+              className="px-3 py-2 text-[11px] font-semibold rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 disabled:opacity-50"
             >
               Excluir
             </button>
@@ -2188,7 +2188,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 onChange={setAccountIds}
               />
               {isBroadcast && (
-                <div className="mt-2 text-[11px] leading-relaxed bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-amber-800">
+                <div className="mt-2 text-[11px] leading-relaxed bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 text-amber-800 dark:text-amber-400">
                   <strong>Atenção — IDs account-scoped:</strong> pixels, públicos, catálogos e product sets exibidos são da conta primária
                   <span className="font-mono"> ({account?.account_name ?? accountId})</span>. Em broadcast, esses IDs serão enviados <em>tal qual</em> para as demais contas — se não existirem
                   na conta destino, a chamada à Meta falha (erro #100). A criação segue nas demais contas e o resumo final mostra sucessos/falhas.
@@ -2210,7 +2210,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 <button
                   type="button"
                   onClick={() => setShowNameModal(true)}
-                  className="shrink-0 px-3 py-2 text-[11px] font-semibold rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 inline-flex items-center gap-1"
+                  className="shrink-0 px-3 py-2 text-[11px] font-semibold rounded-md border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 inline-flex items-center gap-1"
                   title="Gerar nome com variáveis"
                 >
                   <span>✨</span>
@@ -2248,10 +2248,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
         {/* CATÁLOGO (DPA) — independente de ABO/CBO */}
         <SubBlock label="Catálogo (DPA)" hint="Use catálogo de produtos. Combinável com ABO ou CBO.">
-          <div className="rounded-lg border border-rose-200 bg-rose-50/40 px-4 py-3 flex items-center justify-between">
+          <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/30 px-4 py-3 flex items-center justify-between">
             <div>
-              <p className="text-[12px] font-semibold text-rose-800">Usar catálogo de produtos</p>
-              <p className="text-[11px] text-rose-700">Dynamic Product Ads — funciona com qualquer modo de orçamento ({campaignType}).</p>
+              <p className="text-[12px] font-semibold text-rose-800 dark:text-rose-400">Usar catálogo de produtos</p>
+              <p className="text-[11px] text-rose-700 dark:text-rose-400">Dynamic Product Ads — funciona com qualquer modo de orçamento ({campaignType}).</p>
             </div>
             <Toggle checked={useCatalog} onChange={setUseCatalog} />
           </div>
@@ -2291,12 +2291,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                   onClick={(v) => { setCatalogConfigMode(v); setCreatedCatalog(null); }}
                   title="Usar catálogo existente"
                   desc="Selecione um Business Manager e depois o catálogo"
-                  badge={<span className="text-[9px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold">{catalogs.length} catálogo(s)</span>}
+                  badge={<span className="text-[9px] bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 px-1.5 py-0.5 rounded font-bold">{catalogs.length} catálogo(s)</span>}
                 />
               </div>
 
               {catalogConfigMode === 'new' && !createdCatalog && (
-                <div className="border border-indigo-200 bg-indigo-50/40 rounded-lg p-3 mt-2 flex flex-col gap-2">
+                <div className="border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/30 rounded-lg p-3 mt-2 flex flex-col gap-2">
                   <div className="grid grid-cols-2 gap-3">
                     <Field
                       label="Business Manager"
@@ -2321,7 +2321,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                             type="button"
                             onClick={() => setManualBmMode(false)}
                             disabled={creatingCatalog}
-                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                           >
                             Lista
                           </button>
@@ -2350,7 +2350,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                             onClick={loadBusinesses}
                             disabled={loadingBusinesses || creatingCatalog || !accountId}
                             title="Recarregar BMs"
-                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
                           >
                             <RefreshCw className={cls('h-3.5 w-3.5', loadingBusinesses && 'animate-spin')} />
                           </button>
@@ -2359,7 +2359,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                             onClick={() => { setManualBmMode(true); setNewCatalogBmId(''); }}
                             disabled={creatingCatalog}
                             title="Digitar bm_id manualmente"
-                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
                           >
                             ID
                           </button>
@@ -2377,7 +2377,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                     </Field>
                   </div>
                   {!loadingBusinesses && businesses.length === 0 && !manualBmMode && (
-                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
                       Nenhum BM visível ao token deste perfil. Use o botão <strong>ID</strong> ao lado pra digitar o <code>bm_id</code> manualmente, ou sincronize as contas em <em>Status Contas</em> primeiro.
                     </p>
                   )}
@@ -2392,27 +2392,27 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                     </button>
                   </div>
                   {businessesError && (
-                    <p className="text-[11px] text-rose-600">Erro ao listar BMs: {businessesError}</p>
+                    <p className="text-[11px] text-rose-600 dark:text-rose-400">Erro ao listar BMs: {businessesError}</p>
                   )}
                   {createCatalogError && (
-                    <p className="text-[11px] text-rose-600">{createCatalogError}</p>
+                    <p className="text-[11px] text-rose-600 dark:text-rose-400">{createCatalogError}</p>
                   )}
-                  <p className="text-[10px] text-gray-500">
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
                     O catálogo será criado com vertical <code>commerce</code> no BM selecionado. Você precisa ser admin desse BM.
                   </p>
                 </div>
               )}
 
               {catalogConfigMode === 'new' && createdCatalog && (
-                <div className="border border-emerald-200 bg-emerald-50/60 rounded-lg p-3 mt-2 flex items-center justify-between">
+                <div className="border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-lg p-3 mt-2 flex items-center justify-between">
                   <div>
-                    <p className="text-[12px] font-semibold text-emerald-800">Catálogo criado ✓</p>
-                    <p className="text-[11px] text-emerald-700">{createdCatalog.name} <span className="text-emerald-600/70">({createdCatalog.id})</span></p>
+                    <p className="text-[12px] font-semibold text-emerald-800 dark:text-emerald-400">Catálogo criado ✓</p>
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400">{createdCatalog.name} <span className="text-emerald-600/70 dark:text-emerald-500">({createdCatalog.id})</span></p>
                   </div>
                   <button
                     type="button"
                     onClick={() => { setCreatedCatalog(null); setCatalogId(''); setProductSetId(''); }}
-                    className="text-[11px] text-emerald-700 hover:text-emerald-900 underline"
+                    className="text-[11px] text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-300 underline"
                   >
                     Criar outro
                   </button>
@@ -2487,7 +2487,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               })()}
 
               {catalogConfigMode === 'existing' && (
-                <p className="text-[10px] text-gray-500 mt-1">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
                   {catalogSourceCounts
                     ? `${catalogSourceCounts.total} catálogo(s) · sincronizado (DB): ${catalogSourceCounts.db} · API live: ${catalogSourceCounts.api}`
                     : null}
@@ -2495,7 +2495,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               )}
 
               {catalogConfigMode === 'existing' && !catalogId && (
-                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 mt-2">
                   {catalogs.length === 0
                     ? <>Nenhum catálogo visível para esse perfil. Rode o sync em <strong>/catalogo</strong> antes (esse fluxo captura também catálogos compartilhados via Partner).</>
                     : <>Escolha um catálogo acima para prosseguir.</>}
@@ -2504,20 +2504,20 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
               {/* Criar produto + conjunto inline — disponível assim que houver catalogId */}
               {catalogId && (
-                <div className="border border-rose-200 bg-rose-50/40 rounded-lg p-3 mt-3 flex flex-col gap-2">
+                <div className="border border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/30 rounded-lg p-3 mt-3 flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-[12px] font-semibold text-rose-800">Criar novo produto + conjunto</p>
+                    <p className="text-[12px] font-semibold text-rose-800 dark:text-rose-400">Criar novo produto + conjunto</p>
                     {createdProduct && (
-                      <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CRIADO ✓</span>
+                      <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">CRIADO ✓</span>
                     )}
                   </div>
-                  <p className="text-[10px] text-rose-700/80 -mt-1">
+                  <p className="text-[10px] text-rose-700/80 dark:text-rose-400/80 -mt-1">
                     Cria um produto e um conjunto com filtro <code>retailer_id == {'{ad_name} {dd/mm}'}</code>. Após criar, o conjunto é selecionado automaticamente.
                   </p>
                   <div className="flex items-end gap-2">
                     <Field label="Preset" hint={loadingProductPresets ? 'Carregando…' : `${productPresets.length} disponíveis`}>
                       <select
-                        className={inputBase + ' bg-white'}
+                        className={inputBase}
                         value={selectedProductPresetName}
                         onChange={e => applyProductPreset(e.target.value)}
                         disabled={creatingProduct || loadingProductPresets}
@@ -2533,7 +2533,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                       onClick={fetchProductPresets}
                       disabled={loadingProductPresets}
                       title="Recarregar presets"
-                      className="px-3 py-2 text-[11px] font-semibold rounded border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-40 whitespace-nowrap"
+                      className="px-3 py-2 text-[11px] font-semibold rounded border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40 whitespace-nowrap"
                     >
                       ↻
                     </button>
@@ -2572,13 +2572,13 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                     </div>
                   </div>
                   {createProductError && (
-                    <p className="text-[11px] text-rose-700 bg-rose-100 border border-rose-200 rounded px-2 py-1">{createProductError}</p>
+                    <p className="text-[11px] text-rose-700 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded px-2 py-1">{createProductError}</p>
                   )}
                   {createdProduct && (
-                    <div className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2 py-1.5">
+                    <div className="text-[11px] text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded px-2 py-1.5">
                       <strong>{createdProduct.product_name}</strong> — retailer_id <code>{createdProduct.retailer_id}</code>
                       <br />
-                      <span className="text-emerald-700">product_id: {createdProduct.product_id} · product_set_id: {createdProduct.product_set_id}</span>
+                      <span className="text-emerald-700 dark:text-emerald-400">product_id: {createdProduct.product_id} · product_set_id: {createdProduct.product_set_id}</span>
                     </div>
                   )}
                 </div>
@@ -2598,19 +2598,19 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               value="COST_CAP" selected={bidStrategy === 'COST_CAP'} onClick={setBidStrategy}
               title="Meta de custo"
               desc="Custo por Resultado"
-              badge={<span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">BETA</span>}
+              badge={<span className="text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">BETA</span>}
             />
             <OptionCard<BidStrategyUI>
               value="LOWEST_COST_WITH_BID_CAP" selected={bidStrategy === 'LOWEST_COST_WITH_BID_CAP'} onClick={setBidStrategy}
               title="Bid Cap"
               desc="Lance máximo por leilão"
-              badge={<span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">BETA</span>}
+              badge={<span className="text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">BETA</span>}
             />
             <OptionCard<BidStrategyUI>
               value="LOWEST_COST_WITH_MIN_ROAS" selected={bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS'} onClick={setBidStrategy}
               title="Meta de ROAS"
               desc="Retorno em anúncios"
-              badge={<span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">BETA</span>}
+              badge={<span className="text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">BETA</span>}
             />
           </div>
           <div className="grid grid-cols-3 gap-3 mt-2">
@@ -2649,7 +2649,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             <div
               className={cls(
                 'flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-300',
-                publishPaused ? 'bg-slate-200 text-slate-600' : 'bg-emerald-200 text-emerald-700'
+                publishPaused ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300' : 'bg-emerald-200 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-400'
               )}
             >
               {publishPaused ? (
@@ -2664,10 +2664,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               )}
             </div>
             <div>
-              <p className={cls('text-[13px] font-bold leading-tight', publishPaused ? 'text-slate-800' : 'text-emerald-800')}>
+              <p className={cls('text-[13px] font-bold leading-tight', publishPaused ? 'text-slate-800 dark:text-slate-100' : 'text-emerald-800 dark:text-emerald-300')}>
                 {publishPaused ? 'Publicar pausada' : 'Publicar ativa'}
               </p>
-              <p className={cls('text-[11px] mt-0.5 leading-snug max-w-md', publishPaused ? 'text-slate-600' : 'text-emerald-700')}>
+              <p className={cls('text-[11px] mt-0.5 leading-snug max-w-md', publishPaused ? 'text-slate-600 dark:text-slate-300' : 'text-emerald-700 dark:text-emerald-400')}>
                 {publishPaused
                   ? 'A campanha sobe em PAUSED para revisão. Conjuntos e anúncios já ficam ATIVOS — basta ligar a campanha depois.'
                   : 'A campanha entra em leilão imediatamente. Conjuntos e anúncios também ATIVOS.'}
@@ -2697,7 +2697,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 value={adsPerAdset} onChange={e => setAdsPerAdset(Math.max(1, Number(e.target.value) || 1))} />
             </Field>
           </div>
-          <p className="text-[11px] text-gray-500 mt-1">
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
             = <strong>{totals.camp}</strong> camp · <strong>{totals.sets}</strong> conj · <strong>{totals.ads}</strong> anúncios ({ads.length} criativo{ads.length === 1 ? '' : 's'} drafted)
           </p>
         </SubBlock>
@@ -2790,11 +2790,11 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
         {/* PÚBLICO-ALVO */}
         <SubBlock>
-          <div className="border border-indigo-100 bg-indigo-50/30 rounded-lg p-4 flex flex-col gap-3">
+          <div className="border border-indigo-100 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-lg p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-[12px] font-bold text-gray-800">Público-Alvo</h3>
-                <p className="text-[11px] text-gray-500">
+                <h3 className="text-[12px] font-bold text-gray-800 dark:text-gray-100">Público-Alvo</h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
                   {advantageAudience ? 'Advantage+ ativado: a I.A. do Meta otimizará seu público.' : 'Definição manual de público.'}
                 </p>
               </div>
@@ -2862,12 +2862,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               </Field>
               <div className="grid grid-cols-2 gap-3 mt-2">
                 <Field label="Gênero">
-                  <div className="grid grid-cols-3 gap-1 bg-gray-100 p-1 rounded-md">
+                  <div className="grid grid-cols-3 gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-md">
                     {(['all', 'male', 'female'] as const).map(g => (
                       <button key={g} type="button" onClick={() => setGender(g)}
                         className={cls(
                           'text-[11px] font-semibold py-1.5 rounded transition-colors',
-                          gender === g ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200'
+                          gender === g ? 'bg-indigo-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                         )}>
                         {g === 'all' ? 'Todos' : g === 'male' ? 'Masculino' : 'Feminino'}
                       </button>
@@ -2877,7 +2877,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 <Field label="Adicionar interesse ou comportamento">
                   <button type="button" disabled
                     className={cls(inputBase, 'flex items-center justify-between cursor-not-allowed')}>
-                    <span className="text-gray-400">+ Adicionar interesse</span>
+                    <span className="text-gray-400 dark:text-gray-500">+ Adicionar interesse</span>
                     <EmBreve />
                   </button>
                 </Field>
@@ -2892,7 +2892,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               </div>
             </SubBlock>
 
-            <p className="text-[11px] text-gray-500 flex items-center gap-3">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-3">
               <span>📍 1 local</span><span>👥 {advantageAudience ? `${ageMin}+` : `${ageMin}–${ageMax}`}</span><span>{gender === 'all' ? '⚥ Todos' : gender === 'male' ? '♂ Masc' : '♀ Fem'}</span><span>🗣 {locales.length || '0'} idioma(s)</span>
             </p>
           </div>
@@ -2901,31 +2901,31 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {/* CONFIGURAÇÕES AVANÇADAS */}
         <SubBlock label="Configurações Avançadas do Conjunto">
           {/* Posicionamentos */}
-          <div className="border border-gray-200 rounded-lg p-4 flex flex-col gap-3">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-[12px] font-bold text-gray-800">Posicionamentos</h4>
-                <p className="text-[11px] text-gray-500">Escolha onde seus anúncios serão exibidos</p>
+                <h4 className="text-[12px] font-bold text-gray-800 dark:text-gray-100">Posicionamentos</h4>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Escolha onde seus anúncios serão exibidos</p>
               </div>
-              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">
+              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
                 {advantagePositioning ? 'Automático' : 'Manual'}
               </span>
             </div>
 
-            <div className="rounded-md border border-indigo-100 bg-indigo-50/40 px-3 py-2 flex items-center justify-between">
+            <div className="rounded-md border border-indigo-100 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/30 px-3 py-2 flex items-center justify-between">
               <div>
-                <p className="text-[12px] font-semibold text-gray-800">✦ Advantage+ Posicionamentos</p>
-                <p className="text-[10px] text-gray-500">Meta otimiza automaticamente onde seus anúncios aparecem</p>
+                <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">✦ Advantage+ Posicionamentos</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Meta otimiza automaticamente onde seus anúncios aparecem</p>
               </div>
               <Toggle checked={advantagePositioning} onChange={setAdvantagePositioning} />
             </div>
 
             {!advantagePositioning && (
               <div>
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Plataformas</p>
+                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Plataformas</p>
                 <div className="flex gap-4 flex-wrap">
                   {(['facebook', 'instagram', 'audience_network', 'messenger'] as const).map(p => (
-                    <label key={p} className="flex items-center gap-2 text-xs text-gray-700">
+                    <label key={p} className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
                       <input type="checkbox" checked={platforms[p]}
                         onChange={e => setPlatforms(prev => ({ ...prev, [p]: e.target.checked }))} />
                       {p === 'audience_network' ? 'Audience Network' : p[0].toUpperCase() + p.slice(1)}
@@ -2936,14 +2936,14 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             )}
 
             <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Dispositivos</p>
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Dispositivos</p>
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-xs text-gray-700">
+                <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
                   <input type="checkbox" checked={devices.mobile}
                     onChange={e => setDevices(d => ({ ...d, mobile: e.target.checked }))} />
                   📱 Dispositivos Móveis
                 </label>
-                <label className="flex items-center gap-2 text-xs text-gray-700">
+                <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
                   <input type="checkbox" checked={devices.desktop}
                     onChange={e => setDevices(d => ({ ...d, desktop: e.target.checked }))} />
                   🖥 Desktop
@@ -2953,19 +2953,19 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[12px] font-semibold text-gray-800">Apenas Wi-Fi</p>
-                <p className="text-[10px] text-gray-400">Exibir anúncios apenas quando conectado ao Wi-Fi</p>
+                <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">Apenas Wi-Fi</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">Exibir anúncios apenas quando conectado ao Wi-Fi</p>
               </div>
               <Toggle checked={wifiOnly} onChange={setWifiOnly} />
             </div>
           </div>
 
           {/* Agendamento */}
-          <div className="border border-gray-200 rounded-lg p-4 flex flex-col gap-3 mt-3">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3 mt-3">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-[12px] font-bold text-gray-800">Agendamento</h4>
-                <p className="text-[11px] text-gray-500">Defina quando seus anúncios começarão e terminarão de ser veiculados</p>
+                <h4 className="text-[12px] font-bold text-gray-800 dark:text-gray-100">Agendamento</h4>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Defina quando seus anúncios começarão e terminarão de ser veiculados</p>
               </div>
               <Toggle checked={hasEndTime} onChange={setHasEndTime} label="Data de término" />
             </div>
@@ -3012,27 +3012,27 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             const remaining = Math.max(0, totalAds - allocated);
             const perAuto = autoCount > 0 ? Math.floor(remaining / autoCount) : 0;
             return (
-              <div className="mt-2 border border-gray-200 rounded-md bg-gray-50/60">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200">
+              <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50/60 dark:bg-gray-800/60">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
                   <div>
-                    <p className="text-[12px] font-semibold text-gray-800">Criativos por página</p>
-                    <p className="text-[10px] text-gray-500">
-                      Total de anúncios a criar: <span className="font-mono text-gray-700">{totalAds}</span>
-                      {' · '}Alocados manualmente: <span className="font-mono text-gray-700">{allocated}</span>
-                      {autoCount > 0 && <> · Auto (round-robin) p/ {autoCount} página{autoCount > 1 ? 's' : ''}: <span className="font-mono text-gray-700">{remaining}</span></>}
+                    <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">Criativos por página</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                      Total de anúncios a criar: <span className="font-mono text-gray-700 dark:text-gray-300">{totalAds}</span>
+                      {' · '}Alocados manualmente: <span className="font-mono text-gray-700 dark:text-gray-300">{allocated}</span>
+                      {autoCount > 0 && <> · Auto (round-robin) p/ {autoCount} página{autoCount > 1 ? 's' : ''}: <span className="font-mono text-gray-700 dark:text-gray-300">{remaining}</span></>}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setPageAllocations({})}
-                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold"
+                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold"
                   >
                     Resetar (tudo auto)
                   </button>
                 </div>
                 <div className="max-h-[220px] overflow-y-auto">
                   <table className="w-full text-[11px]">
-                    <thead className="bg-gray-100 text-gray-600">
+                    <thead className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                       <tr>
                         <th className="text-left px-3 py-1.5 font-semibold">Página</th>
                         <th className="text-right px-3 py-1.5 font-semibold">Disponíveis</th>
@@ -3057,12 +3057,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                           ? capByTotal
                           : Math.min(capByTotal, avail);
                         return (
-                          <tr key={p.id} className="border-t border-gray-200">
-                            <td className="px-3 py-1.5 text-gray-800">
+                          <tr key={p.id} className="border-t border-gray-200 dark:border-gray-700">
+                            <td className="px-3 py-1.5 text-gray-800 dark:text-gray-100">
                               {p.name}
-                              {p.instagram_business_account && <span className="ml-1 text-rose-500">· IG</span>}
+                              {p.instagram_business_account && <span className="ml-1 text-rose-500 dark:text-rose-400">· IG</span>}
                             </td>
-                            <td className={cls('px-3 py-1.5 text-right font-mono', avail == null ? 'text-gray-400' : over ? 'text-rose-600' : 'text-gray-700')}>
+                            <td className={cls('px-3 py-1.5 text-right font-mono', avail == null ? 'text-gray-400 dark:text-gray-500' : over ? 'text-rose-600 dark:text-rose-400' : 'text-gray-700 dark:text-gray-300')}>
                               {avail == null ? '∞' : avail}
                             </td>
                             <td className="px-3 py-1.5 text-right">
@@ -3088,7 +3088,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                                     });
                                   }}
                                   className={cls('w-[70px] text-right border rounded-md px-1.5 py-0.5 text-[11px] font-mono',
-                                    over ? 'border-rose-300 bg-rose-50' : 'border-gray-200 bg-white')}
+                                    over ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900')}
                                 />
                                 {!isAuto && (
                                   <button
@@ -3097,7 +3097,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                                     onClick={() => setPageAllocations(prev => {
                                       const next = { ...prev }; delete next[p.id]; return next;
                                     })}
-                                    className="text-gray-400 hover:text-gray-700 text-sm leading-none"
+                                    className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm leading-none"
                                   >×</button>
                                 )}
                               </div>
@@ -3113,8 +3113,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           })()}
           <div className="flex items-center justify-between mt-2">
             <div>
-              <p className="text-[12px] font-semibold text-gray-800">Auto retry de página</p>
-              <p className="text-[10px] text-gray-400">Se um anúncio falhar na página selecionada, o sistema tentará automaticamente em outra página disponível.</p>
+              <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">Auto retry de página</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">Se um anúncio falhar na página selecionada, o sistema tentará automaticamente em outra página disponível.</p>
             </div>
             <Toggle checked={autoRetryPage} onChange={setAutoRetryPage} />
           </div>
@@ -3145,7 +3145,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               />
             ))}
             <button type="button" onClick={addAd}
-              className="self-start text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold">
+              className="self-start text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold">
               + Adicionar outro criativo
             </button>
           </div>
@@ -3154,78 +3154,78 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {/* CONFIGURAÇÕES AVANÇADAS DO ANÚNCIO */}
         <SubBlock label="Configurações Avançadas">
           {/* RASTREAMENTO — URL params */}
-          <div className="border border-gray-200 rounded-lg p-4 flex flex-col gap-3">
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Rastreamento</p>
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3">
+            <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rastreamento</p>
             <Field label="Parâmetros de URL">
               <textarea className={cls(inputBase, 'font-mono min-h-[50px]')} value={urlTagsTpl}
                 onChange={e => setUrlTagsTpl(e.target.value)}
                 placeholder="utm_source=FB&utm_campaign={{campaign.id}}" />
             </Field>
-            <p className="text-[10px] text-gray-500">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">
               Parâmetros adicionados à URL de destino. Variáveis suportadas (Facebook + DirectAds) são substituídas automaticamente; o restante é enviado como está.
             </p>
           </div>
 
           {/* ADVANTAGE+ CREATIVE */}
-          <div className="border border-gray-200 rounded-lg p-4 flex flex-col gap-3 mt-3">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3 mt-3">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-[12px] font-bold text-gray-800">✦ Advantage+ Creative</h4>
-                <p className="text-[11px] text-gray-500">Configurações de aprimoramentos automáticos de criativos para seus anúncios</p>
+                <h4 className="text-[12px] font-bold text-gray-800 dark:text-gray-100">✦ Advantage+ Creative</h4>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Configurações de aprimoramentos automáticos de criativos para seus anúncios</p>
               </div>
             </div>
-            <div className="rounded-md border border-indigo-100 bg-indigo-50/40 px-3 py-2 flex items-center justify-between">
+            <div className="rounded-md border border-indigo-100 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/30 px-3 py-2 flex items-center justify-between">
               <div>
-                <p className="text-[12px] font-semibold text-gray-800">⚙ Todas as Otimizações</p>
-                <p className="text-[10px] text-gray-500">Ativa todas as melhorias automáticas de IA</p>
+                <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">⚙ Todas as Otimizações</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Ativa todas as melhorias automáticas de IA</p>
               </div>
               <Toggle checked={adv.all} onChange={v => setAdv(prev => ({ ...prev, all: v }))} />
             </div>
 
-            <details className="border border-gray-100 rounded-md">
-              <summary className="cursor-pointer px-3 py-2 text-[11px] font-semibold text-gray-700 flex items-center gap-2">
-                <span className="text-gray-400">▸</span> Preview Avançado
-                <span className="ml-auto text-[10px] text-gray-400">0/6</span>
+            <details className="border border-gray-100 dark:border-gray-800 rounded-md">
+              <summary className="cursor-pointer px-3 py-2 text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <span className="text-gray-400 dark:text-gray-500">▸</span> Preview Avançado
+                <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">0/6</span>
               </summary>
-              <div className="px-3 py-2 text-[10px] text-gray-400">Previews variantes do criativo após otimizações (carregado sob demanda).</div>
+              <div className="px-3 py-2 text-[10px] text-gray-400 dark:text-gray-500">Previews variantes do criativo após otimizações (carregado sob demanda).</div>
             </details>
 
-            <div className="border border-gray-100 rounded-md">
-              <div className="px-3 py-2 flex items-center justify-between border-b border-gray-100">
-                <p className="text-[11px] font-semibold text-gray-700">✨ Melhorias Essenciais</p>
-                <span className="text-[10px] text-gray-400">
+            <div className="border border-gray-100 dark:border-gray-800 rounded-md">
+              <div className="px-3 py-2 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+                <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">✨ Melhorias Essenciais</p>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
                   {[adv.site_extensions, adv.relevant_comments, adv.cta_optimization].filter(Boolean).length}/3
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 px-3 py-2">
-                <div className="rounded-md border border-gray-100 px-2 py-1.5 flex items-center justify-between">
-                  <span className="text-[11px] text-gray-700">🌐 Extensões do Site</span>
+                <div className="rounded-md border border-gray-100 dark:border-gray-800 px-2 py-1.5 flex items-center justify-between">
+                  <span className="text-[11px] text-gray-700 dark:text-gray-300">🌐 Extensões do Site</span>
                   <Toggle checked={adv.all || adv.site_extensions} onChange={v => setAdv(prev => ({ ...prev, site_extensions: v }))} />
                 </div>
-                <div className="rounded-md border border-gray-100 px-2 py-1.5 flex items-center justify-between">
-                  <span className="text-[11px] text-gray-700">💬 Comentários Relevantes</span>
+                <div className="rounded-md border border-gray-100 dark:border-gray-800 px-2 py-1.5 flex items-center justify-between">
+                  <span className="text-[11px] text-gray-700 dark:text-gray-300">💬 Comentários Relevantes</span>
                   <Toggle checked={adv.all || adv.relevant_comments} onChange={v => setAdv(prev => ({ ...prev, relevant_comments: v }))} />
                 </div>
-                <div className="rounded-md border border-gray-100 px-2 py-1.5 flex items-center justify-between col-span-2">
-                  <span className="text-[11px] text-gray-700">📝 Melhorar CTA</span>
+                <div className="rounded-md border border-gray-100 dark:border-gray-800 px-2 py-1.5 flex items-center justify-between col-span-2">
+                  <span className="text-[11px] text-gray-700 dark:text-gray-300">📝 Melhorar CTA</span>
                   <Toggle checked={adv.all || adv.cta_optimization} onChange={v => setAdv(prev => ({ ...prev, cta_optimization: v }))} />
                 </div>
               </div>
             </div>
 
-            <p className="text-[10px] text-gray-500">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">
               <span className="font-semibold">Recomendação:</span> Mantenha tudo desativado para controle total dos criativos.
             </p>
           </div>
 
           {/* MULTI-ADVERTISER ADS */}
-          <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between mt-3">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between mt-3">
             <div>
-              <h4 className="text-[12px] font-bold text-gray-800 flex items-center gap-2">
+              <h4 className="text-[12px] font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                 Multi-Advertiser Ads
-                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">Opcional</span>
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">Opcional</span>
               </h4>
-              <p className="text-[11px] text-gray-500">Permite que seu anúncio apareça ao lado de anúncios de outras marcas em carrosséis personalizados.</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">Permite que seu anúncio apareça ao lado de anúncios de outras marcas em carrosséis personalizados.</p>
             </div>
             <Toggle checked={multiAdvertiser} onChange={setMultiAdvertiser} />
           </div>
@@ -3235,9 +3235,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       {/* ───────── 4. Publicar ───────── */}
       <MainSection title="Publicar" subtitle={publishPaused ? 'Campanha sobe PAUSED (conjuntos e ads ATIVOS) — revise no Ads Manager.' : 'Campanha ATIVA — vai entrar em leilão imediatamente.'}>
         {errors.length > 0 && (
-          <div className="bg-rose-50 border border-rose-200 rounded-lg p-3">
-            <p className="text-xs font-bold text-rose-700 mb-1">Corrija antes de publicar:</p>
-            <ul className="text-[11px] text-rose-700 list-disc list-inside space-y-0.5">
+          <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg p-3">
+            <p className="text-xs font-bold text-rose-700 dark:text-rose-400 mb-1">Corrija antes de publicar:</p>
+            <ul className="text-[11px] text-rose-700 dark:text-rose-400 list-disc list-inside space-y-0.5">
               {errors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
               {errors.length > 8 && <li>+ {errors.length - 8} outros…</li>}
             </ul>
@@ -3259,8 +3259,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         </div>
 
         {(events.length > 0 || doneInfo || errorInfo) && (
-          <div className="mt-3 border border-gray-100 rounded-lg overflow-hidden">
-            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 border-b border-gray-100">
+          <div className="mt-3 border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden">
+            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
               Progresso
             </div>
             <div className="bg-gray-900 text-gray-100 font-mono text-[11px] leading-relaxed px-3 py-2 max-h-64 overflow-y-auto">
@@ -3270,16 +3270,16 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         )}
 
         {doneInfo && (
-          <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-            <p className="text-xs font-bold text-emerald-800">✓ Criado com sucesso</p>
-            <p className="text-[11px] text-emerald-700 mt-1">
+          <div className="mt-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-400">✓ Criado com sucesso</p>
+            <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
               {doneInfo.campaign_ids.length} campanha(s) · {doneInfo.adset_ids.length} conjunto(s) · {doneInfo.ad_ids.length} anúncio(s)
             </p>
             {doneInfo.campaign_ids[0] && (
               <a
                 href={`https://business.facebook.com/adsmanager/manage/campaigns?act=${accountId.replace('act_', '')}&selected_campaign_ids=${doneInfo.campaign_ids.join(',')}`}
                 target="_blank" rel="noopener noreferrer"
-                className="inline-block mt-2 text-[11px] text-emerald-700 underline font-semibold"
+                className="inline-block mt-2 text-[11px] text-emerald-700 dark:text-emerald-400 underline font-semibold"
               >
                 Abrir no Ads Manager →
               </a>
@@ -3288,58 +3288,58 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         )}
 
         {errorInfo && (
-          <div className="mt-3 bg-rose-50 border border-rose-200 rounded-lg p-4">
-            <p className="text-xs font-bold text-rose-800">✗ Erro {errorInfo.step ? `em ${errorInfo.step}` : ''}</p>
-            <p className="text-[11px] text-rose-700 mt-1">{errorInfo.error}</p>
+          <div className="mt-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg p-4">
+            <p className="text-xs font-bold text-rose-800 dark:text-rose-400">✗ Erro {errorInfo.step ? `em ${errorInfo.step}` : ''}</p>
+            <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-1">{errorInfo.error}</p>
           </div>
         )}
 
         {/* Broadcast: progresso em tempo real (conta atual / total) */}
         {broadcastProgress && (
-          <div className="mt-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
-            <p className="text-[11px] font-bold text-indigo-800">
+          <div className="mt-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3">
+            <p className="text-[11px] font-bold text-indigo-800 dark:text-indigo-400">
               Broadcast em andamento — conta {broadcastProgress.current}/{broadcastProgress.total}
             </p>
-            <p className="text-[11px] text-indigo-700 mt-0.5 font-mono">
+            <p className="text-[11px] text-indigo-700 dark:text-indigo-400 mt-0.5 font-mono">
               {accounts.find(a => a.account_id === broadcastProgress.account_id)?.account_name ?? broadcastProgress.account_id}
-              <span className="text-indigo-400"> ({broadcastProgress.account_id})</span>
+              <span className="text-indigo-400 dark:text-indigo-500"> ({broadcastProgress.account_id})</span>
             </p>
           </div>
         )}
 
         {/* Broadcast: resumo final por conta */}
         {broadcastSummary && (
-          <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-700">
+          <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
                 Resumo do broadcast
               </span>
-              <span className="text-[11px] text-gray-500">
-                <span className="text-emerald-700 font-semibold">✓ {broadcastSummary.success.length}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">✓ {broadcastSummary.success.length}</span>
                 {' · '}
-                <span className="text-rose-700 font-semibold">✗ {broadcastSummary.failed.length}</span>
+                <span className="text-rose-700 dark:text-rose-400 font-semibold">✗ {broadcastSummary.failed.length}</span>
                 {' / '}
                 {broadcastSummary.total} contas
               </span>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {broadcastSummary.success.map(s => {
                 const acct = accounts.find(a => a.account_id === s.account_id);
                 return (
-                  <div key={`ok-${s.account_id}`} className="px-4 py-2 flex items-center gap-3">
-                    <span className="text-emerald-600 font-bold text-[11px]">✓</span>
-                    <span className="text-[11px] flex-1 truncate">
+                  <div key={`ok-${s.account_id}`} className="px-4 py-2 flex items-center gap-3 bg-white dark:bg-gray-900">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">✓</span>
+                    <span className="text-[11px] flex-1 truncate text-gray-800 dark:text-gray-100">
                       {acct?.account_name ?? s.account_id}
-                      <span className="text-gray-400 font-mono"> ({s.account_id})</span>
+                      <span className="text-gray-400 dark:text-gray-500 font-mono"> ({s.account_id})</span>
                     </span>
-                    <span className="text-[11px] text-gray-500 shrink-0">
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">
                       {s.campaign_ids.length} camp · {s.ad_ids.length} ads
                     </span>
                     {s.campaign_ids[0] && (
                       <a
                         href={`https://business.facebook.com/adsmanager/manage/campaigns?act=${s.account_id.replace('act_', '')}&selected_campaign_ids=${s.campaign_ids.join(',')}`}
                         target="_blank" rel="noopener noreferrer"
-                        className="text-[11px] text-emerald-700 underline font-semibold shrink-0"
+                        className="text-[11px] text-emerald-700 dark:text-emerald-400 underline font-semibold shrink-0"
                       >
                         abrir →
                       </a>
@@ -3350,21 +3350,21 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               {broadcastSummary.failed.map(f => {
                 const acct = accounts.find(a => a.account_id === f.account_id);
                 return (
-                  <div key={`err-${f.account_id}`} className="px-4 py-2 bg-rose-50/40">
+                  <div key={`err-${f.account_id}`} className="px-4 py-2 bg-rose-50/40 dark:bg-rose-950/20">
                     <div className="flex items-center gap-3">
-                      <span className="text-rose-600 font-bold text-[11px]">✗</span>
-                      <span className="text-[11px] flex-1 truncate">
+                      <span className="text-rose-600 dark:text-rose-400 font-bold text-[11px]">✗</span>
+                      <span className="text-[11px] flex-1 truncate text-gray-800 dark:text-gray-100">
                         {acct?.account_name ?? f.account_id}
-                        <span className="text-gray-400 font-mono"> ({f.account_id})</span>
+                        <span className="text-gray-400 dark:text-gray-500 font-mono"> ({f.account_id})</span>
                       </span>
                     </div>
-                    <p className="text-[11px] text-rose-700 mt-1 ml-6 break-words">{f.error}</p>
+                    <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-1 ml-6 break-words">{f.error}</p>
                   </div>
                 );
               })}
             </div>
             {broadcastSummary.failed.length > 0 && (
-              <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
+              <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
                   onClick={() => {
@@ -3372,7 +3372,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                     setAccountIds(failedIds);
                     setBroadcastSummary(null);
                   }}
-                  className="text-[11px] font-semibold text-indigo-700 hover:text-indigo-800 underline"
+                  className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 underline"
                 >
                   Selecionar apenas as {broadcastSummary.failed.length} conta(s) que falharam para nova tentativa
                 </button>
@@ -3459,10 +3459,10 @@ function AdEditor({
     onChange({ child_attachments: ad.child_attachments.filter(c => c.id !== cid) });
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50">
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-800/50">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Criativo #{index + 1}</span>
+          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Criativo #{index + 1}</span>
           <input className={cls(inputBase, 'min-w-[200px]')} value={ad.name}
             onChange={e => onChange({ name: e.target.value })} placeholder="Nome do criativo" />
           {!isDPA && (
@@ -3474,16 +3474,16 @@ function AdEditor({
               <option value="carousel">Carrossel</option>
             </select>
           )}
-          {isDPA && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-rose-100 text-rose-700 border border-rose-200">DPA</span>}
+          {isDPA && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">DPA</span>}
         </div>
         {canRemove && (
           <button type="button" onClick={onRemove}
-            className="text-[11px] text-rose-500 hover:text-rose-700 font-semibold">Remover</button>
+            className="text-[11px] text-rose-500 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold">Remover</button>
         )}
       </div>
 
       {/* CONTEÚDO DO ANÚNCIO */}
-      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Textos do Anúncio</p>
+      <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Textos do Anúncio</p>
       <Field label="Texto Principal">
         <textarea className={cls(inputBase, 'min-h-[60px]')} value={ad.message}
           onChange={e => onChange({ message: e.target.value })}
@@ -3502,7 +3502,7 @@ function AdEditor({
 
       {(!isDPA && ad.type === 'single') && (
         <>
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4">Link e Ação</p>
+          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 mt-4">Link e Ação</p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="URL de Destino *">
               <input className={inputBase} value={ad.link}
@@ -3529,27 +3529,27 @@ function AdEditor({
                 <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleSingleUpload(f); }} />
                 <button type="button" onClick={() => fileRef.current?.click()}
-                  className="text-xs px-3 py-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  className="text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-50"
                   disabled={uploading}>
                   {uploading
                     ? (ad.media_kind === 'video' ? 'Enviando vídeo…' : 'Enviando…')
                     : (ad.video_id || ad.image_hash ? 'Trocar mídia' : 'Fazer upload')}
                 </button>
                 {ad.media_kind === 'video' && ad.video_thumbnail_url ? (
-                  <img src={ad.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 object-cover rounded border border-gray-200" />
+                  <img src={ad.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" />
                 ) : ad.image_preview && (
                   ad.media_kind === 'video'
-                    ? <video src={ad.image_preview} className="h-12 w-12 object-cover rounded border border-gray-200" muted />
-                    : <img src={ad.image_preview} alt="" className="h-12 w-12 object-cover rounded border border-gray-200" />
+                    ? <video src={ad.image_preview} className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" muted />
+                    : <img src={ad.image_preview} alt="" className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" />
                 )}
                 {ad.media_kind === 'video' && ad.video_id && (
-                  <span className="text-[10px] text-gray-400 font-mono">vid {ad.video_id.slice(0, 12)}…</span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">vid {ad.video_id.slice(0, 12)}…</span>
                 )}
                 {ad.media_kind === 'image' && ad.image_hash && (
-                  <span className="text-[10px] text-gray-400 font-mono">{ad.image_hash.slice(0, 12)}…</span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{ad.image_hash.slice(0, 12)}…</span>
                 )}
                 {ad.media_kind === 'video' && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-violet-100 text-violet-700 border border-violet-200">vídeo</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800">vídeo</span>
                 )}
               </div>
             </Field>
@@ -3560,7 +3560,7 @@ function AdEditor({
       {(!isDPA && ad.type === 'carousel') && (
         <div className="mt-3 flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-gray-500">{ad.child_attachments.length}/10 cards · CTA aplicado a todos os cards</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">{ad.child_attachments.length}/10 cards · CTA aplicado a todos os cards</p>
             <select className={inputBase} value={ad.cta_type}
               onChange={e => onChange({ cta_type: e.target.value as CTA })}>
               {CTA_OPTIONS.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
@@ -3579,7 +3579,7 @@ function AdEditor({
           </div>
           {ad.child_attachments.length < 10 && (
             <button type="button" onClick={addChild}
-              className="self-start text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold">
+              className="self-start text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold">
               + Adicionar card
             </button>
           )}
@@ -3588,9 +3588,9 @@ function AdEditor({
 
       {isDPA && (
         <>
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4">Link e Ação (DPA)</p>
-          <p className="text-[11px] text-gray-500 mb-2">
-            DPA usa <code className="bg-gray-200 px-1 rounded">{'{{product.url}}'}</code>, <code className="bg-gray-200 px-1 rounded">{'{{product.name}}'}</code>, etc. — não precisa subir imagem (vem do catálogo).
+          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 mt-4">Link e Ação (DPA)</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
+            DPA usa <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.url}}'}</code>, <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.name}}'}</code>, etc. — não precisa subir imagem (vem do catálogo).
           </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="URL Template (opcional)" hint="Default: {{product.url}}">
@@ -3658,11 +3658,11 @@ function CarouselCardEditor({
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg p-3 bg-white flex flex-col gap-2">
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-900 flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Card #{index + 1}</span>
+        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Card #{index + 1}</span>
         {canRemove && (
-          <button type="button" onClick={onRemove} className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold">Remover</button>
+          <button type="button" onClick={onRemove} className="text-[10px] text-rose-500 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold">Remover</button>
         )}
       </div>
       <input className={inputBase} value={card.headline} onChange={e => onChange({ headline: e.target.value })} placeholder="Título" />
@@ -3673,10 +3673,10 @@ function CarouselCardEditor({
         <input ref={fileRef} type="file" accept="image/*" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-          className="text-[11px] px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50">
+          className="text-[11px] px-2 py-1 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
           {uploading ? 'Enviando…' : card.image_hash ? 'Trocar' : 'Imagem'}
         </button>
-        {card.image_preview && <img src={card.image_preview} alt="" className="h-10 w-10 object-cover rounded border border-gray-200" />}
+        {card.image_preview && <img src={card.image_preview} alt="" className="h-10 w-10 object-cover rounded border border-gray-200 dark:border-gray-700" />}
       </div>
     </div>
   );

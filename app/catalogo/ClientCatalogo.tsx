@@ -601,16 +601,16 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
   return (
     <div className="flex flex-col gap-6">
       {/* Header / actions */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
           <div>
-            <h1 className="text-base font-bold text-gray-900">Catálogos do Facebook</h1>
-            <p className="text-xs text-gray-500">
+            <h1 className="text-base font-bold text-gray-900 dark:text-gray-100">Catálogos do Facebook</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               {syncing
                 ? 'Sincronizando com a Meta…'
                 : loading
@@ -622,13 +622,13 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
         <div className="flex items-center gap-2">
           <div className="relative">
-            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
               placeholder="Filtrar BM ou catálogo..."
-              className="pl-9 pr-4 py-1.5 border border-gray-200 rounded-md text-xs w-64 outline-none focus:border-indigo-500 bg-gray-50"
+              className="pl-9 pr-4 py-1.5 border border-gray-200 dark:border-gray-700 rounded-md text-xs w-64 outline-none focus:border-indigo-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -637,7 +637,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             onClick={reloadFromDB}
             disabled={loading || syncing}
             title="Recarregar do banco de dados"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-indigo-300 hover:text-indigo-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-indigo-300 hover:text-indigo-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <svg className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -648,7 +648,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             onClick={handleSync}
             disabled={loading || syncing}
             title="Buscar catálogos diretamente da Meta e atualizar o banco"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:border-emerald-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <svg className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m8.66-13l-.87.5M4.21 15.5l-.87.5M20.66 15.5l-.87-.5M4.21 8.5l-.87-.5M21 12h-1M4 12H3" />
@@ -660,12 +660,12 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
       </div>
 
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-sm">
+        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded-xl p-4 text-sm">
           {error}
         </div>
       )}
       {info && !error && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl p-3 text-xs">
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 rounded-xl p-3 text-xs">
           {info}
         </div>
       )}
@@ -686,18 +686,18 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
         });
 
         return (
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
             <button
               onClick={() => setDiagOpen((v) => !v)}
-              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
             >
               <div className="flex items-center gap-3">
-                <svg className={`w-4 h-4 text-gray-500 transition-transform ${diagOpen ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                <svg className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${diagOpen ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
                 <div>
-                  <div className="text-sm font-bold text-gray-800">Diagnóstico do último sync</div>
-                  <div className="text-[11px] text-gray-500">
+                  <div className="text-sm font-bold text-gray-800 dark:text-gray-100">Diagnóstico do último sync</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">
                     {diagnostics.length} BMs varridas · {withCatalogs} com catálogos · {withoutAny} sem catálogos · {withAnyError} com erro de permissão/API
                   </div>
                 </div>
@@ -707,7 +707,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   <button
                     key={f}
                     onClick={() => setDiagFilter(f)}
-                    className={`px-2 py-1 rounded ${diagFilter === f ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                    className={`px-2 py-1 rounded ${diagFilter === f ? 'bg-indigo-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   >
                     {f === 'all' ? 'Todas' : f === 'empty' ? 'Sem catálogos' : 'Com erro'}
                   </button>
@@ -716,9 +716,9 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             </button>
 
             {diagOpen && (
-              <div className="border-t border-gray-100 divide-y divide-gray-100 max-h-[480px] overflow-y-auto">
+              <div className="border-t border-gray-100 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800 max-h-[480px] overflow-y-auto">
                 {filtered.length === 0 ? (
-                  <div className="p-6 text-center text-gray-400 text-xs">
+                  <div className="p-6 text-center text-gray-400 dark:text-gray-500 text-xs">
                     Nada pra mostrar com este filtro.
                   </div>
                 ) : (
@@ -727,26 +727,26 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                     return (
                       <div key={d.bm_id} className="px-5 py-3 text-xs">
                         <div className="flex items-center gap-3 mb-2">
-                          <span className="font-semibold text-gray-800 truncate max-w-[320px]" title={d.bm_name}>{d.bm_name}</span>
-                          <span className="font-mono text-[10px] text-gray-400">BM {d.bm_id}</span>
+                          <span className="font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[320px]" title={d.bm_name}>{d.bm_name}</span>
+                          <span className="font-mono text-[10px] text-gray-400 dark:text-gray-500">BM {d.bm_id}</span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                             d.total_catalogs > 0
-                              ? 'bg-emerald-50 text-emerald-600'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
                               : anyError
-                              ? 'bg-rose-50 text-rose-600'
-                              : 'bg-gray-100 text-gray-500'
+                              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                           }`}>
                             {d.total_catalogs > 0
                               ? `${d.total_catalogs} catálogo(s)`
                               : anyError ? 'Erro de permissão/API' : 'Sem catálogos'}
                           </span>
                         </div>
-                        <div className="space-y-1 pl-2 border-l-2 border-gray-100">
+                        <div className="space-y-1 pl-2 border-l-2 border-gray-100 dark:border-gray-800">
                           {d.attempts.map((a, idx) => (
                             <div key={idx} className="flex flex-wrap items-start gap-2 py-1">
-                              <div className="text-[11px] text-gray-600 font-medium min-w-[140px]">
+                              <div className="text-[11px] text-gray-600 dark:text-gray-300 font-medium min-w-[140px]">
                                 {a.profile_name}
-                                <span className="text-gray-400 font-mono ml-1">[{a.token_preview}]</span>
+                                <span className="text-gray-400 dark:text-gray-500 font-mono ml-1">[{a.token_preview}]</span>
                               </div>
                               <div className="flex flex-wrap gap-1.5">
                                 {a.endpoints.map((e, eidx) => (
@@ -754,10 +754,10 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                                     key={eidx}
                                     className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                                       e.status === 'ok'
-                                        ? 'bg-emerald-50 text-emerald-700'
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
                                         : e.status === 'empty'
-                                        ? 'bg-gray-100 text-gray-500'
-                                        : 'bg-rose-50 text-rose-700'
+                                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                                        : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400'
                                     }`}
                                     title={e.error_message ?? ''}
                                   >
@@ -767,7 +767,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                                   </span>
                                 ))}
                                 {a.endpoints.some((e) => e.error_message) && (
-                                  <span className="text-[10px] text-rose-600 max-w-[420px] truncate">
+                                  <span className="text-[10px] text-rose-600 dark:text-rose-400 max-w-[420px] truncate">
                                     {a.endpoints.find((e) => e.error_message)?.error_message}
                                   </span>
                                 )}
@@ -786,7 +786,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
       })()}
 
       {!loading && !syncing && !error && filtered.length === 0 && (
-        <div className="bg-white border border-dashed border-gray-300 rounded-xl p-12 text-center text-gray-400 text-sm">
+        <div className="bg-white dark:bg-gray-900 border border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-12 text-center text-gray-400 dark:text-gray-500 text-sm">
           {groups.length === 0
             ? 'Nenhum catálogo no banco. Clique em "Sincronizar Meta" para buscar.'
             : 'Nenhum catálogo encontrado para o filtro atual.'}
@@ -797,38 +797,38 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
         const isOpen = expanded.has(g.bm_id);
         const bmProductTotal = g.catalogs.reduce((s, c) => s + (c.product_count ?? 0), 0);
         return (
-          <div key={g.bm_id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div key={g.bm_id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
             {/* BM Header */}
             <div
               onClick={() => toggle(g.bm_id)}
-              className="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-indigo-50/40 to-transparent flex flex-wrap items-center gap-x-6 gap-y-2 cursor-pointer hover:bg-indigo-50/60 transition-colors"
+              className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-indigo-50/40 dark:from-indigo-950/20 to-transparent flex flex-wrap items-center gap-x-6 gap-y-2 cursor-pointer hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30 transition-colors"
             >
-              <div className={`w-5 h-5 flex items-center justify-center rounded bg-gray-100 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}>
+              <div className={`w-5 h-5 flex items-center justify-center rounded bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 transition-transform ${isOpen ? 'rotate-90' : ''}`}>
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="w-1.5 h-6 bg-indigo-500 rounded-sm" />
               <div className="min-w-0">
-                <div className="text-[10px] text-gray-400 font-bold tracking-wider uppercase">Business Manager</div>
-                <div className="text-sm font-bold text-gray-800 truncate max-w-[420px]" title={g.bm_name}>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider uppercase">Business Manager</div>
+                <div className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate max-w-[420px]" title={g.bm_name}>
                   {g.bm_name}
                 </div>
               </div>
-              <div className="text-[10px] text-gray-400 font-mono">BM {g.bm_id}</div>
+              <div className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">BM {g.bm_id}</div>
 
               <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs ml-auto">
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Catálogos</span>
-                  <span className="font-mono font-bold text-gray-800">{g.catalogs.length}</span>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Catálogos</span>
+                  <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{g.catalogs.length}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Produtos</span>
-                  <span className="font-mono font-semibold text-gray-800">{formatNumber(bmProductTotal)}</span>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Produtos</span>
+                  <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{formatNumber(bmProductTotal)}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Perfis</span>
-                  <span className="font-mono text-gray-500 truncate max-w-[200px]" title={g.accessible_profiles.join(', ')}>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Perfis</span>
+                  <span className="font-mono text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={g.accessible_profiles.join(', ')}>
                     {g.accessible_profiles.join(', ') || '—'}
                   </span>
                 </div>
@@ -839,12 +839,12 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             {isOpen && (
               <>
                 {g.catalogs.length === 0 ? (
-                  <div className="p-6 text-center text-gray-400 text-xs">
+                  <div className="p-6 text-center text-gray-400 dark:text-gray-500 text-xs">
                     Nenhum catálogo nesta BM.
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-12 bg-gray-50 text-[10px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-200">
+                    <div className="grid grid-cols-12 bg-gray-50 dark:bg-gray-800 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
                       <div className="col-span-4 px-6 py-3">Catálogo</div>
                       <div className="col-span-3 px-4 py-3">ID</div>
                       <div className="col-span-2 px-4 py-3 text-right">Produtos</div>
@@ -852,20 +852,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                       <div className="col-span-1 px-4 py-3">Acesso</div>
                       <div className="col-span-1 px-4 py-3" />
                     </div>
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
                       {g.catalogs.map((c) => (
-                        <div key={c.id} className="grid grid-cols-12 text-xs hover:bg-gray-50 transition-colors items-center">
-                          <div className="col-span-4 px-6 py-3 font-semibold text-gray-800 break-words">{c.name}</div>
-                          <div className="col-span-3 px-4 py-3 font-mono text-gray-400 text-[11px]">{c.id}</div>
-                          <div className="col-span-2 px-4 py-3 text-right font-mono text-gray-700">
+                        <div key={c.id} className="grid grid-cols-12 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors items-center">
+                          <div className="col-span-4 px-6 py-3 font-semibold text-gray-800 dark:text-gray-100 break-words">{c.name}</div>
+                          <div className="col-span-3 px-4 py-3 font-mono text-gray-400 dark:text-gray-500 text-[11px]">{c.id}</div>
+                          <div className="col-span-2 px-4 py-3 text-right font-mono text-gray-700 dark:text-gray-300">
                             {c.product_count != null ? formatNumber(c.product_count) : '—'}
                           </div>
-                          <div className="col-span-1 px-4 py-3 text-gray-500">{c.vertical ?? '—'}</div>
+                          <div className="col-span-1 px-4 py-3 text-gray-500 dark:text-gray-400">{c.vertical ?? '—'}</div>
                           <div className="col-span-1 px-4 py-3">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                               c.relationship === 'owned'
-                                ? 'bg-indigo-50 text-indigo-600'
-                                : 'bg-amber-50 text-amber-600'
+                                ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
+                                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
                             }`}>
                               {c.relationship === 'owned' ? 'Owned' : 'Client'}
                             </span>
@@ -874,7 +874,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                             <button
                               onClick={() => openCreateModal(c, g)}
                               title="Criar produto + conjunto neste catálogo"
-                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-400 transition-colors whitespace-nowrap"
+                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:border-indigo-400 transition-colors whitespace-nowrap"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -884,7 +884,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                             <button
                               onClick={() => openVideoModal(c, g)}
                               title="Atualizar URLs de vídeo dos produtos deste catálogo"
-                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded border border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-400 transition-colors whitespace-nowrap"
+                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:border-purple-400 transition-colors whitespace-nowrap"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -909,20 +909,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
           onClick={closeCreateModal}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-2xl my-8"
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl my-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-gray-900">Adicionar produto</h2>
-                <p className="text-xs text-gray-500 truncate max-w-[480px]">
+                <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">Adicionar produto</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[480px]">
                   {modalCatalog.catalog.name}
-                  <span className="text-gray-400 font-mono ml-2">ID {modalCatalog.catalog.id}</span>
+                  <span className="text-gray-400 dark:text-gray-500 font-mono ml-2">ID {modalCatalog.catalog.id}</span>
                 </p>
               </div>
               <button
                 onClick={closeCreateModal}
-                className="text-gray-400 hover:text-gray-700 transition-colors"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                 title="Fechar"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -936,33 +936,33 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 <div className="space-y-3">
                   <div className={`rounded-lg p-4 space-y-2 border ${
                     batchResult.failures.length === 0
-                      ? 'bg-emerald-50 border-emerald-200'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800'
                       : batchResult.successes.length === 0
-                      ? 'bg-rose-50 border-rose-200'
-                      : 'bg-amber-50 border-amber-200'
+                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800'
+                      : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'
                   }`}>
                     <div className={`text-sm font-bold ${
                       batchResult.failures.length === 0
-                        ? 'text-emerald-700'
+                        ? 'text-emerald-700 dark:text-emerald-400'
                         : batchResult.successes.length === 0
-                        ? 'text-rose-700'
-                        : 'text-amber-700'
+                        ? 'text-rose-700 dark:text-rose-400'
+                        : 'text-amber-700 dark:text-amber-400'
                     }`}>
                       {batchResult.successes.length} criado(s) · {batchResult.failures.length} falha(s)
                     </div>
                   </div>
 
                   {batchResult.successes.length > 0 && (
-                    <div className="border border-emerald-200 rounded-lg overflow-hidden">
-                      <div className="bg-emerald-50 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                    <div className="border border-emerald-200 dark:border-emerald-800 rounded-lg overflow-hidden">
+                      <div className="bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                         Criados ({batchResult.successes.length})
                       </div>
-                      <div className="max-h-48 overflow-y-auto divide-y divide-emerald-100">
+                      <div className="max-h-48 overflow-y-auto divide-y divide-emerald-100 dark:divide-emerald-900">
                         {batchResult.successes.map((s) => (
                           <div key={s.product_id} className="px-3 py-2 text-[11px] flex flex-wrap gap-x-3 gap-y-0.5">
-                            <span className="font-mono text-emerald-700">{s.retailer_id}</span>
-                            <span className="text-gray-500">prod {s.product_id}</span>
-                            <span className="text-gray-500">set {s.product_set_id}</span>
+                            <span className="font-mono text-emerald-700 dark:text-emerald-400">{s.retailer_id}</span>
+                            <span className="text-gray-500 dark:text-gray-400">prod {s.product_id}</span>
+                            <span className="text-gray-500 dark:text-gray-400">set {s.product_set_id}</span>
                           </div>
                         ))}
                       </div>
@@ -970,15 +970,15 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   )}
 
                   {batchResult.failures.length > 0 && (
-                    <div className="border border-rose-200 rounded-lg overflow-hidden">
-                      <div className="bg-rose-50 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-rose-700">
+                    <div className="border border-rose-200 dark:border-rose-800 rounded-lg overflow-hidden">
+                      <div className="bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
                         Falhas ({batchResult.failures.length})
                       </div>
-                      <div className="max-h-48 overflow-y-auto divide-y divide-rose-100">
+                      <div className="max-h-48 overflow-y-auto divide-y divide-rose-100 dark:divide-rose-900">
                         {batchResult.failures.map((f, i) => (
                           <div key={i} className="px-3 py-2 text-[11px]">
-                            <div className="font-mono text-rose-700">{f.ad_name}</div>
-                            <div className="text-rose-600">{f.error}</div>
+                            <div className="font-mono text-rose-700 dark:text-rose-400">{f.ad_name}</div>
+                            <div className="text-rose-600 dark:text-rose-400">{f.error}</div>
                           </div>
                         ))}
                       </div>
@@ -991,13 +991,13 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                         setAdNames(batchResult.failures.map((f) => f.ad_name).join('\n'));
                         setBatchResult(null);
                       }}
-                      className="px-3 py-1.5 text-xs font-semibold rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      className="px-3 py-1.5 text-xs font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
                     >
                       {batchResult.failures.length > 0 ? 'Tentar novamente as falhas' : 'Criar mais'}
                     </button>
                     <button
                       onClick={closeCreateModal}
-                      className="px-3 py-1.5 text-xs font-semibold rounded border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                      className="px-3 py-1.5 text-xs font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                     >
                       Fechar
                     </button>
@@ -1007,20 +1007,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 <>
                   {/* Linha: nomes dos anúncios (uma linha = um produto) */}
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">
-                      Nomes dos anúncios <span className="text-gray-400 font-normal normal-case tracking-normal">(uma linha = um produto · gera o ID)</span>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                      Nomes dos anúncios <span className="text-gray-400 dark:text-gray-500 font-normal normal-case tracking-normal">(uma linha = um produto · gera o ID)</span>
                     </label>
                     <textarea
                       value={adNames}
                       onChange={(e) => setAdNames(e.target.value)}
                       rows={4}
                       placeholder={'Ex:\nLT1100\nLT1101\nLT129.150'}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500 font-mono"
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 font-mono dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                     />
                     {retailerIdPreviews.length > 0 && (
-                      <div className="mt-1.5 text-[11px] text-gray-500">
+                      <div className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
                         {retailerIdPreviews.length} produto(s) · IDs:{' '}
-                        <span className="font-mono text-gray-700">
+                        <span className="font-mono text-gray-700 dark:text-gray-300">
                           {retailerIdPreviews.slice(0, 3).join(', ')}
                           {retailerIdPreviews.length > 3 ? `, … (+${retailerIdPreviews.length - 3})` : ''}
                         </span>
@@ -1030,7 +1030,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
                   {/* Linha: título do produto (obrigatório) */}
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                       Título do produto
                     </label>
                     <input
@@ -1038,20 +1038,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                       value={productTitle}
                       onChange={(e) => setProductTitle(e.target.value)}
                       placeholder="Digite o título do produto"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                     />
                   </div>
 
                   {/* Linha: preset selector */}
                   <div className="flex items-end gap-2">
                     <div className="flex-1">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                         Preset
                       </label>
                       <select
                         value={selectedPresetName}
                         onChange={(e) => applyPreset(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500 bg-white"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 bg-white dark:bg-gray-800 dark:text-gray-100"
                       >
                         <option value="">— Sem preset —</option>
                         {presets.map((p) => (
@@ -1063,7 +1063,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                       type="button"
                       onClick={saveCurrentAsPreset}
                       title="Salvar configuração atual como preset"
-                      className="px-3 py-2 text-xs font-semibold rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors whitespace-nowrap"
+                      className="px-3 py-2 text-xs font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors whitespace-nowrap"
                     >
                       Salvar
                     </button>
@@ -1071,7 +1071,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                       type="button"
                       onClick={deleteCurrentPreset}
                       disabled={!selectedPresetName}
-                      className="px-3 py-2 text-xs font-semibold rounded border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-2 text-xs font-semibold rounded border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Excluir
                     </button>
@@ -1080,70 +1080,70 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   {/* Grid: campos do preset */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Descrição</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Descrição</label>
                       <textarea
                         value={presetConfig.description}
                         onChange={(e) => setPresetConfig({ ...presetConfig, description: e.target.value })}
                         rows={2}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Link (URL do produto)</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Link (URL do produto)</label>
                       <input
                         type="url"
                         value={presetConfig.link}
                         onChange={(e) => setPresetConfig({ ...presetConfig, link: e.target.value })}
                         placeholder="https://..."
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Image URL</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Image URL</label>
                       <input
                         type="url"
                         value={presetConfig.image_url}
                         onChange={(e) => setPresetConfig({ ...presetConfig, image_url: e.target.value })}
                         placeholder="https://..."
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Preço</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Preço</label>
                       <input
                         type="text"
                         value={presetConfig.price}
                         onChange={(e) => setPresetConfig({ ...presetConfig, price: e.target.value })}
                         placeholder="97.00"
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Moeda</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Moeda</label>
                       <input
                         type="text"
                         value={presetConfig.currency}
                         onChange={(e) => setPresetConfig({ ...presetConfig, currency: e.target.value.toUpperCase() })}
                         placeholder="BRL"
                         maxLength={3}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500 font-mono uppercase"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 font-mono uppercase dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Marca</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Marca</label>
                       <input
                         type="text"
                         value={presetConfig.brand}
                         onChange={(e) => setPresetConfig({ ...presetConfig, brand: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Disponibilidade</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Disponibilidade</label>
                       <select
                         value={presetConfig.availability}
                         onChange={(e) => setPresetConfig({ ...presetConfig, availability: e.target.value as Availability })}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500 bg-white"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 bg-white dark:bg-gray-800 dark:text-gray-100"
                       >
                         {AVAILABILITIES.map((v) => (
                           <option key={v} value={v}>{v}</option>
@@ -1151,11 +1151,11 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Condição</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Condição</label>
                       <select
                         value={presetConfig.condition}
                         onChange={(e) => setPresetConfig({ ...presetConfig, condition: e.target.value as Condition })}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500 bg-white"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 bg-white dark:bg-gray-800 dark:text-gray-100"
                       >
                         {CONDITIONS.map((v) => (
                           <option key={v} value={v}>{v}</option>
@@ -1165,7 +1165,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   </div>
 
                   {modalError && (
-                    <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-lg p-3 text-xs">
+                    <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded-lg p-3 text-xs">
                       {modalError}
                     </div>
                   )}
@@ -1174,11 +1174,11 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             </div>
 
             {!batchResult && (
-              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-2 rounded-b-xl">
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-end gap-2 rounded-b-xl">
                 <button
                   onClick={closeCreateModal}
                   disabled={creating}
-                  className="px-4 py-2 text-xs font-semibold rounded border border-gray-200 text-gray-600 hover:bg-white transition-colors disabled:opacity-40"
+                  className="px-4 py-2 text-xs font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-colors disabled:opacity-40"
                 >
                   Cancelar
                 </button>
@@ -1209,15 +1209,15 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
           onClick={closeVideoModal}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-8"
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-3xl my-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-4">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-gray-900">URLs de vídeo</h2>
-                <p className="text-xs text-gray-500 truncate">
+                <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">URLs de vídeo</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {videoModalCatalog.catalog.name}
-                  <span className="text-gray-400 font-mono ml-2">ID {videoModalCatalog.catalog.id}</span>
+                  <span className="text-gray-400 dark:text-gray-500 font-mono ml-2">ID {videoModalCatalog.catalog.id}</span>
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1225,7 +1225,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   onClick={handleVideoSync}
                   disabled={videoSyncing || videoLoading}
                   title="Buscar produtos atualizados do catálogo na Meta"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded border border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:border-emerald-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <svg className={`h-3.5 w-3.5 ${videoSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1234,7 +1234,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 </button>
                 <button
                   onClick={closeVideoModal}
-                  className="text-gray-400 hover:text-gray-700 transition-colors"
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                   title="Fechar"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -1246,27 +1246,27 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
             {/* Stats */}
             {videoStats && (
-              <div className="px-6 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-3 text-[11px] text-gray-600">
-                <span><span className="font-bold text-gray-800">{videoStats.total}</span> sincronizados</span>
-                <span className="text-gray-300">·</span>
-                <span><span className="font-bold text-emerald-700">{videoStats.with_video}</span> com vídeo</span>
-                <span className="text-gray-300">·</span>
-                <span><span className="font-bold text-purple-700">{videoStats.without_video}</span> sem vídeo</span>
-                <span className="text-gray-300">·</span>
-                <span><span className="font-bold text-gray-700">{videoStats.ignored}</span> ignorados</span>
+              <div className="px-6 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 text-[11px] text-gray-600 dark:text-gray-300">
+                <span><span className="font-bold text-gray-800 dark:text-gray-100">{videoStats.total}</span> sincronizados</span>
+                <span className="text-gray-300 dark:text-gray-600">·</span>
+                <span><span className="font-bold text-emerald-700 dark:text-emerald-400">{videoStats.with_video}</span> com vídeo</span>
+                <span className="text-gray-300 dark:text-gray-600">·</span>
+                <span><span className="font-bold text-purple-700 dark:text-purple-400">{videoStats.without_video}</span> sem vídeo</span>
+                <span className="text-gray-300 dark:text-gray-600">·</span>
+                <span><span className="font-bold text-gray-700 dark:text-gray-300">{videoStats.ignored}</span> ignorados</span>
               </div>
             )}
 
             {/* Tabs */}
-            <div className="px-6 pt-3 border-b border-gray-200 flex items-center gap-1">
+            <div className="px-6 pt-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-1">
               {(['missing', 'ignored'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setVideoTab(t)}
                   className={`px-3 py-2 text-xs font-bold rounded-t-md border-b-2 transition-colors ${
                     videoTab === t
-                      ? 'border-purple-500 text-purple-700 bg-purple-50/40'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      ? 'border-purple-500 text-purple-700 dark:text-purple-400 bg-purple-50/40 dark:bg-purple-950/20'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
                   {t === 'missing'
@@ -1278,7 +1278,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
             <div className="px-6 py-4">
               {videoSyncDiag && (
-                <div className="mb-3 bg-slate-50 border border-slate-200 text-slate-700 rounded-lg p-3 text-[11px] font-mono space-y-0.5">
+                <div className="mb-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg p-3 text-[11px] font-mono space-y-0.5">
                   <div><b>Último sync:</b> {videoSyncDiag.raw_count} produtos · {videoSyncDiag.page_count} página(s)</div>
                   <div><b>Perfil:</b> {videoSyncDiag.profile_used}</div>
                   <div><b>Chaves da 1ª resposta:</b> [{videoSyncDiag.first_page_keys.join(', ') || '—'}]</div>
@@ -1292,16 +1292,16 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 </div>
               )}
               {videoError && (
-                <div className="mb-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg p-3 text-xs">
+                <div className="mb-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded-lg p-3 text-xs">
                   {videoError}
                 </div>
               )}
 
               {videoLoading ? (
-                <div className="py-10 text-center text-gray-400 text-sm">Carregando produtos…</div>
+                <div className="py-10 text-center text-gray-400 dark:text-gray-500 text-sm">Carregando produtos…</div>
               ) : videoTab === 'missing' ? (
                 videoProducts.length === 0 ? (
-                  <div className="py-10 text-center text-gray-400 text-sm space-y-1">
+                  <div className="py-10 text-center text-gray-400 dark:text-gray-500 text-sm space-y-1">
                     {videoStats && videoStats.total === 0 ? (
                       <>
                         <div>Snapshot vazio para este catálogo.</div>
@@ -1316,7 +1316,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                     )}
                   </div>
                 ) : (
-                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-[60vh] overflow-y-auto">
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] overflow-y-auto">
                     {videoProducts.map((p) => {
                       const busy = videoRowBusy[p.product_id];
                       const draft = videoUrlDrafts[p.product_id] ?? '';
@@ -1326,17 +1326,17 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                             <img
                               src={p.image_url}
                               alt=""
-                              className="w-12 h-12 rounded object-cover bg-gray-100 flex-shrink-0"
+                              className="w-12 h-12 rounded object-cover bg-gray-100 dark:bg-gray-800 flex-shrink-0"
                               onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded bg-gray-100 flex-shrink-0" />
+                            <div className="w-12 h-12 rounded bg-gray-100 dark:bg-gray-800 flex-shrink-0" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-gray-800 truncate" title={p.name ?? p.product_id}>
-                              {p.name ?? <span className="text-gray-400 italic">sem nome</span>}
+                            <div className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate" title={p.name ?? p.product_id}>
+                              {p.name ?? <span className="text-gray-400 dark:text-gray-500 italic">sem nome</span>}
                             </div>
-                            <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">
                               {p.retailer_id || '—'} · prod {p.product_id}
                             </div>
                             <div className="mt-2 flex gap-2">
@@ -1348,7 +1348,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                                 }
                                 placeholder="https://… (URL do vídeo)"
                                 disabled={!!busy}
-                                className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded outline-none focus:border-purple-500 font-mono disabled:bg-gray-50"
+                                className="flex-1 px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded outline-none focus:border-purple-500 font-mono disabled:bg-gray-50 dark:disabled:bg-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                               />
                               <button
                                 onClick={() => handleSaveVideo(p)}
@@ -1361,7 +1361,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                                 onClick={() => handleIgnoreProduct(p)}
                                 disabled={!!busy}
                                 title="Não cobrar esse produto na próxima abertura"
-                                className="px-3 py-1 text-[11px] font-semibold rounded border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                className="px-3 py-1 text-[11px] font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                               >
                                 {busy === 'ignoring' ? 'Ignorando...' : 'Ignorar'}
                               </button>
@@ -1374,20 +1374,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 )
               ) : (
                 videoIgnored.length === 0 ? (
-                  <div className="py-10 text-center text-gray-400 text-sm">
+                  <div className="py-10 text-center text-gray-400 dark:text-gray-500 text-sm">
                     Nenhum produto ignorado neste catálogo.
                   </div>
                 ) : (
-                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-[60vh] overflow-y-auto">
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] overflow-y-auto">
                     {videoIgnored.map((p) => {
                       const busy = videoRowBusy[p.product_id];
                       return (
                         <div key={p.product_id} className="px-4 py-3 flex items-center gap-3">
                           <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-gray-800 truncate" title={p.name ?? p.product_id}>
-                              {p.name ?? <span className="text-gray-400 italic">sem nome</span>}
+                            <div className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate" title={p.name ?? p.product_id}>
+                              {p.name ?? <span className="text-gray-400 dark:text-gray-500 italic">sem nome</span>}
                             </div>
-                            <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">
                               {p.retailer_id || '—'} · prod {p.product_id} · ignorado em{' '}
                               {new Date(p.ignored_at).toLocaleDateString('pt-BR')}
                             </div>
@@ -1395,7 +1395,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                           <button
                             onClick={() => handleUnignoreProduct(p)}
                             disabled={!!busy}
-                            className="px-3 py-1 text-[11px] font-semibold rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                            className="px-3 py-1 text-[11px] font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:border-indigo-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                           >
                             {busy === 'unignoring' ? 'Desfazendo...' : 'Desfazer ignorar'}
                           </button>

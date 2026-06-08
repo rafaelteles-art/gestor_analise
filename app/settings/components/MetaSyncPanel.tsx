@@ -42,7 +42,7 @@ interface LogLine {
 // ── Helpers UI ────────────────────────────────────────────────────────────────
 function ProgressBar({ pct }: { pct: number }) {
   return (
-    <div className="w-full bg-gray-100 rounded-full h-1.5">
+    <div className="w-full bg-gray-100 rounded-full h-1.5 dark:bg-gray-800">
       <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
     </div>
   );
@@ -51,8 +51,8 @@ function ProgressBar({ pct }: { pct: number }) {
 function StatusBanner({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (
     <div className={`flex items-center gap-3 p-3 rounded-lg text-xs font-medium ${
-      ok ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-         : 'bg-amber-50 border border-amber-200 text-amber-700'
+      ok ? 'bg-emerald-50 border border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
+         : 'bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400'
     }`}>
       <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -67,10 +67,10 @@ function StreamLog({ lines }: { lines: LogLine[] }) {
     if (el) el.scrollTop = el.scrollHeight;
   };
   return (
-    <div className="border border-gray-100 rounded-lg overflow-hidden">
-      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+    <div className="border border-gray-100 rounded-lg overflow-hidden dark:border-gray-800">
+      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between dark:bg-gray-800 dark:border-gray-700 dark:text-gray-500">
         <span>Status</span>
-        <span className="text-gray-300">{lines.length} evento(s)</span>
+        <span className="text-gray-300 dark:text-gray-600">{lines.length} evento(s)</span>
       </div>
       <div ref={scrollRef} className="max-h-64 overflow-y-auto bg-gray-900 text-gray-100 font-mono text-[11px] leading-relaxed px-3 py-2 whitespace-pre-wrap">
         {lines.map((l, i) => {
@@ -93,9 +93,9 @@ function StreamLog({ lines }: { lines: LogLine[] }) {
 
 function SyncLog({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border border-gray-100 rounded-lg overflow-hidden">
-      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 border-b border-gray-100">Log</div>
-      <div className="divide-y divide-gray-50 max-h-56 overflow-y-auto">{children}</div>
+    <div className="border border-gray-100 rounded-lg overflow-hidden dark:border-gray-800">
+      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 border-b border-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-500">Log</div>
+      <div className="divide-y divide-gray-50 max-h-56 overflow-y-auto dark:divide-gray-800">{children}</div>
     </div>
   );
 }
@@ -103,7 +103,7 @@ function SyncLog({ children }: { children: React.ReactNode }) {
 function LogRow({ label, status, children }: { label: string; status?: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between px-4 py-2 text-xs">
-      <span className="text-gray-700 font-medium truncate max-w-[55%]">{label}</span>
+      <span className="text-gray-700 font-medium truncate max-w-[55%] dark:text-gray-300">{label}</span>
       <div className="flex items-center gap-2 shrink-0">
         {children}
         {status === 'ok'    && <span className="text-emerald-500 text-base leading-none">✓</span>}
@@ -200,23 +200,23 @@ function MetaPanel() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-xs text-gray-600 font-medium whitespace-nowrap">Período:</span>
+        <span className="text-xs text-gray-600 font-medium whitespace-nowrap dark:text-gray-300">Período:</span>
         <div className="flex gap-1 flex-wrap">
           {([7, 14, 30, 60, 90] as const).map(d => (
             <button key={d} onClick={() => setPeriod(d)} disabled={running}
               className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-                period === d ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                period === d ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
               }`}
             >{d}d</button>
           ))}
           <button onClick={() => setPeriod('yesterday')} disabled={running}
             className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-              period === 'yesterday' ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+              period === 'yesterday' ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
             }`}
           >Ontem</button>
           <button onClick={() => setPeriod('range')} disabled={running}
             className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-              period === 'range' ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+              period === 'range' ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
             }`}
           >Datas específicas</button>
         </div>
@@ -234,19 +234,19 @@ function MetaPanel() {
       </div>
 
       {period === 'range' && (
-        <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex-wrap">
+        <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex-wrap dark:bg-gray-800 dark:border-gray-700">
           <div className="flex items-center gap-2">
-            <label className="text-[11px] text-gray-500 font-medium">De</label>
+            <label className="text-[11px] text-gray-500 font-medium dark:text-gray-400">De</label>
             <input type="date" value={rangeFrom} max={todayStr}
               onChange={e => setRangeFrom(e.target.value)} disabled={running}
-              className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50"
+              className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-[11px] text-gray-500 font-medium">Até</label>
+            <label className="text-[11px] text-gray-500 font-medium dark:text-gray-400">Até</label>
             <input type="date" value={rangeTo} max={todayStr}
               onChange={e => setRangeTo(e.target.value)} disabled={running}
-              className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50"
+              className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
           {!rangeValid && (
@@ -257,7 +257,7 @@ function MetaPanel() {
 
       {running && startLine && (
         <div>
-          <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+          <div className="flex justify-between text-[10px] text-gray-500 mb-1 dark:text-gray-400">
             <span>
               {batchStartLine
                 ? `Fila ${batchStartLine.batch}/${batchStartLine.totalBatches} (${batchStartLine.batchSize} contas) — ${progressLine?.account ?? 'processando...'}`
@@ -267,7 +267,7 @@ function MetaPanel() {
           </div>
           <ProgressBar pct={progressPct} />
           {batchStartLine && (
-            <div className="text-[10px] text-gray-400 mt-1">
+            <div className="text-[10px] text-gray-400 mt-1 dark:text-gray-500">
               {batchDoneLines.length} de {batchStartLine.totalBatches} filas concluídas
             </div>
           )}
@@ -286,8 +286,8 @@ function MetaPanel() {
         <SyncLog>
           {accountLines.map((line, i) => (
             <LogRow key={i} label={line.account ?? ''} status={line.status}>
-              {line.status === 'ok'    && <span className="text-gray-500">{line.rows?.toLocaleString('pt-BR')} linhas</span>}
-              {line.status === 'empty' && <span className="text-gray-400">sem dados</span>}
+              {line.status === 'ok'    && <span className="text-gray-500 dark:text-gray-400">{line.rows?.toLocaleString('pt-BR')} linhas</span>}
+              {line.status === 'empty' && <span className="text-gray-400 dark:text-gray-500">sem dados</span>}
               {line.status === 'error' && <span className="text-rose-500 text-[10px] truncate max-w-[200px]" title={line.error}>erro: {line.error}</span>}
             </LogRow>
           ))}
@@ -396,13 +396,13 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       {/* ── Campanhas mapeadas + scan ── */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold text-gray-700">Campanhas mapeadas</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">
+          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Campanhas mapeadas</p>
+          <p className="text-[11px] text-gray-400 mt-0.5 dark:text-gray-500">
             {campaignCount} campanha(s) · vinculadas pelas Ofertas
           </p>
         </div>
         <button onClick={scanCampaigns} disabled={isScanningCamps}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
         >
           <RefreshCw className={`w-3 h-3 ${isScanningCamps ? 'animate-spin' : ''}`} />
           {isScanningCamps ? 'Escaneando...' : 'Escanear'}
@@ -410,12 +410,12 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       </div>
 
       {/* ── Divisor ── */}
-      <div className="border-t border-gray-100" />
+      <div className="border-t border-gray-100 dark:border-gray-800" />
 
       {/* ── Seletor de período + datas específicas ── */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs text-gray-600 font-medium whitespace-nowrap">Período:</span>
+          <span className="text-xs text-gray-600 font-medium whitespace-nowrap dark:text-gray-300">Período:</span>
           <div className="flex gap-1 flex-wrap">
             {([
               ['today',     'Hoje'],
@@ -426,7 +426,7 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
             ] as const).map(([p, label]) => (
               <button key={p} onClick={() => setPeriod(p)} disabled={running}
                 className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-                  period === p ? 'bg-violet-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  period === p ? 'bg-violet-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
                 }`}
               >{label}</button>
             ))}
@@ -439,19 +439,19 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
         </div>
 
         {period === 'range' && (
-          <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-700">
             <div className="flex items-center gap-2">
-              <label className="text-[11px] text-gray-500 font-medium">De</label>
+              <label className="text-[11px] text-gray-500 font-medium dark:text-gray-400">De</label>
               <input type="date" value={rangeFrom} max={todayStr}
                 onChange={e => setRangeFrom(e.target.value)} disabled={running}
-                className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none disabled:opacity-50"
+                className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-[11px] text-gray-500 font-medium">Até</label>
+              <label className="text-[11px] text-gray-500 font-medium dark:text-gray-400">Até</label>
               <input type="date" value={rangeTo} max={todayStr}
                 onChange={e => setRangeTo(e.target.value)} disabled={running}
-                className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none disabled:opacity-50"
+                className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               />
             </div>
             {!rangeValid && (
@@ -460,8 +460,8 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
           </div>
         )}
 
-        <p className="text-[11px] text-gray-500">
-          Sincroniza <span className="font-semibold text-gray-700">{
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">
+          Sincroniza <span className="font-semibold text-gray-700 dark:text-gray-300">{
             period === 'today' ? 'hoje' :
             period === 'yesterday' ? 'ontem' :
             period === 'days3' ? 'os últimos 3 dias' :
@@ -474,7 +474,7 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       {/* ── Progresso ── */}
       {(running || done) && syncStart && (
         <div>
-          <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+          <div className="flex justify-between text-[10px] text-gray-500 mb-1 dark:text-gray-400">
             <span>
               {done
                 ? `Concluído · ${syncStart.total} campanha(s)`
@@ -505,7 +505,7 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
         <SyncLog>
           {campLines.map((line, i) => (
             <LogRow key={i} label={line.campaign ?? ''} status={line.status}>
-              {line.status === 'ok' && <span className="text-gray-500">{line.rtAds} rt_ads · {line.rtCampaigns} rt_campaigns</span>}
+              {line.status === 'ok' && <span className="text-gray-500 dark:text-gray-400">{line.rtAds} rt_ads · {line.rtCampaigns} rt_campaigns</span>}
               {line.status === 'error' && <span className="text-rose-500 text-[10px] truncate max-w-[200px]" title={line.error}>erro: {line.error}</span>}
             </LogRow>
           ))}
@@ -523,10 +523,10 @@ export default function MetaSyncPanel({ initialRtCampaigns = [] }: { initialRtCa
     <div className="flex flex-col gap-4">
 
       {/* Meta */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
         <div className="mb-4">
-          <h2 className="text-sm font-bold text-gray-800">Importar histórico — Meta Ads</h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">Importar histórico — Meta Ads</h2>
+          <p className="text-xs text-gray-500 mt-1 dark:text-gray-400">
             Busca dados diários das contas vinculadas (via Ofertas / Status de Contas) e armazena no banco.
           </p>
         </div>
@@ -534,10 +534,10 @@ export default function MetaSyncPanel({ initialRtCampaigns = [] }: { initialRtCa
       </div>
 
       {/* RedTrack */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
         <div className="mb-4">
-          <h2 className="text-sm font-bold text-gray-800">Importar histórico — RedTrack</h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">Importar histórico — RedTrack</h2>
+          <p className="text-xs text-gray-500 mt-1 dark:text-gray-400">
             Sincroniza os dados das campanhas vinculadas (via Ofertas) no cache do banco.
           </p>
         </div>

@@ -28,18 +28,18 @@ export default function OfferSelector({
 
   return (
     <div className="relative inline-flex items-center">
-      <Tag className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 pointer-events-none" />
+      <Tag className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 absolute left-2.5 pointer-events-none" />
       <select
         value={current == null ? '' : String(current)}
         onChange={e => onChange(e.target.value)}
-        className="appearance-none pl-8 pr-8 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 cursor-pointer"
+        className="appearance-none pl-8 pr-8 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:border-gray-300 dark:hover:border-gray-600 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 cursor-pointer"
       >
         <option value="">Todas as ofertas</option>
         {offers.map(o => (
           <option key={o.id} value={o.id}>{o.nome}</option>
         ))}
       </select>
-      <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 pointer-events-none" />
+      <ChevronDown className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 absolute right-2.5 pointer-events-none" />
     </div>
   );
 }

@@ -1,8 +1,34 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: `.dark` on <html> toggles all dark: utilities */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* react-select theming (light) */
+  --rs-bg: #f9fafb;
+  --rs-border: #e5e7eb;
+  --rs-text: #171717;
+  --rs-menu-bg: #ffffff;
+  --rs-option-hover: #f3f4f6;
+  --rs-multi-bg: #eef2ff;
+  --rs-placeholder: #9ca3af;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  /* react-select theming (dark) */
+  --rs-bg: #1f2937;       /* gray-800 */
+  --rs-border: #374151;   /* gray-700 */
+  --rs-text: #f3f4f6;     /* gray-100 */
+  --rs-menu-bg: #111827;  /* gray-900 */
+  --rs-option-hover: #374151;
+  --rs-multi-bg: #312e81; /* indigo-900 */
+  --rs-placeholder: #6b7280;
 }
 
 @theme inline {
@@ -10,13 +36,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

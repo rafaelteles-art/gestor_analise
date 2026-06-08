@@ -28,12 +28,12 @@ function fmtDate(d: string | Date) {
 
 function AvailableBadge({ available, limit }: { available: number | null; limit: number | null }) {
   if (limit === null || available === null) {
-    return <span className="text-gray-300">—</span>;
+    return <span className="text-gray-300 dark:text-gray-600">—</span>;
   }
   const ratio = limit > 0 ? available / limit : 0;
-  let cls = 'bg-green-50 text-green-700';
-  if (ratio <= 0) cls = 'bg-red-50 text-red-600';
-  else if (ratio < 0.2) cls = 'bg-amber-50 text-amber-700';
+  let cls = 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400';
+  if (ratio <= 0) cls = 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400';
+  else if (ratio < 0.2) cls = 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400';
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold whitespace-nowrap ${cls}`}>
       {available}
@@ -233,16 +233,16 @@ export default function ClientStatusPaginas({
       {/* Action Bar */}
       <div className="flex justify-end items-center gap-3">
         {syncProgress && (
-          <div className="flex-1 max-w-md bg-white border border-gray-200 rounded-xl shadow-sm px-4 py-2">
+          <div className="flex-1 max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm px-4 py-2">
             <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="text-xs font-bold text-gray-700 truncate">{syncProgress.label}</span>
-              <span className="text-[10px] font-medium text-gray-500 tabular-nums whitespace-nowrap">
+              <span className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{syncProgress.label}</span>
+              <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">
                 {syncProgress.total > 0
                   ? `${syncProgress.current}/${syncProgress.total} · ${Math.min(100, Math.round((syncProgress.current / syncProgress.total) * 100))}%`
                   : 'em andamento…'}
               </span>
             </div>
-            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
               {syncProgress.indeterminate || syncProgress.total === 0 ? (
                 <div className="h-full w-1/3 bg-indigo-500 rounded-full animate-[sync-indeterminate_1.2s_ease-in-out_infinite]" />
               ) : (
@@ -252,13 +252,13 @@ export default function ClientStatusPaginas({
                 />
               )}
             </div>
-            <p className="mt-1.5 text-[11px] text-gray-500 truncate">{syncProgress.message}</p>
+            <p className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">{syncProgress.message}</p>
           </div>
         )}
         <button
           onClick={handleDiscover}
           disabled={isSyncing}
-          className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors shadow-sm disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors shadow-sm disabled:opacity-50"
           title="Buscar novas páginas acessíveis (descoberta)"
         >
           <Search className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -285,13 +285,13 @@ export default function ClientStatusPaginas({
           </button>
 
           {pickerOpen && (
-            <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-20 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">
+            <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-20 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                 Perfis para sincronizar
               </p>
 
               {syncableProfiles.length === 0 ? (
-                <p className="text-xs text-gray-400 py-2">Nenhum perfil configurado.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 py-2">Nenhum perfil configurado.</p>
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-2">
@@ -305,7 +305,7 @@ export default function ClientStatusPaginas({
                     <button
                       type="button"
                       onClick={() => setSelectedProfiles(new Set())}
-                      className="text-[11px] text-gray-500 hover:text-gray-700 font-medium"
+                      className="text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium"
                     >
                       Limpar
                     </button>
@@ -315,13 +315,13 @@ export default function ClientStatusPaginas({
                     {syncableProfiles.map((name) => (
                       <label
                         key={name}
-                        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 cursor-pointer text-xs text-gray-700"
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer text-xs text-gray-700 dark:text-gray-300"
                       >
                         <input
                           type="checkbox"
                           checked={selectedProfiles.has(name)}
                           onChange={() => toggleProfile(name)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-gray-300 dark:border-gray-700 text-indigo-600 focus:ring-indigo-500"
                         />
                         <span className="truncate">{name}</span>
                       </label>
@@ -347,27 +347,27 @@ export default function ClientStatusPaginas({
       {/* KPI Cards */}
       <div className="grid grid-cols-5 gap-4">
         {[
-          { label: 'TOTAL PÁGINAS', value: String(kpis.total),     cls: 'text-gray-800' },
-          { label: 'COM LIMITE',    value: String(kpis.comLimite), cls: 'text-gray-800' },
+          { label: 'TOTAL PÁGINAS', value: String(kpis.total),     cls: 'text-gray-800 dark:text-gray-100' },
+          { label: 'COM LIMITE',    value: String(kpis.comLimite), cls: 'text-gray-800 dark:text-gray-100' },
           { label: 'ANÚNCIOS USADOS', value: String(kpis.totalRunning), cls: 'text-indigo-600' },
           { label: 'DISPONÍVEIS',   value: String(kpis.disponivel), cls: 'text-green-600' },
           { label: 'PÁGINAS CHEIAS', value: String(kpis.cheias),   cls: 'text-red-500' },
         ].map((kpi) => (
-          <div key={kpi.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">{kpi.label}</p>
+          <div key={kpi.label} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mb-2">{kpi.label}</p>
             <p className={`text-2xl font-bold ${kpi.cls}`}>{kpi.value}</p>
           </div>
         ))}
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex flex-wrap gap-5 items-end">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm px-5 py-4 flex flex-wrap gap-5 items-end">
         <div className="flex flex-col gap-1 min-w-[150px]">
-          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Perfil</label>
+          <label className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Perfil</label>
           <select
             value={filterProfile}
             onChange={(e) => setFilterProfile(e.target.value)}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50"
+            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           >
             <option value="">Todos</option>
             {uniqueProfiles.map((p) => (
@@ -379,11 +379,11 @@ export default function ClientStatusPaginas({
         </div>
 
         <div className="flex flex-col gap-1 min-w-[170px]">
-          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Disponibilidade</label>
+          <label className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Disponibilidade</label>
           <select
             value={filterDisponibilidade}
             onChange={(e) => setFilterDisponibilidade(e.target.value)}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50"
+            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           >
             <option value="">Todas</option>
             <option value="DISPONIVEL">Com slots disponíveis</option>
@@ -395,18 +395,18 @@ export default function ClientStatusPaginas({
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 flex-wrap">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 flex-wrap">
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome, ID ou perfil..."
-              className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-xs w-72 outline-none focus:border-indigo-400 bg-gray-50"
+              className="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs w-72 outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
             />
           </div>
-          <div className="ml-auto text-xs text-gray-400">
+          <div className="ml-auto text-xs text-gray-400 dark:text-gray-500">
             {filteredPages.length} {filteredPages.length === 1 ? 'página' : 'páginas'}
           </div>
         </div>
@@ -414,7 +414,7 @@ export default function ClientStatusPaginas({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+              <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">
                 <th className="px-4 py-3">Página</th>
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">Perfis com acesso</th>
@@ -424,10 +424,10 @@ export default function ClientStatusPaginas({
                 <th className="px-4 py-3">Atualizado em</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {filteredPages.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400 dark:text-gray-500">
                     Nenhuma página encontrada. Clique em &ldquo;Buscar páginas&rdquo; para importar.
                   </td>
                 </tr>
@@ -436,20 +436,20 @@ export default function ClientStatusPaginas({
               {filteredPages.map((p) => {
                 const available = p.ad_limit === null ? null : Math.max(0, p.ad_limit - p.ads_running);
                 return (
-                  <tr key={p.page_id} className="text-xs transition-colors hover:bg-gray-50">
-                    <td className="px-4 py-3 font-semibold text-gray-800 whitespace-nowrap">
+                  <tr key={p.page_id} className="text-xs transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">
                       {p.page_name}
                     </td>
-                    <td className="px-4 py-3 font-mono text-gray-400 text-[11px]">{p.page_id}</td>
+                    <td className="px-4 py-3 font-mono text-gray-400 dark:text-gray-500 text-[11px]">{p.page_id}</td>
                     <td className="px-4 py-3">
                       {p.accessible_profiles.length === 0 ? (
-                        <span className="text-gray-300">—</span>
+                        <span className="text-gray-300 dark:text-gray-600">—</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {p.accessible_profiles.map((profile) => (
                             <span
                               key={profile}
-                              className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100"
+                              className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800"
                             >
                               {profile}
                             </span>
@@ -457,14 +457,14 @@ export default function ClientStatusPaginas({
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-gray-700">
-                      {p.ad_limit === null ? <span className="text-gray-300">N/A</span> : p.ad_limit}
+                    <td className="px-4 py-3 text-right font-mono text-gray-700 dark:text-gray-300">
+                      {p.ad_limit === null ? <span className="text-gray-300 dark:text-gray-600">N/A</span> : p.ad_limit}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-gray-700">{p.ads_running}</td>
+                    <td className="px-4 py-3 text-right font-mono text-gray-700 dark:text-gray-300">{p.ads_running}</td>
                     <td className="px-4 py-3 text-right">
                       <AvailableBadge available={available} limit={p.ad_limit} />
                     </td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-[11px]">
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap text-[11px]">
                       {fmtDate(p.updated_at)}
                     </td>
                   </tr>

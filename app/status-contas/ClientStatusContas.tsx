@@ -27,19 +27,19 @@ interface Account {
 // ─── Account Status Badge ─────────────────────────────────────────────────────
 
 const ACCOUNT_STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  'ACTIVE':                   { label: 'Ativo',           cls: 'bg-green-50 text-green-700' },
-  'DISABLED':                 { label: 'Desabilitado',    cls: 'bg-red-50 text-red-600' },
-  'UNSETTLED':                { label: 'Inadimplente',    cls: 'bg-orange-50 text-orange-700' },
-  'PENDING_REVIEW':           { label: 'Em Revisão',      cls: 'bg-yellow-50 text-yellow-700' },
-  'PENDING_CLOSURE':          { label: 'Encerrando',      cls: 'bg-orange-50 text-orange-600' },
-  'IN_GRACE_PERIOD':          { label: 'Carência',        cls: 'bg-amber-50 text-amber-700' },
-  'TEMPORARILY_UNAVAILABLE':  { label: 'Indisponível',    cls: 'bg-gray-100 text-gray-500' },
-  'CLOSED':                   { label: 'Encerrada',       cls: 'bg-gray-100 text-gray-400' },
-  'UNKNOWN':                  { label: 'Desconhecido',    cls: 'bg-gray-100 text-gray-400' },
+  'ACTIVE':                   { label: 'Ativo',           cls: 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400' },
+  'DISABLED':                 { label: 'Desabilitado',    cls: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400' },
+  'UNSETTLED':                { label: 'Inadimplente',    cls: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400' },
+  'PENDING_REVIEW':           { label: 'Em Revisão',      cls: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400' },
+  'PENDING_CLOSURE':          { label: 'Encerrando',      cls: 'bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400' },
+  'IN_GRACE_PERIOD':          { label: 'Carência',        cls: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' },
+  'TEMPORARILY_UNAVAILABLE':  { label: 'Indisponível',    cls: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
+  'CLOSED':                   { label: 'Encerrada',       cls: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500' },
+  'UNKNOWN':                  { label: 'Desconhecido',    cls: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500' },
 };
 
 function AccountStatusBadge({ status }: { status: string }) {
-  const cfg = ACCOUNT_STATUS_LABEL[status] ?? { label: status, cls: 'bg-gray-100 text-gray-500' };
+  const cfg = ACCOUNT_STATUS_LABEL[status] ?? { label: status, cls: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' };
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold whitespace-nowrap ${cfg.cls}`}>
       {cfg.label}
@@ -83,19 +83,19 @@ const ETAPAS = [
 type Etapa = typeof ETAPAS[number];
 
 const ETAPA_STYLE: Record<string, { bg: string; text: string; border: string }> = {
-  'Não Utilizada':    { bg: 'bg-gray-100',    text: 'text-gray-600',   border: 'border-gray-200' },
-  'Adicionar Cartão': { bg: 'bg-purple-50',   text: 'text-purple-700', border: 'border-purple-200' },
-  'Subir Aquecimento':{ bg: 'bg-amber-50',    text: 'text-amber-700',  border: 'border-amber-200' },
-  'Aquecimento':      { bg: 'bg-orange-50',   text: 'text-orange-700', border: 'border-orange-200' },
-  'Disponível':       { bg: 'bg-green-50',    text: 'text-green-700',  border: 'border-green-200' },
-  'Suspenso':         { bg: 'bg-red-50',      text: 'text-red-700',    border: 'border-red-200' },
-  'Em Análise':       { bg: 'bg-yellow-50',   text: 'text-yellow-700', border: 'border-yellow-200' },
-  'Em Uso':           { bg: 'bg-blue-50',     text: 'text-blue-700',   border: 'border-blue-200' },
-  'Análise Rejeitada':{ bg: 'bg-rose-50',     text: 'text-rose-700',   border: 'border-rose-200' },
+  'Não Utilizada':    { bg: 'bg-gray-100 dark:bg-gray-800',    text: 'text-gray-600 dark:text-gray-300',   border: 'border-gray-200 dark:border-gray-700' },
+  'Adicionar Cartão': { bg: 'bg-purple-50 dark:bg-purple-950/40',   text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-200 dark:border-purple-800' },
+  'Subir Aquecimento':{ bg: 'bg-amber-50 dark:bg-amber-950/40',    text: 'text-amber-700 dark:text-amber-400',  border: 'border-amber-200 dark:border-amber-800' },
+  'Aquecimento':      { bg: 'bg-orange-50 dark:bg-orange-950/40',   text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-200 dark:border-orange-800' },
+  'Disponível':       { bg: 'bg-green-50 dark:bg-green-950/40',    text: 'text-green-700 dark:text-green-400',  border: 'border-green-200 dark:border-green-800' },
+  'Suspenso':         { bg: 'bg-red-50 dark:bg-red-950/40',      text: 'text-red-700 dark:text-red-400',    border: 'border-red-200 dark:border-red-800' },
+  'Em Análise':       { bg: 'bg-yellow-50 dark:bg-yellow-950/40',   text: 'text-yellow-700 dark:text-yellow-400', border: 'border-yellow-200 dark:border-yellow-800' },
+  'Em Uso':           { bg: 'bg-blue-50 dark:bg-blue-950/40',     text: 'text-blue-700 dark:text-blue-400',   border: 'border-blue-200 dark:border-blue-800' },
+  'Análise Rejeitada':{ bg: 'bg-rose-50 dark:bg-rose-950/40',     text: 'text-rose-700 dark:text-rose-400',   border: 'border-rose-200 dark:border-rose-800' },
 };
 
 function getEtapaStyle(etapa: string) {
-  return ETAPA_STYLE[etapa] ?? { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' };
+  return ETAPA_STYLE[etapa] ?? { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-300', border: 'border-gray-200 dark:border-gray-700' };
 }
 
 // ─── Etapa Dropdown ───────────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ function EtapaDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[185px]">
+        <div className="absolute z-50 top-full mt-1 left-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl py-1 min-w-[185px]">
           {ETAPAS.map(etapa => {
             const es = getEtapaStyle(etapa);
             const active = etapa === currentEtapa;
@@ -142,7 +142,7 @@ function EtapaDropdown({
               <button
                 key={etapa}
                 onClick={() => { onUpdate(accountId, etapa); setIsOpen(false); }}
-                className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 transition-colors ${active ? 'font-semibold' : ''}`}
+                className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${active ? 'font-semibold' : ''}`}
               >
                 <span className={`w-3.5 text-indigo-500 shrink-0 ${active ? '' : 'invisible'}`}>✓</span>
                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${es.bg} ${es.text}`}>{etapa}</span>
@@ -201,17 +201,17 @@ function FieldDropdown({
     <div ref={ref} className="relative inline-block">
       <button
         onClick={() => setIsOpen(o => !o)}
-        className={`flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-lg text-xs border bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors min-w-[130px] max-w-[210px] shadow-sm ${isOpen ? 'border-indigo-400 ring-1 ring-indigo-100' : 'border-gray-200'}`}
+        className={`flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-lg text-xs border bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors min-w-[130px] max-w-[210px] shadow-sm ${isOpen ? 'border-indigo-400 ring-1 ring-indigo-100' : 'border-gray-200 dark:border-gray-700'}`}
       >
-        {LeadingIcon && <LeadingIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
-        <span className={`flex-1 truncate text-left ${isEmpty ? 'text-gray-400' : 'text-gray-700 font-medium'}`}>{labelText}</span>
-        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        {LeadingIcon && <LeadingIcon className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0" />}
+        <span className={`flex-1 truncate text-left ${isEmpty ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300 font-medium'}`}>{labelText}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[190px] max-h-64 overflow-y-auto">
+        <div className="absolute z-50 top-full mt-1 left-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl py-1 min-w-[190px] max-h-64 overflow-y-auto">
           {options.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-gray-400 italic">Nenhuma opção disponível</p>
+            <p className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500 italic">Nenhuma opção disponível</p>
           ) : (
             options.map(opt => {
               const active = currentValue.includes(opt.value);
@@ -219,9 +219,9 @@ function FieldDropdown({
                 <button
                   key={opt.value}
                   onClick={() => toggle(opt.value)}
-                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 transition-colors ${active ? 'font-semibold text-gray-800' : 'text-gray-600'}`}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${active ? 'font-semibold text-gray-800 dark:text-gray-100' : 'text-gray-600 dark:text-gray-300'}`}
                 >
-                  <span className={`w-4 h-4 flex items-center justify-center rounded border shrink-0 transition-colors ${active ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'}`}>
+                  <span className={`w-4 h-4 flex items-center justify-center rounded border shrink-0 transition-colors ${active ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 dark:border-gray-700'}`}>
                     {active && <Check className="w-3 h-3" strokeWidth={3} />}
                   </span>
                   <span className="truncate">{opt.label}</span>
@@ -231,10 +231,10 @@ function FieldDropdown({
           )}
           {currentValue.length > 0 && (
             <>
-              <div className="border-t border-gray-100 my-1" />
+              <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
               <button
                 onClick={() => { onUpdate(accountId, field, []); setIsOpen(false); }}
-                className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
               >
                 <X className="w-3 h-3 shrink-0" />
                 Limpar tudo
@@ -295,22 +295,22 @@ function NewAccountModal({
 
   const field = (label: string, key: keyof typeof form, type = 'text') => (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-semibold text-gray-500">{label}</label>
+      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">{label}</label>
       <input
         type={type}
         value={form[key] as string}
         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-        className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 bg-gray-50"
+        className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
       />
     </div>
   );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-800">Cadastrar Nova Conta</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h3 className="font-bold text-gray-800 dark:text-gray-100">Cadastrar Nova Conta</h3>
+          <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -326,21 +326,21 @@ function NewAccountModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500">Etapa</label>
+              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Etapa</label>
               <select
                 value={form.etapa}
                 onChange={e => setForm(f => ({ ...f, etapa: e.target.value as Etapa }))}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 bg-gray-50"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 {ETAPAS.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500">Moeda</label>
+              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Moeda</label>
               <select
                 value={form.moeda}
                 onChange={e => setForm(f => ({ ...f, moeda: e.target.value }))}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 bg-gray-50"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 <option value="BRL">BRL</option>
                 <option value="USD">USD</option>
@@ -353,7 +353,7 @@ function NewAccountModal({
           {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
               Cancelar
             </button>
             <button
@@ -646,16 +646,16 @@ export default function ClientStatusContas({
       {/* Action Bar */}
       <div className="flex justify-end items-center gap-3">
         {syncProgress && (
-          <div className="flex-1 max-w-md bg-white border border-gray-200 rounded-xl shadow-sm px-4 py-2">
+          <div className="flex-1 max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm px-4 py-2">
             <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="text-xs font-bold text-gray-700 truncate">{syncProgress.label}</span>
-              <span className="text-[10px] font-medium text-gray-500 tabular-nums whitespace-nowrap">
+              <span className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{syncProgress.label}</span>
+              <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">
                 {syncProgress.total > 0
                   ? `${syncProgress.current}/${syncProgress.total} · ${Math.min(100, Math.round((syncProgress.current / syncProgress.total) * 100))}%`
                   : 'em andamento…'}
               </span>
             </div>
-            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
               {syncProgress.indeterminate || syncProgress.total === 0 ? (
                 <div className="h-full w-1/3 bg-indigo-500 rounded-full animate-[sync-indeterminate_1.2s_ease-in-out_infinite]" />
               ) : (
@@ -665,13 +665,13 @@ export default function ClientStatusContas({
                 />
               )}
             </div>
-            <p className="mt-1.5 text-[11px] text-gray-500 truncate">{syncProgress.message}</p>
+            <p className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">{syncProgress.message}</p>
           </div>
         )}
         <button
           onClick={handleSyncStatus}
           disabled={isSyncingStatus}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${isSyncingStatus ? 'animate-spin' : ''}`} />
           Atualizar Status
@@ -679,7 +679,7 @@ export default function ClientStatusContas({
         <button
           onClick={handleSync}
           disabled={isSyncing}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
           Sincronizar Meta
@@ -696,26 +696,26 @@ export default function ClientStatusContas({
       {/* KPI Cards */}
       <div className="grid grid-cols-5 gap-4">
         {[
-          { label: 'TOTAL CONTAS', value: String(kpis.total),       cls: 'text-gray-800' },
+          { label: 'TOTAL CONTAS', value: String(kpis.total),       cls: 'text-gray-800 dark:text-gray-100' },
           { label: 'ATIVAS',       value: String(kpis.ativas),      cls: 'text-green-600' },
           { label: 'DESATIVADAS',  value: String(kpis.desativadas), cls: 'text-red-500' },
           { label: 'EM ANÁLISE',   value: String(kpis.emAnalise),   cls: 'text-amber-500' },
         ].map(kpi => (
-          <div key={kpi.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">{kpi.label}</p>
+          <div key={kpi.label} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mb-2">{kpi.label}</p>
             <p className={`text-2xl font-bold ${kpi.cls}`}>{kpi.value}</p>
           </div>
         ))}
 
         {/* Gasto Total — separado por moeda */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">GASTO TOTAL</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mb-2">GASTO TOTAL</p>
           {Object.entries(kpis.gastoTotalByCurrency).length === 0 ? (
-            <p className="text-2xl font-bold text-gray-800">R$ 0,00</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">R$ 0,00</p>
           ) : (
             <div className="flex flex-col gap-1">
               {Object.entries(kpis.gastoTotalByCurrency).map(([cur, total]) => (
-                <p key={cur} className="text-xl font-bold text-gray-800 leading-tight">
+                <p key={cur} className="text-xl font-bold text-gray-800 dark:text-gray-100 leading-tight">
                   {formatCurrency(total, cur)}
                 </p>
               ))}
@@ -725,12 +725,12 @@ export default function ClientStatusContas({
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex flex-wrap gap-5 items-end">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm px-5 py-4 flex flex-wrap gap-5 items-end">
         {/* Gestor */}
         <div className="flex flex-col gap-1 min-w-[150px]">
-          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Gestor</label>
+          <label className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Gestor</label>
           <select value={filterGestor} onChange={e => setFilterGestor(e.target.value)}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50">
+            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">
             <option value="">Todos</option>
             {GESTORES.map(g => <option key={g} value={g}>{g}</option>)}
             <option value="__NONE__">Sem gestor</option>
@@ -739,9 +739,9 @@ export default function ClientStatusContas({
 
         {/* Oferta */}
         <div className="flex flex-col gap-1 min-w-[150px]">
-          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Oferta</label>
+          <label className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Oferta</label>
           <select value={filterOferta} onChange={e => setFilterOferta(e.target.value)}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50">
+            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">
             <option value="">Todas</option>
             {ofertasOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             <option value="__NONE__">Sem oferta</option>
@@ -750,9 +750,9 @@ export default function ClientStatusContas({
 
         {/* Etapa */}
         <div className="flex flex-col gap-1 min-w-[160px]">
-          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Etapa</label>
+          <label className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Etapa</label>
           <select value={filterEtapa} onChange={e => setFilterEtapa(e.target.value)}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50">
+            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">
             <option value="">Todas</option>
             {ETAPAS.map(e => <option key={e} value={e}>{e}</option>)}
           </select>
@@ -760,9 +760,9 @@ export default function ClientStatusContas({
 
         {/* Moeda */}
         <div className="flex flex-col gap-1 min-w-[120px]">
-          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Moeda</label>
+          <label className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Moeda</label>
           <select value={filterMoeda} onChange={e => setFilterMoeda(e.target.value)}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50">
+            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">
             <option value="">Todas</option>
             {uniqueMoedas.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
@@ -770,9 +770,9 @@ export default function ClientStatusContas({
 
         {/* Status */}
         <div className="flex flex-col gap-1 min-w-[140px]">
-          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Status</label>
+          <label className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Status</label>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50">
+            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">
             <option value="">Todos</option>
             <option value="ACTIVE">Ativo</option>
             <option value="INACTIVE">Desativado / Restrito</option>
@@ -781,9 +781,9 @@ export default function ClientStatusContas({
 
         {/* Cartão */}
         <div className="flex flex-col gap-1 min-w-[140px]">
-          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Cartão</label>
+          <label className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Cartão</label>
           <select value={filterCartao} onChange={e => setFilterCartao(e.target.value)}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50">
+            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs w-full outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">
             <option value="">Todos</option>
             <option value="COM_CARTAO">Com cartão</option>
             <option value="SEM_CARTAO">Sem cartão</option>
@@ -792,25 +792,25 @@ export default function ClientStatusContas({
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
         {/* Toolbar */}
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 flex-wrap">
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 flex-wrap">
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
             <input
               value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Buscar por nome, ID, cartão, gestor..."
-              className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-xs w-72 outline-none focus:border-indigo-400 bg-gray-50"
+              className="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs w-72 outline-none focus:border-indigo-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
             />
           </div>
 
           <div className="flex items-center gap-2 ml-auto flex-wrap">
             {selectedAccounts.size > 0 && (
-              <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5">
-                <span className="text-xs text-indigo-700 font-semibold">{selectedAccounts.size} selecionada{selectedAccounts.size !== 1 ? 's' : ''}</span>
+              <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-1.5">
+                <span className="text-xs text-indigo-700 dark:text-indigo-400 font-semibold">{selectedAccounts.size} selecionada{selectedAccounts.size !== 1 ? 's' : ''}</span>
                 <select value={batchEtapa} onChange={e => setBatchEtapa(e.target.value)}
-                  className="text-xs border border-indigo-200 rounded px-2 py-1 bg-white outline-none">
+                  className="text-xs border border-indigo-200 dark:border-indigo-800 rounded px-2 py-1 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none">
                   <option value="">Selecionar etapa...</option>
                   {ETAPAS.map(e => <option key={e} value={e}>{e}</option>)}
                 </select>
@@ -818,7 +818,7 @@ export default function ClientStatusContas({
                   className="text-xs bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors font-semibold">
                   Aplicar
                 </button>
-                <button onClick={() => setSelectedAccounts(new Set())} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <button onClick={() => setSelectedAccounts(new Set())} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -826,7 +826,7 @@ export default function ClientStatusContas({
 
             <button
               onClick={() => allExpanded ? setExpandedGroups(new Set()) : setExpandedGroups(new Set(accounts.map(a => a.bm_name)))}
-              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               <ChevronDown className="w-3.5 h-3.5" />
               {allExpanded ? 'Colapsar Tudo' : 'Expandir Tudo'}
@@ -838,7 +838,7 @@ export default function ClientStatusContas({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+              <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">
                 <th className="px-3 py-3 w-8">
                   <input
                     type="checkbox"
@@ -847,7 +847,7 @@ export default function ClientStatusContas({
                       if (e.target.checked) setSelectedAccounts(new Set(filteredAccounts.map(a => a.account_id)));
                       else setSelectedAccounts(new Set());
                     }}
-                    className="rounded border-gray-300 text-indigo-600 accent-indigo-600"
+                    className="rounded border-gray-300 dark:border-gray-700 text-indigo-600 accent-indigo-600"
                   />
                 </th>
                 <th className="px-4 py-3">Conta</th>
@@ -863,10 +863,10 @@ export default function ClientStatusContas({
                 <th className="px-4 py-3">Fuso Horário</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {groups.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-6 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={11} className="px-6 py-12 text-center text-sm text-gray-400 dark:text-gray-500">
                     Nenhuma conta encontrada.
                   </td>
                 </tr>
@@ -882,7 +882,7 @@ export default function ClientStatusContas({
                   <React.Fragment key={group.name}>
                     {/* Group Header Row */}
                     <tr
-                      className="bg-indigo-50/60 hover:bg-indigo-50 cursor-pointer select-none border-t border-indigo-100"
+                      className="bg-indigo-50/60 dark:bg-indigo-950/40 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 cursor-pointer select-none border-t border-indigo-100 dark:border-indigo-800"
                       onClick={() => toggleGroup(group.name)}
                     >
                       <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
@@ -890,7 +890,7 @@ export default function ClientStatusContas({
                           type="checkbox"
                           checked={allGroupSelected && group.accounts.length > 0}
                           onChange={() => toggleSelectGroup(group.accounts)}
-                          className="rounded border-gray-300 text-indigo-600 accent-indigo-600"
+                          className="rounded border-gray-300 dark:border-gray-700 text-indigo-600 accent-indigo-600"
                         />
                       </td>
                       <td colSpan={10} className="px-4 py-2.5">
@@ -900,15 +900,15 @@ export default function ClientStatusContas({
                               ? <ChevronDown className="w-4 h-4 inline" />
                               : <ChevronRight className="w-4 h-4 inline" />}
                           </span>
-                          <span className="font-bold text-indigo-700 text-sm uppercase tracking-wide">{group.name}</span>
+                          <span className="font-bold text-indigo-700 dark:text-indigo-400 text-sm uppercase tracking-wide">{group.name}</span>
                           {(groupPerfil || groupGestor) && (
-                            <span className="text-xs text-gray-500 font-medium">
+                            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                               {groupPerfil ? `Perfil: ${groupPerfil}` : ''}
                               {groupPerfil && groupGestor ? ' — ' : ''}
                               {groupGestor ?? ''}
                             </span>
                           )}
-                          <span className="ml-1 text-xs text-gray-400 font-medium">
+                          <span className="ml-1 text-xs text-gray-400 dark:text-gray-500 font-medium">
                             ({group.accounts.length} {group.accounts.length === 1 ? 'conta' : 'contas'})
                           </span>
                         </div>
@@ -922,36 +922,36 @@ export default function ClientStatusContas({
                       return (
                         <tr
                           key={acc.account_id}
-                          className={`text-xs transition-colors hover:bg-gray-50 ${isSelected ? 'bg-indigo-50/30' : ''}`}
+                          className={`text-xs transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 ${isSelected ? 'bg-indigo-50/30 dark:bg-indigo-950/20' : ''}`}
                         >
                           <td className="px-3 py-3">
                             <input
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => toggleSelectAccount(acc.account_id)}
-                              className="rounded border-gray-300 text-indigo-600 accent-indigo-600"
+                              className="rounded border-gray-300 dark:border-gray-700 text-indigo-600 accent-indigo-600"
                             />
                           </td>
-                          <td className="px-4 py-3 font-semibold text-gray-800 whitespace-nowrap">
+                          <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">
                             {acc.account_name}
                           </td>
-                          <td className="px-4 py-3 font-mono text-gray-400 text-[11px]">
+                          <td className="px-4 py-3 font-mono text-gray-400 dark:text-gray-500 text-[11px]">
                             {acc.account_id}
                           </td>
                           <td className="px-4 py-3">
                             <AccountStatusBadge status={acc.account_status} />
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-gray-700">
+                          <td className="px-4 py-3 text-right font-mono text-gray-700 dark:text-gray-300">
                             {Number(acc.gasto_total) > 0
                               ? formatCurrency(Number(acc.gasto_total), acc.moeda)
-                              : <span className="text-gray-300">{zeroCurrencyLabel(acc.moeda)}</span>}
+                              : <span className="text-gray-300 dark:text-gray-600">{zeroCurrencyLabel(acc.moeda)}</span>}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-gray-500">
+                          <td className="px-4 py-3 text-right font-mono text-gray-500 dark:text-gray-400">
                             {Number(acc.limite) > 0
                               ? formatCurrency(Number(acc.limite), acc.moeda)
-                              : <span className="text-gray-300">{zeroCurrencyLabel(acc.moeda)}</span>}
+                              : <span className="text-gray-300 dark:text-gray-600">{zeroCurrencyLabel(acc.moeda)}</span>}
                           </td>
-                          <td className="px-4 py-3 text-gray-600 font-medium">{acc.moeda}</td>
+                          <td className="px-4 py-3 text-gray-600 dark:text-gray-300 font-medium">{acc.moeda}</td>
                           <td className="px-4 py-3">
                             <EtapaDropdown
                               accountId={acc.account_id}
@@ -961,13 +961,13 @@ export default function ClientStatusContas({
                           </td>
                           <td className="px-4 py-3">
                             {acc.oferta_ids.length === 0 ? (
-                              <span className="text-gray-300 text-xs">—</span>
+                              <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
                             ) : (
                               <div className="flex flex-wrap gap-1">
                                 {acc.oferta_ids.map(id => {
                                   const label = ofertasOptions.find(o => o.value === String(id))?.label ?? String(id);
                                   return (
-                                    <span key={id} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                    <span key={id} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800">
                                       {label}
                                     </span>
                                   );
@@ -975,7 +975,7 @@ export default function ClientStatusContas({
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-gray-400">{acc.cartao ?? <span className="text-gray-200">—</span>}</td>
+                          <td className="px-4 py-3 text-gray-400 dark:text-gray-500">{acc.cartao ?? <span className="text-gray-200 dark:text-gray-700">—</span>}</td>
                           <td className="px-4 py-3">
                             <FieldDropdown
                               accountId={acc.account_id}
@@ -989,11 +989,11 @@ export default function ClientStatusContas({
                           <td className="px-4 py-3 whitespace-nowrap">
                             {acc.timezone ? (
                               <div className="flex flex-col gap-0.5">
-                                <span className="font-mono text-[11px] text-gray-500">{acc.timezone}</span>
-                                <span className="text-[10px] font-semibold text-gray-400">{getGmtOffset(acc.timezone)}</span>
+                                <span className="font-mono text-[11px] text-gray-500 dark:text-gray-400">{acc.timezone}</span>
+                                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500">{getGmtOffset(acc.timezone)}</span>
                               </div>
                             ) : (
-                              <span className="text-gray-200">—</span>
+                              <span className="text-gray-200 dark:text-gray-700">—</span>
                             )}
                           </td>
                         </tr>

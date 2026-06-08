@@ -16,8 +16,8 @@ interface Player { player_id: string; player_name: string | null; video_duration
 interface AccountLink { oferta_id: number; account_id: string; account_name: string; bm_name: string | null; }
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; border: string }> = {
-  ATIVO:   { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-  PAUSADO: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+  ATIVO:   { bg: 'bg-green-50 dark:bg-green-950/40', text: 'text-green-700 dark:text-green-400', border: 'border-green-200 dark:border-green-800' },
+  PAUSADO: { bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' },
 };
 
 export default function ClientOfertas({
@@ -237,28 +237,28 @@ export default function ClientOfertas({
     <div className="max-w-4xl flex flex-col gap-6">
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">TOTAL</p>
-          <p className="text-2xl font-bold text-gray-800">{ofertas.length}</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mb-2">TOTAL</p>
+          <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{ofertas.length}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">ATIVAS</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mb-2">ATIVAS</p>
           <p className="text-2xl font-bold text-green-600">{ativas}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">PAUSADAS</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mb-2">PAUSADAS</p>
           <p className="text-2xl font-bold text-amber-500">{pausadas}</p>
         </div>
       </div>
 
       {/* Create Form */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-gray-800">Adicionar Nova Oferta</h3>
+          <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Adicionar Nova Oferta</h3>
           <button
             onClick={syncVideos}
             disabled={syncingVideos}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${syncingVideos ? 'animate-spin' : ''}`} />
             {syncingVideos ? 'Sincronizando…' : 'Sincronizar vídeos vTurb'}
@@ -270,7 +270,7 @@ export default function ClientOfertas({
             value={newNome}
             onChange={e => setNewNome(e.target.value)}
             placeholder="Nome da oferta"
-            className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             disabled={isCreating}
           />
           <button
@@ -285,25 +285,25 @@ export default function ClientOfertas({
       </div>
 
       {/* Ofertas Table */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h3 className="text-sm font-bold text-gray-800">Ofertas Cadastradas</h3>
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Ofertas Cadastradas</h3>
         </div>
 
         {ofertas.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-gray-400 italic">
+          <div className="px-5 py-10 text-center text-sm text-gray-400 dark:text-gray-500 italic">
             Nenhuma oferta cadastrada ainda.
           </div>
         ) : (
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-gray-50 text-gray-500 text-[10px] uppercase tracking-wider">
+              <tr className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wider">
                 <th className="px-5 py-3 font-bold">Nome</th>
                 <th className="px-5 py-3 font-bold">Status</th>
                 <th className="px-5 py-3 font-bold w-20 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {ofertas.map(oferta => {
                 const s = STATUS_STYLE[oferta.status] ?? STATUS_STYLE.ATIVO;
                 const myCampaigns = campaigns.filter(c => c.oferta_id === oferta.id);
@@ -312,15 +312,15 @@ export default function ClientOfertas({
                 const expanded = expandedId === oferta.id;
                 return (
                   <React.Fragment key={oferta.id}>
-                  <tr className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-5 py-3 text-sm font-medium text-gray-800">
+                  <tr className="hover:bg-gray-50/50 dark:hover:bg-gray-800 transition-colors">
+                    <td className="px-5 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">
                       <button
                         onClick={() => setExpandedId(expanded ? null : oferta.id)}
                         className="inline-flex items-center gap-2 hover:text-indigo-600"
                       >
                         {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                         {oferta.nome}
-                        <span className="text-[10px] text-gray-400 font-normal">
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 font-normal">
                           {myCampaigns.length}c · {myPlayers.length}v · {myAccounts.length}a
                         </span>
                       </button>
@@ -339,7 +339,7 @@ export default function ClientOfertas({
                       <button
                         onClick={() => handleDelete(oferta.id)}
                         disabled={deletingId === oferta.id}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                         title="Remover oferta"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -348,7 +348,7 @@ export default function ClientOfertas({
                   </tr>
                   {expanded && (
                     <tr>
-                      <td colSpan={3} className="px-5 py-4 bg-gray-50/60">
+                      <td colSpan={3} className="px-5 py-4 bg-gray-50/60 dark:bg-gray-800/60">
                         <div className="grid grid-cols-3 gap-4">
                           <LinkGroup
                             title="Campanhas RedTrack"
@@ -388,7 +388,7 @@ export default function ClientOfertas({
             onClick={() => { setOpenStatusId(null); setDropdownPos(null); }}
           />
           <div
-            className="fixed z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[120px]"
+            className="fixed z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl py-1 min-w-[120px]"
             style={{ top: dropdownPos.top, left: dropdownPos.left }}
           >
             {(['ATIVO', 'PAUSADO'] as const).map(st => {
@@ -402,7 +402,7 @@ export default function ClientOfertas({
                     handleStatusChange(openStatusId, st);
                     setDropdownPos(null);
                   }}
-                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 transition-colors ${active ? 'font-semibold' : ''}`}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${active ? 'font-semibold' : ''}`}
                 >
                   <span className={`w-3.5 text-indigo-500 shrink-0 ${active ? '' : 'invisible'}`}>✓</span>
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${ss.bg} ${ss.text}`}>{st}</span>
@@ -417,12 +417,12 @@ export default function ClientOfertas({
       {picker && typeof window !== 'undefined' && createPortal(
         <>
           <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setPicker(null)} />
-          <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-200 rounded-xl shadow-xl w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <h4 className="text-sm font-bold text-gray-800">
+          <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+              <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100">
                 {picker.kind === 'campaign' ? 'Vincular campanhas' : picker.kind === 'player' ? 'Vincular vídeos' : 'Vincular contas'}
               </h4>
-              <button onClick={() => setPicker(null)} className="text-gray-400 hover:text-gray-600" title="Fechar">
+              <button onClick={() => setPicker(null)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" title="Fechar">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -433,7 +433,7 @@ export default function ClientOfertas({
                 value={pickerSearch}
                 onChange={e => setPickerSearch(e.target.value)}
                 placeholder="Pesquisar…"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div className="flex-1 overflow-y-auto p-2">
@@ -453,7 +453,7 @@ export default function ClientOfertas({
                   return (
                     <label
                       key={item.id}
-                      className={`w-full px-3 py-2 rounded-lg text-xs flex items-center gap-2 text-gray-700 ${here ? 'opacity-60' : 'hover:bg-gray-50 cursor-pointer'}`}
+                      className={`w-full px-3 py-2 rounded-lg text-xs flex items-center gap-2 text-gray-700 dark:text-gray-300 ${here ? 'opacity-60' : 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer'}`}
                     >
                       <input
                         type="checkbox"
@@ -462,10 +462,10 @@ export default function ClientOfertas({
                         onChange={() => togglePickerSel(item.id)}
                         className="shrink-0 accent-indigo-600"
                       />
-                      <span className="flex-1 text-gray-700 break-words leading-snug" title={item.label}>{item.label}</span>
+                      <span className="flex-1 text-gray-700 dark:text-gray-300 break-words leading-snug" title={item.label}>{item.label}</span>
                       {/* Badge âmbar "em <oferta>" só para campaign/player (single-ownership). Contas são N:N. */}
                       {picker.kind !== 'account' && item.oferta_id != null && !here && (
-                        <span className="ml-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                        <span className="ml-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                           em {ofertaName(item.oferta_id)}
                         </span>
                       )}
@@ -476,8 +476,8 @@ export default function ClientOfertas({
                   );
                 })}
             </div>
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-gray-100">
-              <button onClick={() => setPicker(null)} className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700">
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+              <button onClick={() => setPicker(null)} className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
                 Cancelar
               </button>
               <button
@@ -507,17 +507,17 @@ function LinkGroup({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{title}</p>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">{title}</p>
         <button onClick={onAdd} className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800">
           <Plus className="w-3 h-3" /> Adicionar
         </button>
       </div>
       {items.length === 0
-        ? <p className="text-xs text-gray-400 italic">Nenhum vinculado.</p>
+        ? <p className="text-xs text-gray-400 dark:text-gray-500 italic">Nenhum vinculado.</p>
         : items.map(it => (
-            <div key={it.id} className="flex items-center justify-between text-xs text-gray-700 py-0.5 group">
+            <div key={it.id} className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-300 py-0.5 group">
               <span className="truncate" title={it.label}>{it.label}</span>
-              <button onClick={() => onRemove(it.id)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600" title="Remover">
+              <button onClick={() => onRemove(it.id)} className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-red-600" title="Remover">
                 <X className="w-3 h-3" />
               </button>
             </div>

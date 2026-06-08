@@ -27,18 +27,18 @@ interface PopupProps {
 type BadgeStyle = { label: string; bg: string; text: string; border: string; dot: string };
 
 const CATEGORY_BADGE: Record<CreativeCategory, BadgeStyle> = {
-  winner:         { label: 'ESCALAR',    bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
-  promise:        { label: 'VALIDAR',    bg: 'bg-sky-50',     text: 'text-sky-700',     border: 'border-sky-200',     dot: 'bg-sky-500' },
-  stable:         { label: 'MANTER',     bg: 'bg-gray-50',    text: 'text-gray-600',    border: 'border-gray-200',    dot: 'bg-gray-400' },
-  underperformer: { label: 'MONITORAR',  bg: 'bg-amber-50',   text: 'text-amber-600',   border: 'border-amber-200',   dot: 'bg-amber-500' },
-  loser:          { label: 'PAUSAR',     bg: 'bg-rose-50',    text: 'text-rose-600',    border: 'border-rose-200',    dot: 'bg-rose-500' },
-  zombie:         { label: 'PAUSAR',     bg: 'bg-slate-100',  text: 'text-slate-700',   border: 'border-slate-300',   dot: 'bg-slate-500' },
+  winner:         { label: 'ESCALAR',    bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800', dot: 'bg-emerald-500' },
+  promise:        { label: 'VALIDAR',    bg: 'bg-sky-50 dark:bg-sky-950/40',         text: 'text-sky-700 dark:text-sky-400',         border: 'border-sky-200 dark:border-sky-800',         dot: 'bg-sky-500' },
+  stable:         { label: 'MANTER',     bg: 'bg-gray-50 dark:bg-gray-800',          text: 'text-gray-600 dark:text-gray-300',        border: 'border-gray-200 dark:border-gray-700',       dot: 'bg-gray-400' },
+  underperformer: { label: 'MONITORAR',  bg: 'bg-amber-50 dark:bg-amber-950/40',     text: 'text-amber-600 dark:text-amber-400',      border: 'border-amber-200 dark:border-amber-800',     dot: 'bg-amber-500' },
+  loser:          { label: 'PAUSAR',     bg: 'bg-rose-50 dark:bg-rose-950/40',       text: 'text-rose-600 dark:text-rose-400',        border: 'border-rose-200 dark:border-rose-800',       dot: 'bg-rose-500' },
+  zombie:         { label: 'PAUSAR',     bg: 'bg-slate-100 dark:bg-slate-800',       text: 'text-slate-700 dark:text-slate-300',      border: 'border-slate-300 dark:border-slate-700',     dot: 'bg-slate-500' },
 };
 
 const VERDICT_BADGE: Record<RecoveryVerdict, BadgeStyle> = {
-  pause:   { label: 'PAUSAR',    bg: 'bg-rose-50',    text: 'text-rose-600',    border: 'border-rose-200',    dot: 'bg-rose-500' },
-  observe: { label: 'OBSERVAR',  bg: 'bg-amber-50',   text: 'text-amber-600',   border: 'border-amber-200',   dot: 'bg-amber-500' },
-  rescue:  { label: 'RESGATAR',  bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
+  pause:   { label: 'PAUSAR',    bg: 'bg-rose-50 dark:bg-rose-950/40',       text: 'text-rose-600 dark:text-rose-400',       border: 'border-rose-200 dark:border-rose-800',       dot: 'bg-rose-500' },
+  observe: { label: 'OBSERVAR',  bg: 'bg-amber-50 dark:bg-amber-950/40',     text: 'text-amber-600 dark:text-amber-400',     border: 'border-amber-200 dark:border-amber-800',     dot: 'bg-amber-500' },
+  rescue:  { label: 'RESGATAR',  bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800', dot: 'bg-emerald-500' },
 };
 
 const SIGNAL_EMOJI: Record<RecoverySignalType, string> = {
@@ -58,7 +58,7 @@ const formatCurrency = (v: number) => v.toLocaleString('pt-BR', { style: 'curren
 
 /** Decide o badge principal (topo-direita). Prioriza veredicto de recuperação quando presente. */
 function pickStatusBadge(diag: CreativeDiagnostic | null): BadgeStyle {
-  if (!diag) return { label: 'ANALISANDO', bg: 'bg-gray-50', text: 'text-gray-400', border: 'border-gray-200', dot: 'bg-gray-300' };
+  if (!diag) return { label: 'ANALISANDO', bg: 'bg-gray-50 dark:bg-gray-800', text: 'text-gray-400 dark:text-gray-500', border: 'border-gray-200 dark:border-gray-700', dot: 'bg-gray-300' };
   if (diag.recovery && (['zombie', 'loser', 'underperformer'] as CreativeCategory[]).includes(diag.category)) {
     return VERDICT_BADGE[diag.recovery.verdict];
   }
@@ -112,11 +112,11 @@ type Trend = { label: string; arrow: string; bg: string; text: string; border: s
 function computeTrend(history: any): Trend {
   const r7 = history?.['7D']?.roas || 0;
   const r30 = history?.['30D+HOJE']?.roas || 0;
-  if (!r7 || !r30) return { label: 'Estável', arrow: '→', bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' };
+  if (!r7 || !r30) return { label: 'Estável', arrow: '→', bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-300', border: 'border-gray-200 dark:border-gray-700' };
   const ratio = r7 / r30;
-  if (ratio < 0.8)  return { label: 'Caindo',  arrow: '↘', bg: 'bg-rose-50',    text: 'text-rose-600',    border: 'border-rose-100' };
-  if (ratio > 1.2)  return { label: 'Subindo', arrow: '↗', bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100' };
-  return { label: 'Estável', arrow: '→', bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' };
+  if (ratio < 0.8)  return { label: 'Caindo',  arrow: '↘', bg: 'bg-rose-50 dark:bg-rose-950/40',       text: 'text-rose-600 dark:text-rose-400',       border: 'border-rose-100 dark:border-rose-800' };
+  if (ratio > 1.2)  return { label: 'Subindo', arrow: '↗', bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-100 dark:border-emerald-800' };
+  return { label: 'Estável', arrow: '→', bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-300', border: 'border-gray-200 dark:border-gray-700' };
 }
 
 /** Confiança baseada no volume total gasto (quanto mais dado, mais confiança). */
@@ -204,7 +204,7 @@ export default function CampaignHoverPopup({
 
   return (
     <div
-      className="fixed z-[9999] bg-white rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-gray-200 w-[600px] flex flex-col font-sans overflow-hidden transform transition-opacity duration-150"
+      className="fixed z-[9999] bg-white dark:bg-gray-900 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-gray-200 dark:border-gray-700 w-[600px] flex flex-col font-sans overflow-hidden transform transition-opacity duration-150"
       style={{ left: finalX, top: finalY }}
       onMouseLeave={onMouseLeave}
       onMouseEnter={onMouseEnter}
@@ -212,9 +212,9 @@ export default function CampaignHoverPopup({
       {/* ============================================================
           HEADER
           ============================================================ */}
-      <div className="p-4 flex flex-col gap-2 border-b border-gray-100">
+      <div className="p-4 flex flex-col gap-2 border-b border-gray-100 dark:border-gray-800">
         <div className="flex justify-between items-start gap-4">
-          <h3 className="font-bold text-gray-800 text-[13px] leading-snug break-all">{groupData.rt_ad}</h3>
+          <h3 className="font-bold text-gray-800 dark:text-gray-100 text-[13px] leading-snug break-all">{groupData.rt_ad}</h3>
           <div
             className={`flex-shrink-0 ${statusBadge.bg} ${statusBadge.text} border ${statusBadge.border} text-[10px] uppercase font-bold px-2 py-0.5 rounded-md flex items-center gap-1`}
             title={diagnostic?.recovery?.verdict_reason || diagnostic?.reason || ''}
@@ -225,22 +225,22 @@ export default function CampaignHoverPopup({
         </div>
 
         {/* Chips de contexto */}
-        <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 mt-1 uppercase flex-wrap">
+        <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 mt-1 uppercase flex-wrap">
           {daysActive !== null && (
-            <span className="border border-gray-200 px-1.5 py-0.5 rounded text-gray-500 bg-gray-50">
+            <span className="border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
               Idade: ~{daysActive}d
             </span>
           )}
-          <span className="border border-gray-200 px-1.5 py-0.5 rounded text-gray-500 bg-gray-50">
+          <span className="border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
             {activeSetsCount} conj{activeSetsCount !== 1 ? 's' : ''}
           </span>
           {active ? (
-            <span className="border border-emerald-200 px-1.5 py-0.5 rounded text-emerald-600 bg-emerald-50 flex items-center gap-1">
+            <span className="border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
               ATIVO
             </span>
           ) : (
-            <span className="border border-gray-200 px-1.5 py-0.5 rounded text-gray-500 bg-gray-50 flex items-center gap-1">
+            <span className="border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
               PARADO
             </span>
@@ -248,8 +248,8 @@ export default function CampaignHoverPopup({
         </div>
 
         {/* Texto de inteligência */}
-        <p className="text-xs text-gray-500 mt-2">
-          <span dangerouslySetInnerHTML={{ __html: intelligenceText.replace(/ROAS 7d: ([0-9.,]+x|sem dados)/, 'ROAS 7d: <strong class="font-medium text-gray-700">$1</strong>') }} />
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          <span dangerouslySetInnerHTML={{ __html: intelligenceText.replace(/ROAS 7d: ([0-9.,]+x|sem dados)/, 'ROAS 7d: <strong class="font-medium text-gray-700 dark:text-gray-300">$1</strong>') }} />
         </p>
 
         {/* Chips de sinais + tendência + confiança */}
@@ -263,7 +263,7 @@ export default function CampaignHoverPopup({
           {diagnostic?.recovery?.signals.map((sig, i) => (
             <span
               key={i}
-              className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-0.5 rounded shadow-sm font-semibold flex items-center gap-1 border border-emerald-100"
+              className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-[10px] px-2 py-0.5 rounded shadow-sm font-semibold flex items-center gap-1 border border-emerald-100 dark:border-emerald-800"
               title={sig.detail}
             >
               {SIGNAL_EMOJI[sig.type]} {sig.short}
@@ -273,7 +273,7 @@ export default function CampaignHoverPopup({
           {/* Quando não é categoria ruim, mostrar CTR se for destaque (winner/promise) */}
           {diagnostic && !diagnostic.recovery && diagnostic.ctr > 0 && (
             <span
-              className="bg-gray-50 text-gray-600 text-[10px] px-2 py-0.5 rounded shadow-sm font-semibold flex items-center gap-1 border border-gray-100"
+              className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-[10px] px-2 py-0.5 rounded shadow-sm font-semibold flex items-center gap-1 border border-gray-100 dark:border-gray-700"
               title="Click-through rate do criativo"
             >
               CTR {diagnostic.ctr.toFixed(1)}%
@@ -282,12 +282,12 @@ export default function CampaignHoverPopup({
 
           {/* Quando é ruim sem nenhum sinal, avisa explicitamente */}
           {diagnostic?.recovery && diagnostic.recovery.signals.length === 0 && (
-            <span className="bg-rose-50 text-rose-600 text-[10px] px-2 py-0.5 rounded shadow-sm font-semibold flex items-center gap-1 border border-rose-100">
+            <span className="bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-[10px] px-2 py-0.5 rounded shadow-sm font-semibold flex items-center gap-1 border border-rose-100 dark:border-rose-800">
               Sem sinais de recuperação
             </span>
           )}
 
-          <span className="ml-auto border text-gray-400 font-semibold text-[10px] px-2 py-0.5 rounded">
+          <span className="ml-auto border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 font-semibold text-[10px] px-2 py-0.5 rounded">
             Confiança: {confidence}
           </span>
         </div>
@@ -298,76 +298,76 @@ export default function CampaignHoverPopup({
           ============================================================ */}
       <div className="w-full relative">
         {loading && (
-          <div className="absolute inset-0 bg-white/70 backdrop-blur-sm z-10 flex items-center justify-center">
+          <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm z-10 flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
           </div>
         )}
         <table className="w-full text-xs text-right">
           <thead>
-            <tr className="border-b border-gray-100 text-[10px] text-gray-400 font-bold tracking-wider">
+            <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider">
               <th className="font-normal text-left py-2 px-4 w-[20%]"></th>
               <th className="font-normal py-2 px-1 w-[11%]">HOJE</th>
               <th className="font-normal py-2 px-1 w-[11%]">2D</th>
               <th className="font-normal py-2 px-1 w-[11%]">3D</th>
               <th className="font-normal py-2 px-1 w-[11%]">7D</th>
-              <th className="font-normal py-2 px-1 w-[11%] text-gray-300">14D<br/><span className="text-[8px]">N/A</span></th>
-              <th className="font-normal py-2 px-1 w-[11%] text-gray-300">30D<br/><span className="text-[8px]">N/A</span></th>
+              <th className="font-normal py-2 px-1 w-[11%] text-gray-300 dark:text-gray-600">14D<br/><span className="text-[8px]">N/A</span></th>
+              <th className="font-normal py-2 px-1 w-[11%] text-gray-300 dark:text-gray-600">30D<br/><span className="text-[8px]">N/A</span></th>
               <th className="font-bold text-indigo-600 py-2 px-4 w-[14%] bg-indigo-50/30">30D+HOJE</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
             {/* GASTO */}
-            <tr className="hover:bg-gray-50">
-              <td className="text-left py-2 px-4 font-bold text-gray-500">Gasto</td>
+            <tr className="hover:bg-gray-50 dark:hover:bg-gray-800">
+              <td className="text-left py-2 px-4 font-bold text-gray-500 dark:text-gray-400">Gasto</td>
               {ranges.map((r, i) => {
-                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200">—</td>;
+                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200 dark:text-gray-700">—</td>;
                 const v = history?.[r]?.cost;
-                return <td key={i} className={`py-2 px-1 font-mono font-medium text-rose-500 ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20' : ''}`}>{v ? formatCurrency(v).replace(',00','') : '—'}</td>;
+                return <td key={i} className={`py-2 px-1 font-mono font-medium text-rose-500 ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20 dark:bg-indigo-950/20' : ''}`}>{v ? formatCurrency(v).replace(',00','') : '—'}</td>;
               })}
             </tr>
             {/* RECEITA */}
-            <tr className="hover:bg-gray-50">
-              <td className="text-left py-2 px-4 font-bold text-gray-500">Receita</td>
+            <tr className="hover:bg-gray-50 dark:hover:bg-gray-800">
+              <td className="text-left py-2 px-4 font-bold text-gray-500 dark:text-gray-400">Receita</td>
               {ranges.map((r, i) => {
-                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200">—</td>;
+                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200 dark:text-gray-700">—</td>;
                 const v = history?.[r]?.revenue;
-                return <td key={i} className={`py-2 px-1 font-mono font-medium ${v>0 ? 'text-emerald-500' : 'text-gray-300'} ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20' : ''}`}>{v ? formatCurrency(v).replace(',00','') : '—'}</td>;
+                return <td key={i} className={`py-2 px-1 font-mono font-medium ${v>0 ? 'text-emerald-500' : 'text-gray-300 dark:text-gray-600'} ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20 dark:bg-indigo-950/20' : ''}`}>{v ? formatCurrency(v).replace(',00','') : '—'}</td>;
               })}
             </tr>
             {/* LUCRO */}
-            <tr className="hover:bg-gray-50">
-              <td className="text-left py-2 px-4 font-bold text-gray-500">Lucro</td>
+            <tr className="hover:bg-gray-50 dark:hover:bg-gray-800">
+              <td className="text-left py-2 px-4 font-bold text-gray-500 dark:text-gray-400">Lucro</td>
               {ranges.map((r, i) => {
-                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200">—</td>;
+                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200 dark:text-gray-700">—</td>;
                 const v = history?.[r]?.profit;
-                return <td key={i} className={`py-2 px-1 font-mono font-bold ${v>0 ? 'text-emerald-500' : v<0 ? 'text-rose-500' : 'text-gray-300'} ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20' : ''}`}>{v ? formatCurrency(v).replace(',00','') : '—'}</td>;
+                return <td key={i} className={`py-2 px-1 font-mono font-bold ${v>0 ? 'text-emerald-500' : v<0 ? 'text-rose-500' : 'text-gray-300 dark:text-gray-600'} ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20 dark:bg-indigo-950/20' : ''}`}>{v ? formatCurrency(v).replace(',00','') : '—'}</td>;
               })}
             </tr>
             {/* ROAS */}
-            <tr className="hover:bg-gray-50">
-              <td className="text-left py-2 px-4 font-bold text-gray-500">ROAS</td>
+            <tr className="hover:bg-gray-50 dark:hover:bg-gray-800">
+              <td className="text-left py-2 px-4 font-bold text-gray-500 dark:text-gray-400">ROAS</td>
               {ranges.map((r, i) => {
-                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200">—</td>;
+                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200 dark:text-gray-700">—</td>;
                 const v = history?.[r]?.roas;
-                return <td key={i} className={`py-2 px-1 font-mono font-bold ${v>=1 ? 'text-emerald-500' : v>0? 'text-amber-500':'text-gray-300'} ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20' : ''}`}>{v>0 ? v.toFixed(2)+'x' : '—'}</td>;
+                return <td key={i} className={`py-2 px-1 font-mono font-bold ${v>=1 ? 'text-emerald-500' : v>0? 'text-amber-500':'text-gray-300 dark:text-gray-600'} ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20 dark:bg-indigo-950/20' : ''}`}>{v>0 ? v.toFixed(2)+'x' : '—'}</td>;
               })}
             </tr>
             {/* VENDAS */}
-            <tr className="hover:bg-gray-50">
-              <td className="text-left py-2 px-4 font-bold text-gray-500">Vendas</td>
+            <tr className="hover:bg-gray-50 dark:hover:bg-gray-800">
+              <td className="text-left py-2 px-4 font-bold text-gray-500 dark:text-gray-400">Vendas</td>
               {ranges.map((r, i) => {
-                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200">—</td>;
+                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200 dark:text-gray-700">—</td>;
                 const v = history?.[r]?.sales;
-                return <td key={i} className={`py-2 px-1 font-mono font-bold ${v>0 ? 'text-emerald-500' : 'text-gray-300'} ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20' : ''}`}>{v>0 ? v : '—'}</td>;
+                return <td key={i} className={`py-2 px-1 font-mono font-bold ${v>0 ? 'text-emerald-500' : 'text-gray-300 dark:text-gray-600'} ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20 dark:bg-indigo-950/20' : ''}`}>{v>0 ? v : '—'}</td>;
               })}
             </tr>
             {/* CPA */}
-            <tr className="hover:bg-gray-50 border-b border-gray-100">
-              <td className="text-left py-2 px-4 font-bold text-gray-500">CPA</td>
+            <tr className="hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
+              <td className="text-left py-2 px-4 font-bold text-gray-500 dark:text-gray-400">CPA</td>
               {ranges.map((r, i) => {
-                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200">—</td>;
+                if (r === '14D' || r === '30D') return <td key={i} className="text-gray-200 dark:text-gray-700">—</td>;
                 const v = history?.[r]?.cpa;
-                return <td key={i} className={`py-2 px-1 font-mono font-bold text-amber-500 ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20 text-amber-600' : ''}`}>{v>0 ? formatCurrency(v).replace(',00','') : '—'}</td>;
+                return <td key={i} className={`py-2 px-1 font-mono font-bold text-amber-500 ${r==='30D+HOJE' ? 'px-4 bg-indigo-50/20 dark:bg-indigo-950/20 text-amber-600' : ''}`}>{v>0 ? formatCurrency(v).replace(',00','') : '—'}</td>;
               })}
             </tr>
           </tbody>
@@ -378,15 +378,15 @@ export default function CampaignHoverPopup({
           FOOTER — detalhamento dos sinais (quando existem)
           ============================================================ */}
       {diagnostic?.recovery && diagnostic.recovery.signals.length > 0 && (
-        <div className="p-3 bg-gray-50 border-t border-gray-100">
-          <h4 className="text-[9px] uppercase font-bold text-gray-400 mb-1.5">Sinais de Recuperação</h4>
+        <div className="p-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-800">
+          <h4 className="text-[9px] uppercase font-bold text-gray-400 dark:text-gray-500 mb-1.5">Sinais de Recuperação</h4>
           <div className="space-y-1">
             {diagnostic.recovery.signals.map((sig, i) => (
               <div key={i} className="flex items-start gap-1.5 text-[10px] leading-tight">
                 <span className="shrink-0">{SIGNAL_EMOJI[sig.type]}</span>
                 <div>
-                  <strong className="text-gray-700">{sig.label}:</strong>{' '}
-                  <span className="text-gray-500">{sig.detail}</span>
+                  <strong className="text-gray-700 dark:text-gray-300">{sig.label}:</strong>{' '}
+                  <span className="text-gray-500 dark:text-gray-400">{sig.detail}</span>
                 </div>
               </div>
             ))}

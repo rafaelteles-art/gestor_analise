@@ -77,9 +77,9 @@ export default async function HomePage() {
   const firstName = user.name?.split(' ')[0] ?? '';
 
   return (
-    <div className="min-h-screen bg-[#f4f7fb] text-gray-800 font-sans">
+    <div className="min-h-screen bg-[#f4f7fb] text-gray-800 font-sans dark:bg-gray-950 dark:text-gray-100">
       {/* Top bar */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
+      <header className="bg-white border-b border-gray-200 shadow-sm dark:bg-gray-900 dark:border-gray-700">
         <div className="max-w-6xl mx-auto px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
@@ -90,14 +90,14 @@ export default async function HomePage() {
               className="rounded-full object-cover"
             />
             <div>
-              <p className="text-sm font-bold text-gray-900 leading-tight">V2 Media Lab</p>
-              <p className="text-[10px] text-gray-400 font-medium tracking-wider uppercase">Analytics</p>
+              <p className="text-sm font-bold text-gray-900 leading-tight dark:text-gray-100">V2 Media Lab</p>
+              <p className="text-[10px] text-gray-400 font-medium tracking-wider uppercase dark:text-gray-500">Analytics</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-gray-800 leading-tight">{user.name}</p>
-              <p className="text-xs text-gray-500">{user.email}</p>
+              <p className="text-sm font-semibold text-gray-800 leading-tight dark:text-gray-100">{user.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
             </div>
             <HomeSignOut />
           </div>
@@ -106,10 +106,10 @@ export default async function HomePage() {
 
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-8 pt-12 pb-6">
-        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight dark:text-gray-100">
           {firstName ? `Olá, ${firstName} 👋` : 'Bem-vindo'}
         </h1>
-        <p className="text-gray-500 mt-2">
+        <p className="text-gray-500 mt-2 dark:text-gray-400">
           Selecione uma das páginas que você tem acesso para começar.
         </p>
       </section>
@@ -117,9 +117,9 @@ export default async function HomePage() {
       {/* Pages grid */}
       <section className="max-w-6xl mx-auto px-8 pb-16">
         {visiblePages.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center shadow-sm">
-            <p className="text-gray-700 font-medium">Você ainda não tem acesso a nenhuma página.</p>
-            <p className="text-sm text-gray-500 mt-1">
+          <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center shadow-sm dark:bg-gray-900 dark:border-gray-700">
+            <p className="text-gray-700 font-medium dark:text-gray-300">Você ainda não tem acesso a nenhuma página.</p>
+            <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
               Peça a um administrador para liberar o acesso.
             </p>
           </div>
@@ -129,21 +129,21 @@ export default async function HomePage() {
               <Link
                 key={page.key}
                 href={page.path}
-                className="group bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-indigo-200 hover:-translate-y-0.5 transition-all"
+                className="group bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-indigo-200 hover:-translate-y-0.5 transition-all dark:bg-gray-900 dark:border-gray-700 dark:hover:border-indigo-700"
               >
                 <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+                  <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors dark:bg-indigo-900/40 dark:group-hover:bg-indigo-900/60">
                     <span className="w-5 h-5 block">{PAGE_ICONS[page.key]}</span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                    <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors dark:text-gray-100">
                       {page.label}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1 leading-snug">
+                    <p className="text-sm text-gray-500 mt-1 leading-snug dark:text-gray-400">
                       {PAGE_DESCRIPTIONS[page.key] ?? ''}
                     </p>
                   </div>
-                  <svg className="w-4 h-4 text-gray-300 group-hover:text-indigo-500 transition-colors shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-300 group-hover:text-indigo-500 transition-colors shrink-0 mt-1 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>

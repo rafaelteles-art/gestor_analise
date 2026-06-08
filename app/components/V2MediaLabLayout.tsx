@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import type { Role } from '@/lib/access';
+import ThemeToggle from './ThemeToggle';
 
 type NavItem = {
   href: string;
@@ -143,9 +144,9 @@ export default function V2MediaLabLayout({ children, title }: { children: React.
     : '??';
 
   return (
-    <div className="flex min-h-screen bg-[#f4f7fb] text-gray-800 font-sans">
+    <div className="flex min-h-screen bg-[#f4f7fb] dark:bg-gray-950 text-gray-800 dark:text-gray-200 font-sans">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col hidden md:flex min-h-screen">
+      <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col hidden md:flex min-h-screen">
         <div className="p-6">
           <div className="flex items-center gap-3">
             <Image
@@ -156,8 +157,8 @@ export default function V2MediaLabLayout({ children, title }: { children: React.
               className="rounded-full object-cover"
             />
             <div>
-              <p className="text-sm font-bold text-gray-900 leading-tight">V2 Media Lab</p>
-              <p className="text-[10px] text-gray-400 font-medium tracking-wider uppercase">Analytics</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">V2 Media Lab</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium tracking-wider uppercase">Analytics</p>
             </div>
           </div>
         </div>
@@ -168,7 +169,7 @@ export default function V2MediaLabLayout({ children, title }: { children: React.
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-sm transition-colors ${active ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-sm transition-colors ${active ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
               >
                 <span className={`w-5 h-5 ${active ? '' : 'opacity-70'}`}>{item.icon}</span>
                 {item.label}
@@ -178,12 +179,12 @@ export default function V2MediaLabLayout({ children, title }: { children: React.
 
           {isAdmin && (
             <>
-              <div className="pt-4 pb-1 px-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              <div className="pt-4 pb-1 px-3 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                 Administração
               </div>
               <Link
                 href={USERS_NAV.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-sm transition-colors ${pathname === USERS_NAV.href ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-sm transition-colors ${pathname === USERS_NAV.href ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
               >
                 <span className={`w-5 h-5 ${pathname === USERS_NAV.href ? '' : 'opacity-70'}`}>{USERS_NAV.icon}</span>
                 {USERS_NAV.label}
@@ -193,7 +194,7 @@ export default function V2MediaLabLayout({ children, title }: { children: React.
         </nav>
 
         {/* User info + logout */}
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-3">
             {user?.image ? (
               <Image
@@ -209,18 +210,18 @@ export default function V2MediaLabLayout({ children, title }: { children: React.
               </div>
             )}
             <div className="text-sm min-w-0 flex-1">
-              <p className="font-semibold text-gray-800 leading-tight truncate">{user?.name ?? 'Carregando...'}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email ?? ''}</p>
+              <p className="font-semibold text-gray-800 dark:text-gray-200 leading-tight truncate">{user?.name ?? 'Carregando...'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email ?? ''}</p>
             </div>
           </div>
           {role && (
-            <div className="mt-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+            <div className="mt-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
               {role === 'super_admin' ? 'Super Admin' : role === 'admin' ? 'Admin' : 'Usuário'}
             </div>
           )}
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
-            className="mt-3 w-full flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg px-3 py-2 transition-colors"
+            className="mt-3 w-full flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg px-3 py-2 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -233,8 +234,9 @@ export default function V2MediaLabLayout({ children, title }: { children: React.
       {/* Main Content */}
       <main className="flex-1 flex flex-col w-full overflow-x-hidden min-h-screen">
         {/* Header */}
-        <header className="bg-white h-16 border-b border-gray-200 px-8 flex items-center shadow-sm shrink-0">
-            <h2 className="text-lg font-bold text-gray-800">{title}</h2>
+        <header className="bg-white dark:bg-gray-900 h-16 border-b border-gray-200 dark:border-gray-800 px-8 flex items-center justify-between shadow-sm shrink-0">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{title}</h2>
+            <ThemeToggle />
         </header>
 
         {/* Content Area */}
