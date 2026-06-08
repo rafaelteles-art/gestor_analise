@@ -1,11 +1,11 @@
 # Graph Report - .  (2026-06-08)
 
 ## Corpus Check
-- 124 files · ~114,567 words
+- 124 files · ~114,793 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 550 nodes · 653 edges · 86 communities detected
+- 550 nodes · 652 edges · 86 communities detected
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
@@ -233,7 +233,7 @@ Cohesion: 0.53
 Nodes (4): getMetaProfiles(), getRedtrackApiKey(), getVturbApiToken(), loadSettings()
 
 ### Community 26 - "Community 26"
-Cohesion: 0.53
+Cohesion: 0.47
 Nodes (3): fetchAllPages(), fetchAndSyncMetaAccounts(), fetchBmAdAccounts()
 
 ### Community 27 - "Community 27"
