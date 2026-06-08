@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { format, subDays } from 'date-fns';
-import { getUsdToBrl } from '@/lib/usd-brl';
+import { matchRtCampaignCost, type RtAgg } from '@/lib/redtrack-cost';
 
 // ============================================================
 // Regex por rt_ad — igual ao /api/import
@@ -16,19 +16,21 @@ type AggRow = {
   key: string;
   total_revenue: number;
   convtype2: number;
+  cost: number;
 };
 
 // Agrega rows unnested por chave, filtrando por date >= dateFrom.
-function aggregateByKey(rows: AggRow[], dateFrom: string): Map<string, { total_revenue: number; convtype2: number }> {
-  const map = new Map<string, { total_revenue: number; convtype2: number }>();
+function aggregateByKey(rows: AggRow[], dateFrom: string): Map<string, RtAgg> {
+  const map = new Map<string, RtAgg>();
   for (const r of rows) {
     if (r.date < dateFrom) continue;
     const cur = map.get(r.key);
     if (cur) {
       cur.total_revenue += r.total_revenue;
       cur.convtype2     += r.convtype2;
+      cur.cost          += r.cost;
     } else {
-      map.set(r.key, { total_revenue: r.total_revenue, convtype2: r.convtype2 });
+      map.set(r.key, { total_revenue: r.total_revenue, convtype2: r.convtype2, cost: r.cost });
     }
   }
   return map;
@@ -72,13 +74,14 @@ export async function POST(req: NextRequest) {
     // ============================================================
     // BUSCA — unnest em SQL, rows planas e compactas
     // ============================================================
-    const [rtCampFlat, rtCampIdFlat, metaRes, usdToBrl] = await Promise.all([
+    const [rtCampFlat, rtCampIdFlat, metaRes] = await Promise.all([
       pool.query<AggRow>(
         `SELECT
            to_char(ic.date_from, 'YYYY-MM-DD')                           AS date,
            entry->>'rt_campaign'                                         AS key,
            COALESCE(NULLIF(entry->>'total_revenue', '')::float, 0)       AS total_revenue,
-           COALESCE(NULLIF(entry->>'convtype2',     '')::int,   0)       AS convtype2
+           COALESCE(NULLIF(entry->>'convtype2',     '')::int,   0)       AS convtype2,
+           COALESCE(NULLIF(entry->>'cost',          '')::float, 0)       AS cost
          FROM import_cache ic,
               jsonb_array_elements(ic.data) entry
          WHERE ic.cache_key = $1
@@ -93,7 +96,8 @@ export async function POST(req: NextRequest) {
            to_char(ic.date_from, 'YYYY-MM-DD')                           AS date,
            entry->>'sub3'                                                AS key,
            COALESCE(NULLIF(entry->>'total_revenue', '')::float, 0)       AS total_revenue,
-           COALESCE(NULLIF(entry->>'convtype2',     '')::int,   0)       AS convtype2
+           COALESCE(NULLIF(entry->>'convtype2',     '')::int,   0)       AS convtype2,
+           COALESCE(NULLIF(entry->>'cost',          '')::float, 0)       AS cost
          FROM import_cache ic,
               jsonb_array_elements(ic.data) entry
          WHERE ic.cache_key = $1
@@ -105,18 +109,13 @@ export async function POST(req: NextRequest) {
       ),
       pool.query(
         `SELECT campaign_id, campaign_name,
-                to_char(date, 'YYYY-MM-DD') AS date,
-                SUM(spend)::float       AS spend,
-                SUM(impressions)::int   AS impressions,
-                SUM(clicks)::int        AS clicks,
-                SUM(conversions)::int   AS conversions
+                to_char(date, 'YYYY-MM-DD') AS date
          FROM meta_ads_metrics
          WHERE account_id = $1
            AND date >= $2 AND date <= $3
          GROUP BY campaign_id, campaign_name, date`,
         [metaAccountId, d29ago, today]
       ),
-      getUsdToBrl(today),
     ]);
 
     const rtCampRows   = rtCampFlat.rows;
@@ -134,69 +133,31 @@ export async function POST(req: NextRequest) {
     // depois itera rt_ads pra aplicar o regex e somar.
     // ============================================================
     for (const { label, dateFrom } of RANGES) {
-      const rtCampByName = aggregateByKey(rtCampRows,   dateFrom);
-      const rtByMetaId   = aggregateByKey(rtCampIdRows, dateFrom);
-
-      const findRtCamp = (metaCampaignName: string) => {
-        const metaLower = metaCampaignName.toLowerCase();
-        let totalRev = 0, totalConv = 0, found = false;
-        for (const [rtName, rtCamp] of rtCampByName) {
-          const isExact   = rtName === metaCampaignName;
-          const isPartial = rtName.length > 10 && metaLower.includes(rtName.toLowerCase());
-          if (isExact || isPartial) {
-            totalRev  += rtCamp.total_revenue;
-            totalConv += rtCamp.convtype2;
-            found = true;
-          }
-        }
-        return found ? { total_revenue: totalRev, convtype2: totalConv } : null;
-      };
-
-      // Igual ao /api/import: soma sub3 de TODAS as campaign_ids que compartilham
-      // o mesmo nome (ABO scale no Meta cria várias campanhas com nome idêntico,
-      // cada uma com seu próprio sub3 no RT). Fallback por nome só se nenhuma id bateu.
-      const findRevenue = (mc: { campaign_ids: string[]; campaign_name: string }) => {
-        let totalRev = 0, totalConv = 0, anyHit = false;
-        for (const id of mc.campaign_ids) {
-          const byId = rtByMetaId.get(id);
-          if (byId) {
-            anyHit = true;
-            totalRev  += byId.total_revenue;
-            totalConv += byId.convtype2;
-          }
-        }
-        if (anyHit) return { total_revenue: totalRev, convtype2: totalConv };
-        return findRtCamp(mc.campaign_name);
-      };
+      const rtCampByName = aggregateByKey(rtCampRows,   dateFrom); // Map<name, RtAgg>
+      const rtByMetaId   = aggregateByKey(rtCampIdRows, dateFrom); // Map<sub3, RtAgg>
 
       // Meta — agrega por campaign_name (toda a conta, igual /api/import)
-      const metaMap = new Map<string, { campaign_ids: string[]; campaign_name: string; spend: number }>();
+      const metaMap = new Map<string, { campaign_ids: string[]; campaign_name: string }>();
       for (const row of metaRes.rows) {
         if (row.date < dateFrom) continue;
         const name = row.campaign_name;
         const existing = metaMap.get(name);
         if (existing) {
-          existing.spend += row.spend;
           if (!existing.campaign_ids.includes(row.campaign_id)) {
             existing.campaign_ids.push(row.campaign_id);
           }
         } else {
-          metaMap.set(name, {
-            campaign_ids:  [row.campaign_id],
-            campaign_name: name,
-            spend:         row.spend,
-          });
+          metaMap.set(name, { campaign_ids: [row.campaign_id], campaign_name: name });
         }
       }
 
-      // Pré-computa enriched revenue por mc (evita re-lookup entre rt_ads)
-      const metaEnriched: { campaign_name: string; spendBrl: number; rev: number; conv: number }[] = [];
+      // Por campanha: custo, receita e conversões vêm todos da mesma rt_campaign.
+      const metaEnriched: { campaign_name: string; cost: number; rev: number; conv: number }[] = [];
       for (const mc of metaMap.values()) {
-        const spendBrl = mc.spend * usdToBrl;
-        const rtCamp   = findRevenue(mc);
+        const rtCamp = matchRtCampaignCost(mc, rtByMetaId, rtCampByName);
         metaEnriched.push({
           campaign_name: mc.campaign_name,
-          spendBrl,
+          cost: rtCamp ? rtCamp.cost          : 0,
           rev:  rtCamp ? rtCamp.total_revenue : 0,
           conv: rtCamp ? rtCamp.convtype2     : 0,
         });
@@ -207,7 +168,7 @@ export async function POST(req: NextRequest) {
         let totalSpend = 0, totalRevenue = 0, totalConversions = 0;
         for (const mc of metaEnriched) {
           if (!regex.test(mc.campaign_name)) continue;
-          totalSpend       += mc.spendBrl;
+          totalSpend       += mc.cost;
           totalRevenue     += mc.rev;
           totalConversions += mc.conv;
         }
