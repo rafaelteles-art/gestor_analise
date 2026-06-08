@@ -3,6 +3,13 @@ import { getMetaProfiles } from './config';
 
 const API_VERSION = 'v19.0';
 
+// Quantos BMs varrer em paralelo no scan. fetchBmAdAccounts já dispara 2
+// requests (client+owned), então SCAN_CONCURRENCY=6 ≈ 12 requests Meta em voo.
+// Conservador de propósito pra não agravar o throttle #4 da Meta. Era serial,
+// o que estourava o teto de 300s do LB do App Hosting (stream cortado →
+// cliente via "resposta inesperada do servidor").
+const SCAN_CONCURRENCY = 6;
+
 // Mapeamento dos códigos de status da Meta para strings legíveis
 const META_STATUS_MAP: Record<number, string> = {
   1:   'ACTIVE',
@@ -144,15 +151,26 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
         bmToParentDirect.set(bm.id, bm); // BM direta é "mãe" de si mesma
       }
 
-      for (const bm of directBms) {
-        const ownedBms = await fetchAllPages(
-          `https://graph.facebook.com/${API_VERSION}/${bm.id}/owned_businesses?fields=id,name&limit=200&access_token=${token}`
+      // Discovery das sub-BMs em paralelo (lotes de SCAN_CONCURRENCY). Os fetches
+      // correm juntos, mas as mutações dos maps são aplicadas em ordem após cada
+      // lote pra preservar o "primeiro visto vence".
+      for (let i = 0; i < directBms.length; i += SCAN_CONCURRENCY) {
+        const batch = directBms.slice(i, i + SCAN_CONCURRENCY);
+        const fetched = await Promise.all(
+          batch.map(async (bm) => ({
+            bm,
+            ownedBms: await fetchAllPages(
+              `https://graph.facebook.com/${API_VERSION}/${bm.id}/owned_businesses?fields=id,name&limit=200&access_token=${token}`
+            ),
+          }))
         );
-        for (const ob of ownedBms) {
-          if (!allBmMap.has(ob.id)) {
-            console.log(`  → Sub-BM descoberta via ${bm.name}: ${ob.name} (contas serão atribuídas a ${bm.name})`);
-            allBmMap.set(ob.id, ob);
-            bmToParentDirect.set(ob.id, bm); // sub-BM → BM-mãe direta
+        for (const { bm, ownedBms } of fetched) {
+          for (const ob of ownedBms) {
+            if (!allBmMap.has(ob.id)) {
+              console.log(`  → Sub-BM descoberta via ${bm.name}: ${ob.name} (contas serão atribuídas a ${bm.name})`);
+              allBmMap.set(ob.id, ob);
+              bmToParentDirect.set(ob.id, bm); // sub-BM → BM-mãe direta
+            }
           }
         }
       }
@@ -164,30 +182,41 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
       // 4. Para cada BM (direta ou sub), buscar owned + client ad accounts.
       //    bm_id/bm_name salvos são SEMPRE da BM-mãe direta — nunca da sub-BM —
       //    pra garantir que o system user possa operar a conta via essa BM.
-      let bmIndex = 0;
-      for (const bm of allBms) {
-        bmIndex++;
-        const parent = bmToParentDirect.get(bm.id) ?? bm;
-        console.log(`Buscando contas do BM: ${bm.name} (${bm.id}) [mãe direta: ${parent.name}]`);
-        report(`BM ${bmIndex}/${allBms.length}: ${bm.name}`);
-
-        const bmAccounts = await fetchBmAdAccounts(bm.id, token);
-        bmAccounts.forEach((acc: any) => {
-          const accountId = `act_${acc.account_id}`;
-          trackAccess(accountId, profile.name);
-          validAccounts.push({
-            account_id: accountId,
-            account_name: acc.name || `Account ${acc.account_id}`,
-            bm_id: parent.id,
-            bm_name: parent.name,
-            is_selected: false,
-            access_token: token,
-            account_status: mapMetaStatus(acc.account_status),
-            moeda: acc.currency || 'BRL',
-            timezone: acc.timezone_name || null,
-            cartao: parseCardDigits(acc.funding_source_details?.display_string),
+      // Busca as contas de cada BM em paralelo (lotes de SCAN_CONCURRENCY).
+      // Este era o gargalo: serial × dezenas de BMs estourava os 300s do LB.
+      // Os fetches correm juntos; os pushes em validAccounts são feitos em ordem
+      // após cada lote (o dedup posterior é indiferente à ordem entre BMs).
+      let bmDone = 0;
+      for (let i = 0; i < allBms.length; i += SCAN_CONCURRENCY) {
+        const batch = allBms.slice(i, i + SCAN_CONCURRENCY);
+        const fetched = await Promise.all(
+          batch.map(async (bm) => {
+            const parent = bmToParentDirect.get(bm.id) ?? bm;
+            console.log(`Buscando contas do BM: ${bm.name} (${bm.id}) [mãe direta: ${parent.name}]`);
+            const accounts = await fetchBmAdAccounts(bm.id, token);
+            return { parent, accounts };
+          })
+        );
+        for (const { parent, accounts } of fetched) {
+          accounts.forEach((acc: any) => {
+            const accountId = `act_${acc.account_id}`;
+            trackAccess(accountId, profile.name);
+            validAccounts.push({
+              account_id: accountId,
+              account_name: acc.name || `Account ${acc.account_id}`,
+              bm_id: parent.id,
+              bm_name: parent.name,
+              is_selected: false,
+              access_token: token,
+              account_status: mapMetaStatus(acc.account_status),
+              moeda: acc.currency || 'BRL',
+              timezone: acc.timezone_name || null,
+              cartao: parseCardDigits(acc.funding_source_details?.display_string),
+            });
           });
-        });
+        }
+        bmDone += batch.length;
+        report(`BM ${bmDone}/${allBms.length}: ${batch[batch.length - 1].name}`);
       }
     }
 
