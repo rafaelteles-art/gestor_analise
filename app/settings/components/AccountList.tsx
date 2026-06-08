@@ -190,11 +190,11 @@ export default function AccountList({
       {/* Header */}
       <div className="flex justify-between items-end mb-5">
         <div>
-          <h2 className="text-sm font-bold text-gray-800">Contas de Anúncio</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">Contas de Anúncio</h2>
+          <p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">
             {accounts.length} conta(s) mapeada(s)
           </p>
-          <p className="text-[11px] text-gray-400 mt-1 max-w-md">
+          <p className="text-[11px] text-gray-400 mt-1 max-w-md dark:text-gray-500">
             Contas e campanhas são sincronizadas pelas Ofertas vinculadas (ver Ofertas / Status de Contas).
           </p>
         </div>
@@ -211,12 +211,12 @@ export default function AccountList({
 
       {/* Barra de progresso do scan */}
       {isSyncing && (
-        <div className="mb-5 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
-          <div className="flex justify-between items-center text-[11px] text-gray-500 mb-1.5">
+        <div className="mb-5 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm dark:bg-gray-900 dark:border-gray-700">
+          <div className="flex justify-between items-center text-[11px] text-gray-500 mb-1.5 dark:text-gray-400">
             <span className="truncate pr-3">{syncStatus || 'Processando…'}</span>
             <span className="font-mono shrink-0">{syncPct}%</span>
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden dark:bg-gray-800">
             <div
               className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300 ease-out"
               style={{ width: `${syncPct}%` }}
@@ -227,7 +227,7 @@ export default function AccountList({
 
       {/* Grouped list */}
       {accounts.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-gray-400 text-sm shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-gray-400 text-sm shadow-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-500">
           Nenhuma conta mapeada. Clique em "Escanear contas" para importar do Facebook.
         </div>
       ) : (
@@ -238,25 +238,25 @@ export default function AccountList({
             const isBlacklisted = blacklistedBmIds.has(group.bm_id);
 
             return (
-              <div key={group.bm_id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+              <div key={group.bm_id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden dark:bg-gray-900 dark:border-gray-700">
 
                 {/* BM header row */}
-                <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
+                <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 dark:bg-gray-800 dark:border-gray-700">
                   <button
                     onClick={() => toggleCollapse(group.bm_id)}
                     className="flex items-center gap-2 text-left flex-1 min-w-0"
                   >
                     <ChevronDown
-                      className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${isOpen ? '' : '-rotate-90'}`}
+                      className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${isOpen ? '' : '-rotate-90'} dark:text-gray-500`}
                     />
                     <div className="min-w-0">
-                      <span className="text-sm font-bold text-gray-800 truncate block">{group.bm_name}</span>
-                      <span className="text-[10px] text-gray-400 font-mono">{group.bm_id}</span>
+                      <span className="text-sm font-bold text-gray-800 truncate block dark:text-gray-100">{group.bm_name}</span>
+                      <span className="text-[10px] text-gray-400 font-mono dark:text-gray-500">{group.bm_id}</span>
                     </div>
                   </button>
 
                   <div className="flex items-center gap-3 shrink-0 ml-4">
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {bmTotal} conta{bmTotal !== 1 ? 's' : ''}
                     </span>
 
@@ -266,8 +266,8 @@ export default function AccountList({
                       title={isBlacklisted ? 'Remover BM da blacklist' : 'Adicionar BM à blacklist (oculta de /status-contas)'}
                       className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors border ${
                         isBlacklisted
-                          ? 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
-                          : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'
+                          ? 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-700 dark:hover:bg-rose-800/40'
+                          : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50 dark:bg-gray-900 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/40'
                       }`}
                     >
                       <Ban className="w-3 h-3" />
@@ -278,12 +278,12 @@ export default function AccountList({
 
                 {/* Account rows */}
                 {isOpen && (
-                  <div className="divide-y divide-gray-50">
+                  <div className="divide-y divide-gray-50 dark:divide-gray-800">
                     {group.accounts.map(acc => (
-                      <div key={acc.account_id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors">
+                      <div key={acc.account_id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors dark:hover:bg-gray-800">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">{acc.account_name}</p>
-                          <p className="text-[11px] text-gray-400 font-mono mt-0.5">{acc.account_id}</p>
+                          <p className="text-sm font-medium text-gray-800 truncate dark:text-gray-100">{acc.account_name}</p>
+                          <p className="text-[11px] text-gray-400 font-mono mt-0.5 dark:text-gray-500">{acc.account_id}</p>
                         </div>
 
                         <div className="flex items-center gap-2.5 shrink-0 ml-4">
@@ -292,8 +292,8 @@ export default function AccountList({
                             title={acc.is_blacklisted ? 'Remover conta da blacklist' : 'Adicionar conta à blacklist (oculta de /status-contas)'}
                             className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md transition-colors border ${
                               acc.is_blacklisted
-                                ? 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
-                                : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'
+                                ? 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-700 dark:hover:bg-rose-800/40'
+                                : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50 dark:bg-gray-900 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/40'
                             }`}
                           >
                             <Ban className="w-3 h-3" />
