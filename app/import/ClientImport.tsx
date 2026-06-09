@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { format, subDays } from 'date-fns';
+import { todayStr, daysAgoStr } from '@/lib/timezone';
 import Select from 'react-select';
 import { darkAwareSelectStyles } from '@/app/lib/reactSelectStyles';
 import CampaignHoverPopup from './CampaignHoverPopup';
@@ -48,8 +48,8 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
   const [selectedRtCampaignId, setSelectedRtCampaignId] = useState<string>('');
 
   const [dateRangeFilter, setDateRangeFilter] = useState<'today'|'yesterday'|'7d'|'14d'|'30d'|'custom'>('today');
-  const [dateFrom, setDateFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dateFrom, setDateFrom] = useState(todayStr());
+  const [dateTo, setDateTo] = useState(todayStr());
 
   const [isImporting, setIsImporting] = useState(false);
   const [isSyncingToday, setIsSyncingToday] = useState(false);
@@ -95,9 +95,8 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
   // isso ficam num effect com dep array vazio — independente do escopo da oferta.
   useEffect(() => {
     let initialDateRange = 'today';
-    const today = new Date();
-    let initialDateFrom = format(today, 'yyyy-MM-dd');
-    let initialDateTo = format(today, 'yyyy-MM-dd');
+    let initialDateFrom = todayStr();
+    let initialDateTo = todayStr();
     let initialSortConfig = null;
 
     try {
@@ -110,14 +109,10 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
                     initialDateFrom = saved.dateFrom || initialDateFrom;
                     initialDateTo = saved.dateTo || initialDateTo;
                 } else {
-                    let f = today;
-                    let t = today;
-                    if (saved.dateRange === 'yesterday') { f = subDays(today, 1); t = subDays(today, 1); }
-                    else if (saved.dateRange === '7d') { f = subDays(today, 6); }
-                    else if (saved.dateRange === '14d') { f = subDays(today, 13); }
-                    else if (saved.dateRange === '30d') { f = subDays(today, 29); }
-                    initialDateFrom = format(f, 'yyyy-MM-dd');
-                    initialDateTo = format(t, 'yyyy-MM-dd');
+                    if (saved.dateRange === 'yesterday') { initialDateFrom = daysAgoStr(1); initialDateTo = daysAgoStr(1); }
+                    else if (saved.dateRange === '7d') { initialDateFrom = daysAgoStr(6); }
+                    else if (saved.dateRange === '14d') { initialDateFrom = daysAgoStr(13); }
+                    else if (saved.dateRange === '30d') { initialDateFrom = daysAgoStr(29); }
                 }
             }
             if (saved.sortConfig !== undefined) {
@@ -189,21 +184,20 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
 
   const handleDateShortcut = (range: 'today'|'yesterday'|'7d'|'14d'|'30d') => {
     setDateRangeFilter(range);
-    const today = new Date();
-    let from = today;
-    let to = today;
+    let from = todayStr();
+    let to = todayStr();
     if (range === 'yesterday') {
-      from = subDays(today, 1);
-      to = subDays(today, 1);
+      from = daysAgoStr(1);
+      to = daysAgoStr(1);
     } else if (range === '7d') {
-      from = subDays(today, 6);
+      from = daysAgoStr(6);
     } else if (range === '14d') {
-      from = subDays(today, 13);
+      from = daysAgoStr(13);
     } else if (range === '30d') {
-      from = subDays(today, 29);
+      from = daysAgoStr(29);
     }
-    setDateFrom(format(from, 'yyyy-MM-dd'));
-    setDateTo(format(to, 'yyyy-MM-dd'));
+    setDateFrom(from);
+    setDateTo(to);
   };
 
   const handleCustomDateChange = (type: 'from'|'to', val: string) => {
@@ -370,6 +364,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
         const totalSpend       = mcs.reduce((s: number, c: any) => s + c.spend, 0);
         const totalRevenue     = mcs.reduce((s: number, c: any) => s + c.revenue, 0);
         const totalConversions = mcs.reduce((s: number, c: any) => s + c.conversions, 0);
+        const totalIc          = mcs.reduce((s: number, c: any) => s + (c.ic || 0), 0);
         const totalImpressions = mcs.reduce((s: number, c: any) => s + c.impressions, 0);
         const totalClicks      = mcs.reduce((s: number, c: any) => s + c.clicks, 0);
         const avgCpm = totalImpressions > 0
@@ -380,6 +375,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
           cost:              totalSpend,
           total_revenue:     totalRevenue,
           total_conversions: totalConversions,
+          ic:                totalIc,
           cpa:               totalConversions > 0 ? totalSpend / totalConversions : 0,
           profit:            totalRevenue - totalSpend,
           roas:              totalSpend > 0 ? totalRevenue / totalSpend : 0,
@@ -535,6 +531,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
                 { title: 'GASTO', value: formatCurrency(rtTotals.cost), color: 'text-rose-500' },
                 { title: 'LUCRO', value: formatCurrency(rtTotals.profit), color: rtTotals.profit >= 0 ? 'text-emerald-500' : 'text-rose-500' },
                 { title: 'ROAS', value: rtTotals.roas > 0 ? rtTotals.roas.toFixed(2) + 'x' : '0.00x', color: rtTotals.roas >= 1 ? 'text-amber-500' : 'text-gray-500 dark:text-gray-400' },
+                { title: 'IC', value: formatNumber(rtTotals.ic || 0), color: 'text-sky-500' },
                 { title: 'VENDAS', value: rtTotals.conversions.toString(), color: 'text-gray-800 dark:text-gray-100' },
                 { title: 'CPA', value: formatCurrency(rtTotals.cpa), color: 'text-gray-800 dark:text-gray-100' },
                 { title: 'RET. PITCH', value: rtTotals.vturb_over_pitch_rate != null ? formatPercent(rtTotals.vturb_over_pitch_rate) : '—', color: 'text-fuchsia-500' },
@@ -607,6 +604,10 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
                   <span className={`font-mono font-bold ${accRoasColor}`}>{accTotals.roas > 0 ? accTotals.roas.toFixed(2)+'x' : '—'}</span>
                 </div>
                 <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">IC</span>
+                  <span className="font-mono font-semibold text-sky-500">{formatNumber(accTotals.ic || 0)}</span>
+                </div>
+                <div className="flex flex-col">
                   <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Vendas</span>
                   <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{formatNumber(accTotals.conversions)}</span>
                 </div>
@@ -634,10 +635,11 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
           </div>
 
           {/* Table Header */}
-          <div className="grid grid-cols-12 bg-gray-50 dark:bg-gray-800 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-[repeat(13,minmax(0,1fr))] bg-gray-50 dark:bg-gray-800 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
             <TableHeader label="Campanha" sortKey="rt_ad" alignLeft={true} colSpan={2} />
             <TableHeader label="Gasto" sortKey="total_spend" />
             <TableHeader label="Receita" sortKey="total_revenue" />
+            <TableHeader label="IC" sortKey="ic" />
             <TableHeader label="Vendas" sortKey="total_conversions" />
             <TableHeader label="CPA" sortKey="cpa" />
             <TableHeader label="Lucro" sortKey="profit" />
@@ -666,7 +668,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
                 <div key={expandKey}>
                     {/* Row level 1 */}
                     <div
-                        className="grid grid-cols-12 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group relative"
+                        className="grid grid-cols-[repeat(13,minmax(0,1fr))] text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group relative"
                     >
                         <div className="col-span-2 px-6 py-3.5 flex items-center gap-3">
                             <div className="flex items-center justify-center w-8 cursor-pointer" onClick={() => toggleRow(expandKey)}>
@@ -690,6 +692,7 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
                         </div>
                         <div className="px-4 py-3.5 text-right font-mono font-medium">{formatCurrency(group.cost)}</div>
                         <div className="px-4 py-3.5 text-right font-mono font-medium">{formatCurrency(group.total_revenue)}</div>
+                        <div className="px-4 py-3.5 text-right font-mono font-semibold text-sky-500">{group.ic > 0 ? group.ic : '—'}</div>
                         <div className="px-4 py-3.5 text-right font-mono font-bold">{group.total_conversions} <span className="text-gray-400 dark:text-gray-500 text-[10px] font-sans">v</span></div>
                         <div className="px-4 py-3.5 text-right font-mono font-medium">{group.cpa > 0 ? formatCurrency(group.cpa) : '—'}</div>
                         <div className={`px-4 py-3.5 text-right font-mono font-bold ${profitColor}`}>{formatCurrency(group.profit)}</div>
@@ -703,10 +706,11 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
                     {/* Meta Campaigns Wrapper */}
                     {isOpen && group.meta_campaigns.length > 0 && (
                     <div className="bg-gray-50/50 dark:bg-gray-800/50 border-t border-b border-gray-100 dark:border-gray-700 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]">
-                        <div className="grid grid-cols-12 text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider border-b border-gray-100/50 dark:border-gray-700/50">
+                        <div className="grid grid-cols-[repeat(13,minmax(0,1fr))] text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider border-b border-gray-100/50 dark:border-gray-700/50">
                             <div className="col-span-2 px-6 py-2 pl-16">Anúncio Facebook</div>
                             <div className="px-4 py-2 text-right">Gasto FB</div>
                             <div className="px-4 py-2 text-right">Receita RT</div>
+                            <div className="px-4 py-2 text-right">IC RT</div>
                             <div className="px-4 py-2 text-right">Vendas RT</div>
                             <div className="px-4 py-2 text-right">CPA RT</div>
                             <div className="px-4 py-2 text-right">Lucro Líq</div>
@@ -739,12 +743,13 @@ export default function ClientImport({ dbAccounts, rtCampaigns, offers, currentO
                         const mcProfitColor = mc.profit >= 0 ? 'text-emerald-500' : 'text-rose-500';
                         const mcRoasColor = mc.roas >= 1 ? 'text-emerald-500' : mc.roas > 0 ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500';
                         return (
-                            <div key={mc.campaign_id + '-' + idx} className="grid grid-cols-12 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-50 dark:border-gray-700 last:border-transparent transition-colors">
+                            <div key={mc.campaign_id + '-' + idx} className="grid grid-cols-[repeat(13,minmax(0,1fr))] text-xs hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-50 dark:border-gray-700 last:border-transparent transition-colors">
                             <div className="col-span-2 px-6 py-3 pl-16 text-gray-500 dark:text-gray-400 break-words whitespace-normal leading-relaxed text-[11px]">
                                 {mc.campaign_name}
                             </div>
                             <div className="px-4 py-3 text-right font-mono text-gray-500 dark:text-gray-400">{formatCurrency(mc.spend)}</div>
                             <div className="px-4 py-3 text-right font-mono text-gray-500 dark:text-gray-400">{mc.revenue > 0 ? formatCurrency(mc.revenue) : '—'}</div>
+                            <div className="px-4 py-3 text-right font-mono text-sky-500">{mc.ic > 0 ? mc.ic : '—'}</div>
                             <div className="px-4 py-3 text-right font-mono text-gray-500 dark:text-gray-400">{mc.conversions > 0 ? mc.conversions : '—'}</div>
                             <div className="px-4 py-3 text-right font-mono text-gray-500 dark:text-gray-400">{mc.cpa > 0 ? formatCurrency(mc.cpa) : '—'}</div>
                             <div className={`px-4 py-3 text-right font-mono font-medium ${mc.revenue > 0 ? mcProfitColor : 'text-gray-400 dark:text-gray-500'}`}>{mc.revenue > 0 ? formatCurrency(mc.profit) : '—'}</div>

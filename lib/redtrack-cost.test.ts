@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { matchRtCampaignCost, type RtAgg } from './redtrack-cost';
 
-const agg = (total_revenue: number, convtype2: number, cost: number): RtAgg =>
-  ({ total_revenue, convtype2, cost });
+const agg = (total_revenue: number, convtype2: number, cost: number, ic = 0): RtAgg =>
+  ({ total_revenue, convtype2, ic, cost });
 
 describe('matchRtCampaignCost', () => {
   it('soma por sub3 (campaign_id) quando há hit, ignorando o nome', () => {
@@ -16,7 +16,7 @@ describe('matchRtCampaignCost', () => {
       bySub3,
       byName,
     );
-    expect(res).toEqual({ total_revenue: 150, convtype2: 3, cost: 50 });
+    expect(res).toEqual({ total_revenue: 150, convtype2: 3, ic: 0, cost: 50 });
   });
 
   it('cai para match por nome exato quando nenhum sub3 bate', () => {
@@ -27,7 +27,7 @@ describe('matchRtCampaignCost', () => {
       bySub3,
       byName,
     );
-    expect(res).toEqual({ total_revenue: 80, convtype2: 4, cost: 25 });
+    expect(res).toEqual({ total_revenue: 80, convtype2: 4, ic: 0, cost: 25 });
   });
 
   it('faz match parcial por nome contido (rtName length > 10)', () => {
@@ -38,7 +38,7 @@ describe('matchRtCampaignCost', () => {
       bySub3,
       byName,
     );
-    expect(res).toEqual({ total_revenue: 40, convtype2: 1, cost: 12 });
+    expect(res).toEqual({ total_revenue: 40, convtype2: 1, ic: 0, cost: 12 });
   });
 
   it('NÃO faz match parcial quando o nome RT é curto (<= 10)', () => {
@@ -63,7 +63,20 @@ describe('matchRtCampaignCost', () => {
       bySub3,
       byName,
     );
-    expect(res).toEqual({ total_revenue: 120, convtype2: 2, cost: 36 });
+    expect(res).toEqual({ total_revenue: 120, convtype2: 2, ic: 0, cost: 36 });
+  });
+
+  it('soma IC (convtype1) por sub3 junto com receita e custo', () => {
+    const bySub3 = new Map<string, RtAgg>([
+      ['111', agg(100, 2, 30, 5)],
+      ['222', agg(50, 1, 20, 3)],
+    ]);
+    const res = matchRtCampaignCost(
+      { campaign_ids: ['111', '222'], campaign_name: 'Campanha X' },
+      bySub3,
+      new Map(),
+    );
+    expect(res).toEqual({ total_revenue: 150, convtype2: 3, ic: 8, cost: 50 });
   });
 
   it('retorna null quando não há match algum', () => {

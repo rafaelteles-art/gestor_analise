@@ -14,6 +14,38 @@ export interface RedTrackMetric {
   roas: number;
 }
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/**
+ * fetch wrapper que faz retry automático em 429 (rate limit) do RedTrack.
+ *
+ * RedTrack limita por minuto. Em vez de derrubar a sincronização inteira no
+ * primeiro 429, esperamos e tentamos de novo — respeitando o header
+ * `Retry-After` (em segundos) quando presente, senão backoff exponencial.
+ *
+ * Só lança o erro depois de esgotar as tentativas, pra que o chamador
+ * (sync-today / rt-bulk) mostre o erro real na UI.
+ */
+async function fetchRedTrackWithRetry(url: string, maxRetries = 4): Promise<Response> {
+    let attempt = 0;
+    while (true) {
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (res.status !== 429) return res;
+
+        if (attempt >= maxRetries) return res; // esgotou — devolve o 429 pro chamador tratar
+
+        // Retry-After em segundos (RedTrack envia); senão backoff exponencial 2s,4s,8s,16s
+        const retryAfterHeader = parseInt(res.headers.get('retry-after') || '', 10);
+        const backoffMs = Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+            ? retryAfterHeader * 1000
+            : 2000 * Math.pow(2, attempt);
+
+        console.warn(`[RedTrack] 429 rate limit — retry ${attempt + 1}/${maxRetries} em ${backoffMs}ms`);
+        await sleep(backoffMs);
+        attempt++;
+    }
+}
+
 /**
  * Função utilitária para extrair com paginação infinita a API do RedTrack.
  * Resolve o problema do limite de 1000 rows por requisição em janelas de longo período.
@@ -26,12 +58,12 @@ export async function fetchPaginatedRedTrack(baseUrl: string): Promise<any[]> {
     while(true) {
         try {
             const url = `${baseUrl}&per=${limit}&page=${page}`;
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+            const res = await fetchRedTrackWithRetry(url);
             if (!res.ok) {
                 const body = await res.text().catch(() => '');
                 if (res.status === 429) {
-                    // Rate limit atingido — lança erro para que o chamador saiba,
-                    // ao invés de retornar silenciosamente []
+                    // Rate limit persistiu mesmo após os retries — lança erro para
+                    // que o chamador saiba, ao invés de retornar silenciosamente []
                     throw new Error(`RedTrack rate limit (429): ${body}`);
                 }
                 console.error(`[RedTrack] HTTP ${res.status} on page ${page}: ${body}`);

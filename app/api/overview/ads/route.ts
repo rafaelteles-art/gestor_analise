@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedtrackApiKey } from '@/lib/config';
 import { pool } from '@/lib/db';
-import { format } from 'date-fns';
+import { todayStr } from '@/lib/timezone';
 
 /**
  * GET /api/overview/ads?campaign_id=...&date=YYYY-MM-DD&fresh=1
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   }
   const dateStr = dateRaw && /^\d{4}-\d{2}-\d{2}$/.test(dateRaw)
     ? dateRaw
-    : format(new Date(), 'yyyy-MM-dd');
+    : todayStr();
 
   const cacheKey = `rt_ad:${campaignId}`;
 

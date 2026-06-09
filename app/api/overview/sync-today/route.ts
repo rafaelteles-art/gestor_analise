@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { getRedtrackApiKey } from '@/lib/config';
+import { todayStr } from '@/lib/timezone';
 
 export const maxDuration = 300;
 
@@ -25,23 +26,12 @@ const CONV_TYPE_MAP = {
   up4_count:      'convtype11',
 } as const;
 
-const SP_DATE_FMT = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Sao_Paulo',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
-
-function todayInSaoPaulo(): string {
-  return SP_DATE_FMT.format(new Date());
-}
-
 function parseDateInput(input: unknown): string {
   if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
     const d = new Date(`${input}T00:00:00Z`);
     if (!Number.isNaN(d.getTime())) return input;
   }
-  return todayInSaoPaulo();
+  return todayStr();
 }
 
 // Schema é garantido uma única vez por processo (boot). ALTER TABLE adquire

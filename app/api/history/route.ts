@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { format, subDays } from 'date-fns';
+import { todayStr, daysAgoStr } from '@/lib/timezone';
 import { matchRtCampaignCost, type RtAgg } from '@/lib/redtrack-cost';
 
 // ============================================================
@@ -59,15 +59,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Parâmetros insuficientes' }, { status: 400 });
     }
 
-    const today  = format(new Date(), 'yyyy-MM-dd');
-    const d29ago = format(subDays(new Date(), 29), 'yyyy-MM-dd');
+    const today  = todayStr();
+    const d29ago = daysAgoStr(29);
 
     const RANGES = [
       { label: 'Hoje',     dateFrom: today },
-      { label: '2D',       dateFrom: format(subDays(new Date(), 1),  'yyyy-MM-dd') },
-      { label: '3D',       dateFrom: format(subDays(new Date(), 2),  'yyyy-MM-dd') },
-      { label: '7D',       dateFrom: format(subDays(new Date(), 6),  'yyyy-MM-dd') },
-      { label: '14D',      dateFrom: format(subDays(new Date(), 13), 'yyyy-MM-dd') },
+      { label: '2D',       dateFrom: daysAgoStr(1)  },
+      { label: '3D',       dateFrom: daysAgoStr(2)  },
+      { label: '7D',       dateFrom: daysAgoStr(6)  },
+      { label: '14D',      dateFrom: daysAgoStr(13) },
       { label: '30D+HOJE', dateFrom: d29ago },
     ];
 

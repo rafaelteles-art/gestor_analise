@@ -18,15 +18,16 @@ function combineDailyRtAd(rows: { data: any[] }[]): { rt_ad: string }[] {
   return Array.from(seen).map(rt_ad => ({ rt_ad }));
 }
 
-/** Soma total_revenue, convtype2 e cost por nome de campanha RT entre os dias consultados. */
-function combineDailyRtCamp(rows: { data: any[] }[]): { rt_campaign: string; total_revenue: string; convtype2: string; cost: string }[] {
-  const map = new Map<string, { total_revenue: number; convtype2: number; cost: number }>();
+/** Soma total_revenue, convtype2 (vendas), convtype1 (IC) e cost por nome de campanha RT entre os dias consultados. */
+function combineDailyRtCamp(rows: { data: any[] }[]): { rt_campaign: string; total_revenue: string; convtype2: string; convtype1: string; cost: string }[] {
+  const map = new Map<string, { total_revenue: number; convtype2: number; convtype1: number; cost: number }>();
   for (const row of rows) {
     for (const entry of (row.data || [])) {
       if (!entry.rt_campaign) continue;
-      const cur = map.get(entry.rt_campaign) ?? { total_revenue: 0, convtype2: 0, cost: 0 };
+      const cur = map.get(entry.rt_campaign) ?? { total_revenue: 0, convtype2: 0, convtype1: 0, cost: 0 };
       cur.total_revenue += parseFloat(entry.total_revenue || '0');
       cur.convtype2     += parseInt(entry.convtype2 || '0', 10);
+      cur.convtype1     += parseInt(entry.convtype1 || '0', 10);
       cur.cost          += parseFloat(entry.cost || '0');
       map.set(entry.rt_campaign, cur);
     }
@@ -35,20 +36,22 @@ function combineDailyRtCamp(rows: { data: any[] }[]): { rt_campaign: string; tot
     rt_campaign,
     total_revenue: String(v.total_revenue),
     convtype2:     String(v.convtype2),
+    convtype1:     String(v.convtype1),
     cost:          String(v.cost),
   }));
 }
 
-/** Soma total_revenue, convtype2 e cost por Meta campaign_id (sub3) entre os dias consultados. */
-function combineDailyRtCampById(rows: { data: any[] }[]): Map<string, { total_revenue: number; convtype2: number; cost: number }> {
-  const map = new Map<string, { total_revenue: number; convtype2: number; cost: number }>();
+/** Soma total_revenue, convtype2 (vendas), convtype1 (IC) e cost por Meta campaign_id (sub3) entre os dias consultados. */
+function combineDailyRtCampById(rows: { data: any[] }[]): Map<string, { total_revenue: number; convtype2: number; ic: number; cost: number }> {
+  const map = new Map<string, { total_revenue: number; convtype2: number; ic: number; cost: number }>();
   for (const row of rows) {
     for (const entry of (row.data || [])) {
       const metaId = entry.sub3;
       if (!metaId) continue;
-      const cur = map.get(metaId) ?? { total_revenue: 0, convtype2: 0, cost: 0 };
+      const cur = map.get(metaId) ?? { total_revenue: 0, convtype2: 0, ic: 0, cost: 0 };
       cur.total_revenue += parseFloat(entry.total_revenue || '0');
       cur.convtype2     += parseInt(entry.convtype2 || '0', 10);
+      cur.ic            += parseInt(entry.convtype1 || '0', 10);
       cur.cost          += parseFloat(entry.cost || '0');
       map.set(metaId, cur);
     }
@@ -230,6 +233,7 @@ export async function POST(req: NextRequest) {
       rtCampByName.set(rc.rt_campaign, {
         total_revenue: parseFloat(rc.total_revenue || '0'),
         convtype2:     parseInt(rc.convtype2 || '0', 10),
+        ic:            parseInt(rc.convtype1 || '0', 10),
         cost:          parseFloat(rc.cost || '0'),
       });
     });
@@ -260,6 +264,7 @@ export async function POST(req: NextRequest) {
         const rtCamp        = findRtMatch(mc);
         const rtRevenue     = rtCamp ? rtCamp.total_revenue : 0;
         const rtConversions = rtCamp ? rtCamp.convtype2 : 0;
+        const rtIc          = rtCamp ? (rtCamp.ic ?? 0) : 0;
         // Custo agora vem do RedTrack (BRL), não mais do spend do Meta.
         const spendBrl      = rtCamp ? rtCamp.cost : 0;
 
@@ -278,6 +283,7 @@ export async function POST(req: NextRequest) {
           ctr:           mc.ctr,
           revenue:       rtRevenue,
           conversions:   rtConversions,
+          ic:            rtIc,
           cpa:           rtConversions > 0 ? spendBrl / rtConversions : 0,
           profit:        rtRevenue - spendBrl,
           roas:          spendBrl > 0 ? rtRevenue / spendBrl : 0,
@@ -295,6 +301,7 @@ export async function POST(req: NextRequest) {
       const totalSpend       = enrichedCampaigns.reduce((s, c) => s + c.spend, 0);
       const totalRevenue     = enrichedCampaigns.reduce((s, c) => s + c.revenue, 0);
       const totalConversions = enrichedCampaigns.reduce((s, c) => s + c.conversions, 0);
+      const totalIc          = enrichedCampaigns.reduce((s, c) => s + c.ic, 0);
       const totalImpressions = enrichedCampaigns.reduce((s, c) => s + c.impressions, 0);
       const totalClicks      = enrichedCampaigns.reduce((s, c) => s + c.clicks, 0);
       const avgCpm = totalImpressions > 0
@@ -323,6 +330,7 @@ export async function POST(req: NextRequest) {
         cost:              totalSpend,
         total_revenue:     totalRevenue,
         total_conversions: totalConversions,
+        ic:                totalIc,
         cpa:               totalConversions > 0 ? totalSpend / totalConversions : 0,
         profit:            totalRevenue - totalSpend,
         roas:              totalSpend > 0 ? totalRevenue / totalSpend : 0,
@@ -360,6 +368,7 @@ export async function POST(req: NextRequest) {
       revenue:     finalReport.reduce((s: number, g: any) => s + g.total_revenue, 0),
       profit:      finalReport.reduce((s: number, g: any) => s + g.profit, 0),
       conversions: finalReport.reduce((s: number, g: any) => s + g.total_conversions, 0),
+      ic:          finalReport.reduce((s: number, g: any) => s + (g.ic || 0), 0),
       roas: 0,
       cpa: 0,
       vturb_over_pitch_rate: vtTot.started     > 0 ? (vtTot.over_pitch  / vtTot.started)     * 100 : null,
@@ -382,7 +391,7 @@ export async function POST(req: NextRequest) {
       perAccountMap.set(id, {
         account_id: id,
         account_name: name,
-        cost: 0, revenue: 0, profit: 0, conversions: 0, roas: 0, cpa: 0,
+        cost: 0, revenue: 0, profit: 0, conversions: 0, ic: 0, roas: 0, cpa: 0,
       });
     });
 
@@ -395,7 +404,7 @@ export async function POST(req: NextRequest) {
           t = {
             account_id: aid,
             account_name: accountNameById.get(aid) || aid,
-            cost: 0, revenue: 0, profit: 0, conversions: 0, roas: 0, cpa: 0,
+            cost: 0, revenue: 0, profit: 0, conversions: 0, ic: 0, roas: 0, cpa: 0,
           };
           perAccountMap.set(aid, t);
         }
@@ -403,6 +412,7 @@ export async function POST(req: NextRequest) {
         t.revenue     += c.revenue;
         t.profit      += (c.revenue - c.spend);
         t.conversions += c.conversions;
+        t.ic          += (c.ic || 0);
       }
     }
     perAccountMap.forEach(t => {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { format } from 'date-fns';
+import { todayStr, fmtDateTime } from '@/lib/timezone';
 import { RefreshCw, Database, ChevronRight, ChevronDown, AlertCircle } from 'lucide-react';
 import OfferSelector from '../components/OfferSelector';
 
@@ -78,7 +78,7 @@ export default function ClientOverview({
   offers: { id: number; nome: string }[];
   currentOferta: number | null;
 }) {
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [date, setDate] = useState(todayStr());
   const [rows, setRows] = useState<OverviewRow[]>([]);
   const [totals, setTotals] = useState<OverviewTotals | null>(null);
   const [loading, setLoading] = useState(false);
@@ -206,7 +206,7 @@ export default function ClientOverview({
               type="date"
               value={date}
               onChange={e => setDate(e.target.value)}
-              max={format(new Date(), 'yyyy-MM-dd')}
+              max={todayStr()}
               className="text-sm font-mono text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 outline-none focus:border-indigo-400"
             />
           </div>
@@ -326,7 +326,7 @@ export default function ClientOverview({
                           )}
                           {r.synced_at && (
                             <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                              sync: {new Date(r.synced_at).toLocaleString('pt-BR')}
+                              sync: {fmtDateTime(r.synced_at)}
                             </div>
                           )}
                         </td>
@@ -422,7 +422,7 @@ function AdsPanel({
           {state.source && (
             <span className="text-gray-400 dark:text-gray-500">
               · fonte: {state.source === 'cache' ? 'cache' : 'API ao vivo'}
-              {state.synced_at && ` · ${new Date(state.synced_at).toLocaleString('pt-BR')}`}
+              {state.synced_at && ` · ${fmtDateTime(state.synced_at)}`}
             </span>
           )}
         </div>

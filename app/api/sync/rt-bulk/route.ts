@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { getRedtrackApiKey } from '@/lib/config';
 import { format, subDays, parseISO, isValid, differenceInCalendarDays } from 'date-fns';
+import { todayStr, daysAgoStr } from '@/lib/timezone';
 
 export const maxDuration = 300;
 
@@ -28,22 +29,22 @@ export async function POST(request: NextRequest) {
   // ── Parse body e monta lista de dias ──────────────────────────────────
   const body = await request.json().catch(() => ({} as any));
   const mode: string = body.mode ?? 'today';
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const today = todayStr();
 
   let days: string[] = [];
   let rangeLabel = '';
 
   try {
     if (mode === 'today') {
-      days = [todayStr];
-      rangeLabel = todayStr;
+      days = [today];
+      rangeLabel = today;
     } else if (mode === 'yesterday') {
-      const y = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+      const y = daysAgoStr(1);
       days = [y];
       rangeLabel = y;
     } else if (mode === 'days') {
       const n = Math.min(Math.max(parseInt(body.days ?? '3', 10), 1), 90);
-      days = Array.from({ length: n }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd')).reverse();
+      days = Array.from({ length: n }, (_, i) => daysAgoStr(i)).reverse();
       rangeLabel = `${days[0]} → ${days[days.length - 1]} (${n}d)`;
     } else if (mode === 'range') {
       const from = parseISO(String(body.dateFrom ?? ''));

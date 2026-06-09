@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { todayStr, toDatetimeLocal, datetimeLocalToISO } from '@/lib/timezone';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Tipos (alinhados com app/lib/meta-campaigns.ts — repetidos aqui pra evitar
@@ -1238,7 +1239,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   }, [profileName]);
 
   // ── Campanha ──────────────────────────────────────────────────────────────
-  const [campaignName, setCampaignName] = useState('Conversão Website — ' + new Date().toISOString().slice(0, 10));
+  const [campaignName, setCampaignName] = useState('Conversão Website — ' + todayStr());
   const [showNameModal, setShowNameModal] = useState(false);
   const [specialCategory, setSpecialCategory] = useState<'NONE' | 'EMPLOYMENT' | 'HOUSING' | 'CREDIT' | 'FINANCIAL_PRODUCTS_SERVICES'>('NONE');
   const [campaignType, setCampaignType] = useState<CampaignType>('ABO');
@@ -1514,10 +1515,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [wifiOnly, setWifiOnly] = useState(false);
 
   // Agendamento
-  const [startTime, setStartTime] = useState(() => {
-    const d = new Date(Date.now() + 60 * 60 * 1000);
-    return d.toISOString().slice(0, 16);
-  });
+  const [startTime, setStartTime] = useState(() =>
+    // Daqui a 1h, relógio de parede no fuso do app (GMT-3), para datetime-local.
+    toDatetimeLocal(new Date(Date.now() + 60 * 60 * 1000)),
+  );
   const [endTime, setEndTime] = useState('');
   const [hasEndTime, setHasEndTime] = useState(false);
 
@@ -1848,9 +1849,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     // {{conta}}, {{orcamento}}, {{estrutura}}, {{data}}. O token {{criativo}}
     // permanece e é resolvido por criativo no orquestrador (meta-campaigns.ts).
     const startDate = (() => {
-      const d = new Date(startTime);
-      if (isNaN(d.getTime())) return '';
-      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+      // startTime é 'YYYY-MM-DDTHH:mm' no fuso do app (GMT-3) — extrai DD/MM direto.
+      if (!/^\d{4}-\d{2}-\d{2}/.test(startTime)) return '';
+      return `${startTime.slice(8, 10)}/${startTime.slice(5, 7)}`;
     })();
     const resolvedCampaignName = campaignName
       .replace(/\{\{\s*conta\s*\}\}/gi,     account?.account_name ?? '')
@@ -1918,8 +1919,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       promoted_object: promotedObject,
       targeting,
       destination_type: isDPA ? undefined : 'WEBSITE',
-      start_time: new Date(startTime).toISOString(),
-      end_time: hasEndTime && endTime ? new Date(endTime).toISOString() : undefined,
+      start_time: datetimeLocalToISO(startTime),
+      end_time: hasEndTime && endTime ? datetimeLocalToISO(endTime) : undefined,
       status,
       attribution_spec: attribution_spec.length ? attribution_spec : undefined,
     };

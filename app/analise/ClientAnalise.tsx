@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { format, subDays } from 'date-fns';
+import { todayStr, daysAgoStr } from '@/lib/timezone';
 import Select from 'react-select';
 import { darkAwareSelectStyles } from '@/app/lib/reactSelectStyles';
 import OfferSelector from '../components/OfferSelector';
@@ -107,8 +107,8 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [selectedRtCampaignId, setSelectedRtCampaignId] = useState<string>('');
   const [dateRangeFilter, setDateRangeFilter] = useState<'7d' | '14d' | '30d' | '90d' | 'custom'>('30d');
-  const [dateFrom, setDateFrom] = useState(format(subDays(new Date(), 29), 'yyyy-MM-dd'));
-  const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dateFrom, setDateFrom] = useState(daysAgoStr(29));
+  const [dateTo, setDateTo] = useState(todayStr());
 
   const [isLoading, setIsLoading] = useState(false);
   const [rawData, setRawData] = useState<{ groups: any[]; perAccount: any[]; totals: any } | null>(null);
@@ -166,10 +166,9 @@ export default function ClientAnalise({ dbAccounts, rtCampaigns, offers, current
 
   const handleDateShortcut = (r: '7d' | '14d' | '30d' | '90d') => {
     setDateRangeFilter(r);
-    const today = new Date();
     const days = r === '7d' ? 6 : r === '14d' ? 13 : r === '30d' ? 29 : 89;
-    setDateFrom(format(subDays(today, days), 'yyyy-MM-dd'));
-    setDateTo(format(today, 'yyyy-MM-dd'));
+    setDateFrom(daysAgoStr(days));
+    setDateTo(todayStr());
   };
 
   const runAnalysis = async () => {

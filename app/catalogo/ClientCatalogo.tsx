@@ -1389,7 +1389,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                             </div>
                             <div className="text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">
                               {p.retailer_id || '—'} · prod {p.product_id} · ignorado em{' '}
-                              {new Date(p.ignored_at).toLocaleDateString('pt-BR')}
+                              {new Date(p.ignored_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                             </div>
                           </div>
                           <button

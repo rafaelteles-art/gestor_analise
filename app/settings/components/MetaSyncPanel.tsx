@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { todayStr as tzToday, daysAgoStr as tzDaysAgo, fmtTime } from '@/lib/timezone';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface Campaign {
@@ -78,7 +79,7 @@ function StreamLog({ lines }: { lines: LogLine[] }) {
             l.level === 'error' ? 'text-rose-400' :
             l.level === 'warn'  ? 'text-amber-300' :
             'text-gray-100';
-          const ts = l.ts ? new Date(l.ts).toLocaleTimeString() : '';
+          const ts = l.ts ? fmtTime(l.ts) : '';
           return (
             <div key={i} className={color}>
               <span className="text-gray-500">{ts} </span>
@@ -154,8 +155,8 @@ type MetaPeriod = 7 | 14 | 30 | 60 | 90 | 'yesterday' | 'range';
 
 function MetaPanel() {
   const [period, setPeriod] = useState<MetaPeriod>(30);
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const weekAgoStr = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const todayStr = tzToday();
+  const weekAgoStr = tzDaysAgo(6);
   const [rangeFrom, setRangeFrom] = useState(weekAgoStr);
   const [rangeTo, setRangeTo] = useState(todayStr);
   const [running, setRunning] = useState(false);
@@ -326,8 +327,8 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
   // ── Sync ──────────────────────────────────────────────────────────────────
   type RtPeriod = 'today' | 'yesterday' | 'days3' | 'days7' | 'range';
   const [period, setPeriod] = useState<RtPeriod>('today');
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const weekAgoStr = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const todayStr = tzToday();
+  const weekAgoStr = tzDaysAgo(6);
   const [rangeFrom, setRangeFrom] = useState(weekAgoStr);
   const [rangeTo, setRangeTo] = useState(todayStr);
   const [running, setRunning] = useState(false);

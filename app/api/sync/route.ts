@@ -2,13 +2,12 @@ import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchMetaMetrics } from '@/lib/meta';
 import { fetchRedTrackMetrics } from '@/lib/redtrack';
+import { daysAgoStr } from '@/lib/timezone';
 
 export async function POST() {
   const client = await pool.connect();
   try {
-    const today = new Date();
-    today.setDate(today.getDate() - 1); // Yesterday
-    const dateStr = today.toISOString().split('T')[0];
+    const dateStr = daysAgoStr(1); // Ontem, no fuso do app (GMT-3)
 
     console.log(`Buscando métricas da data: ${dateStr}`);
 

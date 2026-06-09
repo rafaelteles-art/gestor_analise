@@ -11,6 +11,8 @@
  *  - Lookalike Audiences:    https://developers.facebook.com/docs/marketing-api/audiences/guides/lookalike-audiences/
  */
 
+import { toDatetimeLocal } from '@/lib/timezone';
+
 export const META_API_VERSION = 'v22.0';
 const GRAPH = `https://graph.facebook.com/${META_API_VERSION}`;
 
@@ -1267,6 +1269,8 @@ export async function createCampaignBatch(
   } = input;
 
   const now = new Date();
+  // Relógio de parede no fuso do app (GMT-3): 'YYYY-MM-DDTHH:mm'.
+  const nowLocal = toDatetimeLocal(now);
   const baseCtx = {
     conta_nome:           context?.conta_nome,
     conta_apelido:        context?.conta_apelido,
@@ -1279,11 +1283,11 @@ export async function createCampaignBatch(
     conjunto_de_produtos: context?.conjunto_de_produtos,
     budget:               context?.budget,
     criativos:            String(creatives.length),
-    ano:                  String(now.getFullYear()),
-    mes:                  String(now.getMonth() + 1).padStart(2, '0'),
-    dia:                  String(now.getDate()).padStart(2, '0'),
-    hora:                 String(now.getHours()).padStart(2, '0'),
-    minuto:               String(now.getMinutes()).padStart(2, '0'),
+    ano:                  nowLocal.slice(0, 4),
+    mes:                  nowLocal.slice(5, 7),
+    dia:                  nowLocal.slice(8, 10),
+    hora:                 nowLocal.slice(11, 13),
+    minuto:               nowLocal.slice(14, 16),
   };
 
   const totalCampaigns = creatives.length * Math.max(1, nCamp);

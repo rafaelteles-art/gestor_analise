@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchMetaMetricsPerDay } from '@/lib/meta';
-import { format, subDays, parseISO, isValid, differenceInCalendarDays } from 'date-fns';
+import { format, parseISO, isValid, differenceInCalendarDays } from 'date-fns';
+import { todayStr, daysAgoStr } from '@/lib/timezone';
 
 // Aumenta o limite de tempo para ambientes Vercel Pro/Enterprise
 export const maxDuration = 300;
@@ -47,13 +48,13 @@ export async function POST(req: Request) {
     dateTo   = format(to,   'yyyy-MM-dd');
     days     = span + 1;
   } else if (mode === 'yesterday') {
-    dateTo   = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+    dateTo   = daysAgoStr(1);
     dateFrom = dateTo;
     days     = 1;
   } else {
     days     = Math.min(Math.max(parseInt(body.days ?? '30', 10), 1), 90);
-    dateTo   = format(new Date(), 'yyyy-MM-dd');
-    dateFrom = format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
+    dateTo   = todayStr();
+    dateFrom = daysAgoStr(days - 1);
   }
 
   // Busca apenas as contas vinculadas a uma oferta que estejam ATIVAS e fora da blacklist.

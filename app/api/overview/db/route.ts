@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { format } from 'date-fns';
+import { todayStr } from '@/lib/timezone';
 import { parseOfertaParam } from '@/lib/offer-scope';
 
 /**
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const dateRaw = req.nextUrl.searchParams.get('date');
   const dateStr = dateRaw && /^\d{4}-\d{2}-\d{2}$/.test(dateRaw)
     ? dateRaw
-    : format(new Date(), 'yyyy-MM-dd');
+    : todayStr();
 
   const ofertaId = parseOfertaParam(req.nextUrl.searchParams.get('oferta'));
 

@@ -13,6 +13,9 @@
 export interface RtAgg {
   total_revenue: number;
   convtype2: number;
+  /** convtype1 = InitiateCheckout (IC). Opcional: rotas que não rastreiam IC
+   *  (ex.: /api/history) podem omitir, e o match trata como 0. */
+  ic?: number;
   cost: number;
 }
 
@@ -29,20 +32,21 @@ export function matchRtCampaignCost(
 ): RtAgg | null {
   const ids = meta.campaign_ids ?? (meta.campaign_id ? [meta.campaign_id] : []);
 
-  let rev = 0, conv = 0, cost = 0, anyHit = false;
+  let rev = 0, conv = 0, ic = 0, cost = 0, anyHit = false;
   for (const id of ids) {
     const hit = bySub3.get(id);
     if (hit) {
       anyHit = true;
       rev  += hit.total_revenue;
       conv += hit.convtype2;
+      ic   += hit.ic ?? 0;
       cost += hit.cost;
     }
   }
-  if (anyHit) return { total_revenue: rev, convtype2: conv, cost };
+  if (anyHit) return { total_revenue: rev, convtype2: conv, ic, cost };
 
   const metaLower = meta.campaign_name.toLowerCase();
-  let nRev = 0, nConv = 0, nCost = 0, found = false;
+  let nRev = 0, nConv = 0, nIc = 0, nCost = 0, found = false;
   for (const [rtName, agg] of byName) {
     const isExact   = rtName === meta.campaign_name;
     const isPartial = rtName.length > 10 && metaLower.includes(rtName.toLowerCase());
@@ -50,8 +54,9 @@ export function matchRtCampaignCost(
       found = true;
       nRev  += agg.total_revenue;
       nConv += agg.convtype2;
+      nIc   += agg.ic ?? 0;
       nCost += agg.cost;
     }
   }
-  return found ? { total_revenue: nRev, convtype2: nConv, cost: nCost } : null;
+  return found ? { total_revenue: nRev, convtype2: nConv, ic: nIc, cost: nCost } : null;
 }

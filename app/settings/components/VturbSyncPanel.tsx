@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { todayStr as tzToday, daysAgoStr as tzDaysAgo } from '@/lib/timezone';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface LogLine {
@@ -105,8 +106,8 @@ type VturbPeriod = 7 | 14 | 30 | 60 | 90 | 'yesterday' | 'range';
 
 export default function VturbSyncPanel() {
   const [period, setPeriod] = useState<VturbPeriod>(30);
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const weekAgoStr = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const todayStr = tzToday();
+  const weekAgoStr = tzDaysAgo(6);
   const [rangeFrom, setRangeFrom] = useState(weekAgoStr);
   const [rangeTo, setRangeTo] = useState(todayStr);
   const [running, setRunning] = useState(false);

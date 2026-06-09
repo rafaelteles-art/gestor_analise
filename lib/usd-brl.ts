@@ -1,4 +1,5 @@
 import { pool } from '@/lib/db';
+import { todayStr } from '@/lib/timezone';
 
 // Cache USD→BRL no banco. Uma única requisição ao AwesomeAPI
 // traz 30 dias; só busca de novo quando o dia atual ainda não está gravado.
@@ -108,7 +109,7 @@ export async function getUsdToBrl(dateStr: string): Promise<number> {
   );
   // Só confiamos no cache se cobre a data pedida exatamente, OU se a data
   // pedida é futura/igual a hoje e já temos um valor recente (<= 1 dia).
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
   if (cached.rows.length > 0) {
     const row = cached.rows[0];
     const cachedDate = row.date instanceof Date ? row.date.toISOString().slice(0, 10) : String(row.date).slice(0, 10);

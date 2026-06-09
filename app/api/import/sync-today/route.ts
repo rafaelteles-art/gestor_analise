@@ -3,7 +3,7 @@ import { pool } from '@/lib/db';
 import { fetchMetaMetricsPerDay } from '@/lib/meta';
 import { fetchPaginatedRedTrack } from '@/lib/redtrack';
 import { getRedtrackApiKey } from '@/lib/config';
-import { format } from 'date-fns';
+import { todayStr } from '@/lib/timezone';
 
 /**
  * POST /api/import/sync-today
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'REDTRACK_API_KEY não configurada.' }, { status: 500 });
     }
 
-    const today = format(new Date(), 'yyyy-MM-dd');
+    const today = todayStr();
 
     // Busca o access_token da conta Meta no banco
     const accountResult = await pool.query(
