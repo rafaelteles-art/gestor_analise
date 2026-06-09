@@ -1,11 +1,11 @@
-# Graph Report - .  (2026-06-08)
+# Graph Report - .  (2026-06-09)
 
 ## Corpus Check
-- 125 files · ~115,564 words
+- 125 files · ~115,747 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 558 nodes · 660 edges · 87 communities detected
+- 560 nodes · 664 edges · 87 communities detected
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
@@ -242,36 +242,36 @@ Cohesion: 0.47
 Nodes (3): fetchAllPages(), fetchAndSyncMetaAccounts(), fetchBmAdAccounts()
 
 ### Community 28 - "Community 28"
+Cohesion: 0.47
+Nodes (3): fetchPaginatedRedTrack(), fetchRedTrackWithRetry(), sleep()
+
+### Community 29 - "Community 29"
 Cohesion: 0.6
 Nodes (5): ensureSchema(), fetchAwesomeApiDaily(), fetchBcbPtax(), getUsdToBrl(), upsertRates()
 
-### Community 29 - "Community 29"
+### Community 30 - "Community 30"
 Cohesion: 0.4
 Nodes (0): 
 
-### Community 30 - "Community 30"
+### Community 31 - "Community 31"
 Cohesion: 0.5
 Nodes (2): canAccessPage(), firstAllowedPath()
 
-### Community 31 - "Community 31"
+### Community 32 - "Community 32"
 Cohesion: 0.4
 Nodes (0): 
 
-### Community 32 - "Community 32"
+### Community 33 - "Community 33"
 Cohesion: 0.83
 Nodes (3): ensureSettingsTable(), getStoredTokens(), saveApiTokens()
 
-### Community 33 - "Community 33"
+### Community 34 - "Community 34"
 Cohesion: 0.5
 Nodes (0): 
-
-### Community 34 - "Community 34"
-Cohesion: 0.83
-Nodes (3): fetchMetaMetrics(), fetchMetaMetricsPerDay(), resolveMetaToken()
 
 ### Community 35 - "Community 35"
-Cohesion: 0.5
-Nodes (0): 
+Cohesion: 0.83
+Nodes (3): fetchMetaMetrics(), fetchMetaMetricsPerDay(), resolveMetaToken()
 
 ### Community 36 - "Community 36"
 Cohesion: 1.0
