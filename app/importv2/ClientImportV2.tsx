@@ -308,6 +308,10 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
       if (key === 'campaign_name') {
         valA = String(valA).toLowerCase();
         valB = String(valB).toLowerCase();
+      } else if (key === 'checkout_conv') {
+        // Conversão de checkout = vendas / IC (purchases por InitiateCheckout)
+        valA = a.ic > 0 ? a.conversions / a.ic : 0;
+        valB = b.ic > 0 ? b.conversions / b.ic : 0;
       }
       if (valA < valB) return direction === 'asc' ? -1 : 1;
       if (valA > valB) return direction === 'asc' ? 1 : -1;
@@ -458,8 +462,9 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                 { title: 'GASTO', value: formatCurrency(rtTotals.cost), color: 'text-rose-500' },
                 { title: 'LUCRO', value: formatCurrency(rtTotals.profit), color: rtTotals.profit >= 0 ? 'text-emerald-500' : 'text-rose-500' },
                 { title: 'ROAS', value: rtTotals.roas > 0 ? rtTotals.roas.toFixed(2) + 'x' : '0.00x', color: rtTotals.roas >= 1 ? 'text-amber-500' : 'text-gray-500 dark:text-gray-400' },
-                { title: 'IC', value: formatNumber(rtTotals.ic || 0), color: 'text-sky-500' },
                 { title: 'VENDAS', value: rtTotals.conversions.toString(), color: 'text-gray-800 dark:text-gray-100' },
+                { title: 'IC', value: formatNumber(rtTotals.ic || 0), color: 'text-sky-500' },
+                { title: 'CONV. CHECKOUT', value: rtTotals.ic > 0 ? formatPercent(rtTotals.conversions / rtTotals.ic * 100) : '—', color: 'text-cyan-500' },
                 { title: 'CPA', value: formatCurrency(rtTotals.cpa), color: 'text-gray-800 dark:text-gray-100' },
                 { title: 'RET. PITCH', value: rtTotals.vturb_over_pitch_rate != null ? formatPercent(rtTotals.vturb_over_pitch_rate) : '—', color: 'text-fuchsia-500' },
                 { title: 'CONV. VTURB', value: rtTotals.vturb_conversion_rate != null ? formatPercent(rtTotals.vturb_conversion_rate) : '—', color: 'text-fuchsia-500' },
@@ -530,12 +535,16 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                   <span className={`font-mono font-bold ${accRoasColor}`}>{accTotals.roas > 0 ? accTotals.roas.toFixed(2)+'x' : '—'}</span>
                 </div>
                 <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Vendas</span>
+                  <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{formatNumber(accTotals.conversions)}</span>
+                </div>
+                <div className="flex flex-col">
                   <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">IC</span>
                   <span className="font-mono font-semibold text-sky-500">{formatNumber(accTotals.ic || 0)}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Vendas</span>
-                  <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{formatNumber(accTotals.conversions)}</span>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Conv. Checkout</span>
+                  <span className="font-mono font-semibold text-cyan-500">{accTotals.ic > 0 ? formatPercent(accTotals.conversions / accTotals.ic * 100) : '—'}</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">CPA</span>
@@ -559,12 +568,13 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
               </div>
           </div>
 
-          <div className="grid grid-cols-[repeat(13,minmax(0,1fr))] bg-gray-50 dark:bg-gray-800 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] bg-gray-50 dark:bg-gray-800 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
             <TableHeader label="Campanha Facebook" sortKey="campaign_name" alignLeft={true} colSpan={2} />
             <TableHeader label="Gasto" sortKey="spend" />
             <TableHeader label="Receita" sortKey="revenue" />
-            <TableHeader label="IC" sortKey="ic" />
             <TableHeader label="Vendas" sortKey="conversions" />
+            <TableHeader label="IC" sortKey="ic" />
+            <TableHeader label="Conv. CO" sortKey="checkout_conv" />
             <TableHeader label="CPA" sortKey="cpa" />
             <TableHeader label="Lucro" sortKey="profit" />
             <TableHeader label="ROAS" sortKey="roas" />
@@ -597,7 +607,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                 return (
                 <div
                   key={mc.campaign_id + '-' + idx}
-                  className="grid grid-cols-[repeat(13,minmax(0,1fr))] text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group relative cursor-help"
+                  className="grid grid-cols-[repeat(14,minmax(0,1fr))] text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group relative cursor-help"
                   onMouseEnter={(e) => handleMouseEnterRow(e, hoverGroup, accId)}
                   onMouseLeave={handleMouseLeaveRow}
                 >
@@ -608,8 +618,9 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                     </div>
                     <div className="px-4 py-3.5 text-right font-mono font-medium">{formatCurrency(mc.spend)}</div>
                     <div className="px-4 py-3.5 text-right font-mono font-medium">{mc.revenue > 0 ? formatCurrency(mc.revenue) : '—'}</div>
-                    <div className="px-4 py-3.5 text-right font-mono font-semibold text-sky-500">{mc.ic > 0 ? mc.ic : '—'}</div>
                     <div className="px-4 py-3.5 text-right font-mono font-bold">{mc.conversions > 0 ? mc.conversions : '—'} <span className="text-gray-400 dark:text-gray-500 text-[10px] font-sans">v</span></div>
+                    <div className="px-4 py-3.5 text-right font-mono font-semibold text-sky-500">{mc.ic > 0 ? mc.ic : '—'}</div>
+                    <div className="px-4 py-3.5 text-right font-mono text-cyan-500">{mc.ic > 0 ? formatPercent(mc.conversions / mc.ic * 100) : '—'}</div>
                     <div className="px-4 py-3.5 text-right font-mono font-medium">{mc.cpa > 0 ? formatCurrency(mc.cpa) : '—'}</div>
                     <div className={`px-4 py-3.5 text-right font-mono font-bold ${mc.revenue > 0 ? profitColor : 'text-gray-400 dark:text-gray-500'}`}>{mc.revenue > 0 ? formatCurrency(mc.profit) : '—'}</div>
                     <div className={`px-4 py-3.5 text-right font-mono font-bold ${mc.revenue > 0 ? roasColor : 'text-gray-400 dark:text-gray-500'}`}>{mc.roas > 0 ? mc.roas.toFixed(2)+'x' : '—'}</div>

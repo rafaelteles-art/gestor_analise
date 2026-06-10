@@ -484,3 +484,183 @@ export async function fetchAndSyncMetaCatalogs(
   report(`Sync concluído: ${rowCount} catálogos em ${groups.length} BMs`);
   return { success: true, count: rowCount, groups, diagnostics };
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Criação de catálogo (POST /{bm_id}/owned_product_catalogs)
+// ────────────────────────────────────────────────────────────────────────────
+
+export class CreateCatalogError extends Error {
+  constructor(public code: number | string | null, message: string, public raw?: any) {
+    super(message);
+    this.name = 'CreateCatalogError';
+  }
+}
+
+function buildMetaErrorMessage(err: any): string {
+  if (!err || typeof err !== 'object') return 'Erro Meta';
+  const parts: string[] = [];
+  if (err.error_user_title) parts.push(String(err.error_user_title));
+  if (err.error_user_msg && err.error_user_msg !== err.error_user_title) parts.push(String(err.error_user_msg));
+  if (err.message && err.message !== err.error_user_title && err.message !== err.error_user_msg) parts.push(String(err.message));
+  const meta: string[] = [];
+  if (err.code !== undefined) meta.push(`code ${err.code}`);
+  if (err.error_subcode) meta.push(`subcode ${err.error_subcode}`);
+  if (err.fbtrace_id) meta.push(`trace ${err.fbtrace_id}`);
+  if (meta.length) parts.push(`(${meta.join(' · ')})`);
+  return parts.join(' — ') || 'Erro Meta';
+}
+
+export interface BmOption {
+  bm_id: string;
+  bm_name: string;
+}
+
+/**
+ * BMs disponíveis para criar catálogos, lidos direto de `meta_ad_accounts`
+ * (instantâneo, sem chamada à Meta). Cobre toda BM com ao menos uma ad account.
+ * O dropdown global do "Criar catálogo" consome isto.
+ */
+export async function listBmsForCatalogCreation(): Promise<BmOption[]> {
+  const { rows } = await pool.query(`
+    SELECT bm_id, MAX(bm_name) AS bm_name
+      FROM meta_ad_accounts
+     WHERE bm_id IS NOT NULL AND bm_id <> '' AND bm_id <> 'Personal'
+     GROUP BY bm_id
+     ORDER BY MAX(bm_name) ASC NULLS LAST
+  `);
+  return rows.map((r: any) => ({ bm_id: r.bm_id, bm_name: r.bm_name ?? r.bm_id }));
+}
+
+/**
+ * Resolve um token Meta com acesso ao BM pra criar o catálogo.
+ * Ordem: (1) tokens de `meta_ad_accounts` do BM; (2) perfis de
+ * `meta_catalogs.accessible_profiles` (BM com catálogo mas sem ad account);
+ * (3) primeiro perfil configurado (a Meta dirá se não tem permissão).
+ */
+async function resolveBmToken(bmId: string): Promise<{ profileName: string; token: string } | null> {
+  const profiles = await getMetaProfiles();
+  if (profiles.length === 0) return null;
+  const nameByToken = new Map<string, string>();
+  for (const p of profiles) if (p.token) nameByToken.set(p.token, p.name);
+
+  // 1) tokens de meta_ad_accounts pra esse BM
+  try {
+    const { rows } = await pool.query(
+      `SELECT ARRAY_AGG(DISTINCT access_token) FILTER (
+                WHERE access_token IS NOT NULL AND access_token <> ''
+              ) AS tokens
+         FROM meta_ad_accounts
+        WHERE bm_id = $1`,
+      [bmId]
+    );
+    for (const tok of ((rows[0]?.tokens ?? []) as string[])) {
+      if (tok) return { profileName: nameByToken.get(tok) ?? `account_token:${tok.slice(0, 8)}`, token: tok };
+    }
+  } catch (err: any) {
+    console.warn(`[meta-catalogs] resolveBmToken meta_ad_accounts falhou: ${err?.message ?? err}`);
+  }
+
+  // 2) accessible_profiles de meta_catalogs (BM com catálogo, sem ad account)
+  try {
+    const { rows } = await pool.query(
+      `SELECT accessible_profiles FROM meta_catalogs WHERE bm_id = $1 LIMIT 1`,
+      [bmId]
+    );
+    for (const name of ((rows[0]?.accessible_profiles ?? []) as string[])) {
+      const p = profiles.find((x) => x.name === name);
+      if (p?.token) return { profileName: p.name, token: p.token };
+    }
+  } catch (err: any) {
+    console.warn(`[meta-catalogs] resolveBmToken meta_catalogs falhou: ${err?.message ?? err}`);
+  }
+
+  // 3) fallback: primeiro perfil configurado
+  if (profiles[0]?.token) return { profileName: profiles[0].name, token: profiles[0].token };
+  return null;
+}
+
+/** Resolve o nome do BM (meta_ad_accounts primeiro, depois meta_catalogs). */
+async function resolveBmName(bmId: string): Promise<string | null> {
+  try {
+    const { rows } = await pool.query(`SELECT MAX(bm_name) AS n FROM meta_ad_accounts WHERE bm_id = $1`, [bmId]);
+    if (rows[0]?.n) return rows[0].n as string;
+  } catch {}
+  try {
+    const { rows } = await pool.query(`SELECT bm_name FROM meta_catalogs WHERE bm_id = $1 LIMIT 1`, [bmId]);
+    if (rows[0]?.bm_name) return rows[0].bm_name as string;
+  } catch {}
+  return null;
+}
+
+export interface CreateCatalogResult {
+  bm_id: string;
+  bm_name: string;
+  catalog: CatalogEntry;
+  accessible_profiles: string[];
+  profile_used: string;
+}
+
+/**
+ * Cria um catálogo `commerce` no BM via Graph API e espelha a linha em
+ * `meta_catalogs` (idêntica ao que o sync escreveria), para que o catálogo
+ * sobreviva ao "Recarregar" sem precisar de um sync completo.
+ */
+export async function createMetaCatalog(bmId: string, name: string): Promise<CreateCatalogResult> {
+  const bm = (bmId ?? '').trim();
+  const catalogName = (name ?? '').trim();
+  if (!bm) throw new CreateCatalogError('INVALID_INPUT', 'bm_id obrigatório');
+  if (!catalogName) throw new CreateCatalogError('INVALID_INPUT', 'Nome do catálogo obrigatório');
+
+  const tokenInfo = await resolveBmToken(bm);
+  if (!tokenInfo) {
+    throw new CreateCatalogError('NO_TOKEN', `Nenhum token Meta com acesso ao BM ${bm}. Configure os tokens em /api-config.`);
+  }
+
+  const bmName = (await resolveBmName(bm)) ?? bm;
+
+  // POST cria o catálogo. vertical fixo em 'commerce' (único que o app consome).
+  const body = new URLSearchParams();
+  body.append('name', catalogName);
+  body.append('vertical', 'commerce');
+  body.append('access_token', tokenInfo.token);
+
+  const res = await fetch(
+    `https://graph.facebook.com/${API_VERSION}/${bm}/owned_product_catalogs`,
+    { method: 'POST', body }
+  );
+  const data: any = await res.json().catch(() => ({}));
+  if (data?.error) {
+    throw new CreateCatalogError(data.error.code, buildMetaErrorMessage(data.error), data.error);
+  }
+  const catalogId = data?.id;
+  if (!catalogId) {
+    throw new CreateCatalogError('NO_ID', 'A Meta não retornou o id do catálogo criado.', data);
+  }
+
+  const accessible = [tokenInfo.profileName];
+  const entry: CatalogEntry = {
+    id: String(catalogId),
+    name: catalogName,
+    product_count: 0,
+    vertical: 'commerce',
+    relationship: 'owned',
+  };
+
+  // Espelha a linha em meta_catalogs (não sobrescreve product_count em conflito).
+  await ensureCatalogsTable();
+  await pool.query(
+    `INSERT INTO meta_catalogs
+       (bm_id, bm_name, catalog_id, catalog_name, product_count, vertical, relationship, accessible_profiles, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())
+     ON CONFLICT (bm_id, catalog_id) DO UPDATE SET
+       bm_name             = EXCLUDED.bm_name,
+       catalog_name        = EXCLUDED.catalog_name,
+       vertical            = EXCLUDED.vertical,
+       relationship        = EXCLUDED.relationship,
+       accessible_profiles = EXCLUDED.accessible_profiles,
+       updated_at          = now()`,
+    [bm, bmName, entry.id, entry.name, 0, entry.vertical, entry.relationship, accessible]
+  );
+
+  return { bm_id: bm, bm_name: bmName, catalog: entry, accessible_profiles: accessible, profile_used: tokenInfo.profileName };
+}
