@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { expandBatch } from '../meta-campaigns';
-import type { SeparationLevel } from '../batch-contract';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { expandBatch, createCampaignBatch, type BatchCreateInput } from '../meta-campaigns';
+import type { BatchRunState, BatchRunOpts, SeparationLevel } from '../batch-contract';
 
 /**
  * F7 — separation-level grouping. Totals are ALWAYS N*C*S*A regardless of level;
@@ -77,5 +77,202 @@ describe('expandBatch (separation grouping)', () => {
     expect(campaigns).toHaveLength(1);
     expect(adsets).toHaveLength(1);
     expect(ads).toHaveLength(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createCampaignBatch — quality-review findings (orphan-AdCreative leak + page
+// auto-retry on permanent creative errors). Drives the REAL orchestrator with a
+// routed global.fetch mock so we exercise graphMutationWithRetry + the page loop.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Minimal Graph error body Meta would return (drives MetaApiError + subcode). */
+function metaError(code: number, subcode?: number, message = 'erro') {
+  return {
+    ok: false,
+    status: 400,
+    statusText: 'Bad Request',
+    headers: { get: () => null },
+    json: async () => ({
+      error: {
+        code,
+        ...(subcode !== undefined ? { error_subcode: subcode } : {}),
+        message,
+      },
+    }),
+  } as unknown as Response;
+}
+
+function metaOk(id: string) {
+  return {
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    headers: { get: () => null },
+    json: async () => ({ id }),
+  } as unknown as Response;
+}
+
+function makeInput(over: Partial<BatchCreateInput> = {}): BatchCreateInput {
+  return {
+    account_id: 'act_test',
+    access_token: 'tok',
+    campaigns_per_creative: 1,
+    adsets_per_campaign: 1,
+    ads_per_adset: 1,
+    page_ids: ['pageA', 'pageB', 'pageC'],
+    page_auto_retry: true,
+    campaign: {
+      name: 'Camp',
+      objective: 'OUTCOME_SALES',
+      status: 'PAUSED',
+      special_ad_categories: ['NONE'],
+    },
+    adset: {
+      name: 'Set',
+      optimization_goal: 'OFFSITE_CONVERSIONS',
+      billing_event: 'IMPRESSIONS',
+      promoted_object: { pixel_id: 'px', custom_event_type: 'PURCHASE' },
+      targeting: { geo_locations: { countries: ['BR'] } },
+      status: 'PAUSED',
+    },
+    // instagram_user_id set → createAdCreative skips the PBIA resolver (no extra fetch).
+    creatives: [
+      {
+        name: 'Criativo 1',
+        creative: {
+          name: 'Criativo 1',
+          page_id: 'pageA',
+          instagram_user_id: 'ig_1',
+          type: 'single',
+          link: 'https://x.test',
+          image_hash: 'hash123', // single creative requires link + image_hash
+          message: 'oi',
+        },
+      },
+    ],
+    ...over,
+  };
+}
+
+/** A fetch mock that routes by Graph path, with per-path response factories. */
+function routedFetch(
+  routes: {
+    campaigns?: () => Response;
+    adsets?: () => Response;
+    adcreatives?: () => Response;
+    ads?: () => Response;
+  },
+  calls: Record<string, number>
+) {
+  return vi.fn(async (url: URL | RequestInfo): Promise<Response> => {
+    const u = String(url);
+    if (u.includes('/adcreatives')) {
+      calls.adcreatives = (calls.adcreatives ?? 0) + 1;
+      return (routes.adcreatives ?? (() => metaOk('cr_default')))();
+    }
+    if (u.includes('/adsets')) {
+      calls.adsets = (calls.adsets ?? 0) + 1;
+      return (routes.adsets ?? (() => metaOk('set_default')))();
+    }
+    if (u.includes('/campaigns')) {
+      calls.campaigns = (calls.campaigns ?? 0) + 1;
+      return (routes.campaigns ?? (() => metaOk('camp_default')))();
+    }
+    if (u.endsWith('/ads')) {
+      calls.ads = (calls.ads ?? 0) + 1;
+      return (routes.ads ?? (() => metaOk('ad_default')))();
+    }
+    throw new Error(`unexpected fetch to ${u}`);
+  });
+}
+
+const noopOpts = (runState: BatchRunState): BatchRunOpts => ({
+  onEvent: async () => {},
+  runState,
+  shouldAbort: () => false,
+});
+
+describe('createCampaignBatch — orphan-AdCreative leak on resume', () => {
+  const origFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = origFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('checkpoints the AdCreative and REUSES it on resume instead of re-creating', async () => {
+    const calls: Record<string, number> = {};
+    const runState: BatchRunState = { created: {}, failed: {} };
+
+    // RUN 1: campaign+adset+creative all succeed, but createAd fails permanently
+    // (a non-transient code → no backoff, fails immediately). The ad branch is
+    // recorded as failed; the creative must be checkpointed under its m:cr key.
+    global.fetch = routedFetch(
+      {
+        ads: () => metaError(100, 1500, 'invalid adset link'), // permanent, non-page
+      },
+      calls
+    );
+    await createCampaignBatch(makeInput(), noopOpts(runState));
+
+    expect(calls.adcreatives).toBe(1); // creative created exactly once in run 1
+    // The creative id is checkpointed under an m:-prefixed key (excluded from counts).
+    const creativeKeys = Object.keys(runState.created).filter((k) => k.startsWith('m:cr:'));
+    expect(creativeKeys).toHaveLength(1);
+    // The ad branch failed; its own key is NOT in created.
+    expect(Object.keys(runState.failed).some((k) => k.startsWith('a:'))).toBe(true);
+
+    // RUN 2 (resume): same runState. Now createAd succeeds. The creative MUST be
+    // reused from the checkpoint — createAdCreative must NOT be called again.
+    const calls2: Record<string, number> = {};
+    global.fetch = routedFetch({}, calls2); // all OK by default
+    await createCampaignBatch(makeInput(), noopOpts(runState));
+
+    expect(calls2.adcreatives ?? 0).toBe(0); // ← no duplicate orphan creative
+    expect(calls2.ads).toBe(1); // ad finally created
+  });
+});
+
+describe('createCampaignBatch — page_auto_retry error classification', () => {
+  const origFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = origFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('does NOT advance pages on a permanent creative-level error (1 createAdCreative call)', async () => {
+    const calls: Record<string, number> = {};
+    const runState: BatchRunState = { created: {}, failed: {} };
+    // Permanent, creative-level error (bad image_hash style) — NOT in the page/
+    // identity allowlist and not transient. Must fail immediately, not retry the
+    // SAME creative against pageB and pageC.
+    global.fetch = routedFetch(
+      { adcreatives: () => metaError(100, 1487291, 'invalid creative spec') },
+      calls
+    );
+    await createCampaignBatch(makeInput(), noopOpts(runState));
+
+    expect(calls.adcreatives).toBe(1); // exactly one attempt — no page fan-out
+    expect(Object.keys(runState.failed).some((k) => k.startsWith('a:'))).toBe(true);
+  });
+
+  it('DOES advance pages on a page/identity error (#100/1772103 IG-missing)', async () => {
+    const calls: Record<string, number> = {};
+    const runState: BatchRunState = { created: {}, failed: {} };
+    // First two pages fail with the page/identity subcode (1772103); third succeeds.
+    let n = 0;
+    global.fetch = routedFetch(
+      {
+        adcreatives: () => {
+          n += 1;
+          return n < 3 ? metaError(100, 1772103, 'IG account missing') : metaOk('cr_ok');
+        },
+      },
+      calls
+    );
+    await createCampaignBatch(makeInput(), noopOpts(runState));
+
+    expect(calls.adcreatives).toBe(3); // advanced pageA→pageB→pageC
+    expect(calls.ads).toBe(1); // ad created after the working page
   });
 });

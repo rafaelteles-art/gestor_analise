@@ -1509,6 +1509,52 @@ function retryAfterMs(err: unknown): number | undefined {
 }
 
 /**
+ * `error_subcode` do objeto `error` da Meta (quando presente). Mora em `raw`,
+ * não no topo do MetaApiError — `buildMetaErrorMessage` só o costura na mensagem.
+ */
+function errorSubcode(err: unknown): number | undefined {
+  if (err instanceof MetaApiError && err.raw && typeof err.raw === 'object') {
+    const sc = (err.raw as { error_subcode?: unknown }).error_subcode;
+    if (typeof sc === 'number' && sc !== 0) return sc;
+  }
+  return undefined;
+}
+
+/**
+ * Subcodes Meta que indicam um problema de PÁGINA/IDENTIDADE (não do creative em
+ * si) — vale a pena tentar OUTRA página/identidade. O caso confirmado neste
+ * codebase é (#100/1772103) "Instagram account missing", que é específico do par
+ * Página↔IG e some ao usar uma Página que já tem IG Business / PBIA. Os demais
+ * são erros de permissão/identidade de Página (não-publicável, sem acesso, etc.).
+ */
+const PAGE_IDENTITY_SUBCODES = new Set([
+  1772103, // IG account missing (#100) — par Página/IG; trocar de Página pode resolver
+  1487472, // página não disponível p/ esta conta/identidade
+  1487056, // sem permissão de publicar como esta Página
+  1349125, // Página/identidade inválida p/ o ad account
+]);
+
+/**
+ * Decide se, ao falhar a criação do AdCreative numa Página, faz sentido AVANÇAR
+ * para a próxima Página de `page_ids` (em vez de falhar o ad imediatamente).
+ *
+ * Só avança quando o erro é:
+ *   (a) TRANSITÓRIO que escapou do retry-per-página (429/5xx/#4 etc.) — outra
+ *       Página/identidade pode driblar um limite de volume por-Página/BUC; ou
+ *   (b) ligado à PÁGINA/IDENTIDADE (subcode em PAGE_IDENTITY_SUBCODES).
+ *
+ * Para erros PERMANENTES de nível-creative (spec inválida, image_hash ruim,
+ * product_set inexistente, etc.) NÃO faz sentido reenviar o MESMO creative
+ * contra toda Página — multiplicaria carga/latência sob rate-limit sem chance de
+ * sucesso. Nesses casos retornamos false e o caller quebra o loop na hora.
+ */
+function isPageRelatedError(err: unknown): boolean {
+  if (isTransientError(err)) return true;
+  const sc = errorSubcode(err);
+  return sc !== undefined && PAGE_IDENTITY_SUBCODES.has(sc);
+}
+
+/**
  * Executa UMA mutacao Graph (create campaign/adset/creative/ad) com retry
  * exponencial em erros transitorios. Backoff 2s/8s/30s, honrando `Retry-After`
  * quando a Meta o fornecer. Esgotadas as tentativas — ou erro permanente logo
@@ -1773,29 +1819,51 @@ export async function createCampaignBatch(
         })
       : undefined;
 
+    // Checkpoint do AdCreative (Contract 1 — resume idempotente). Cada ad cria
+    // DUAS entidades Meta: um AdCreative e depois o Ad. Sem persistir o creative,
+    // um resume APÓS createAdCreative ter sucedido mas ANTES de created[pa.key]
+    // (createAd falhou de vez OU o worker estourou time-budget/lease/crashou)
+    // recriaria o AdCreative — vazando um creative órfão a cada ciclo de resume.
+    // Chave prefixada com `m:` (igual aos uploads de mídia) para que reduceCounts
+    // a EXCLUA da contagem de entidades — um AdCreative não é entidade rastreada.
+    const creativeKey = `m:cr:${pa.creativeIdx}:${pa.campIdx}:${pa.adsetIdx}:${pa.adIdx}`;
     try {
-      let crCreated: { id: string } | null = null;
-      let lastErr: unknown = null;
-      for (const pId of pagesToTry) {
-        try {
-          crCreated = await graphMutationWithRetry(() =>
-            createAdCreative(account_id, access_token, {
-              ...creativeSpec,
-              name: `${adName} — Creative`,
-              page_id: pId,
-              url_tags: resolvedUrlTags ?? creativeSpec.url_tags,
-            })
-          );
-          break;
-        } catch (e) {
-          lastErr = e;
-          if (!page_auto_retry) throw e;
+      let creativeId: string | null = created[creativeKey] ?? null;
+
+      if (!creativeId) {
+        let crCreated: { id: string } | null = null;
+        let lastErr: unknown = null;
+        for (const pId of pagesToTry) {
+          try {
+            crCreated = await graphMutationWithRetry(() =>
+              createAdCreative(account_id, access_token, {
+                ...creativeSpec,
+                name: `${adName} — Creative`,
+                page_id: pId,
+                url_tags: resolvedUrlTags ?? creativeSpec.url_tags,
+              })
+            );
+            break;
+          } catch (e) {
+            lastErr = e;
+            // Só avança p/ a próxima Página quando o erro é ligado à Página/
+            // identidade ou transitório. Um creative permanentemente quebrado
+            // não vira válido em outra Página — reenviá-lo (com todo o backoff
+            // transitório) contra cada page_id multiplicaria carga/latência sob
+            // exatamente o rate-limit que tentamos evitar. Quebra na hora.
+            if (!page_auto_retry || !isPageRelatedError(e)) throw e;
+          }
         }
+        if (!crCreated) throw lastErr ?? new Error('Nenhuma pagina disponivel para o creative.');
+        creativeId = crCreated.id;
+        // Persiste o creative ANTES do createAd: o próximo onEvent (created OU
+        // failed, ambos disparam appendJobEvent que grava run_state) durabiliza
+        // este checkpoint, então um resume retoma em createAd — sem recriar.
+        created[creativeKey] = creativeId;
       }
-      if (!crCreated) throw lastErr ?? new Error('Nenhuma pagina disponivel para o creative.');
 
       const ad = await graphMutationWithRetry(() =>
-        createAd(account_id, access_token, adsetId, adName, crCreated!.id, 'ACTIVE')
+        createAd(account_id, access_token, adsetId, adName, creativeId!, 'ACTIVE')
       );
       created[pa.key] = ad.id;
       counts.created += 1;
