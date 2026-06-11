@@ -2,6 +2,7 @@ import { pool } from '@/lib/db';
 import V2MediaLabLayout from '../components/V2MediaLabLayout';
 import ClientStatusContas from './ClientStatusContas';
 import { ensureOfferLinkSchema, backfillMetaAccountOffers } from '@/lib/offer-links';
+import { getAccountSyncStatus, type AccountSyncStatus } from '@/lib/account-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,11 +53,13 @@ async function ensureColumns() {
 export default async function StatusContasPage() {
   let accounts: any[] = [];
   let ofertasOptions: { value: string; label: string }[] = [];
+  let lastSync: AccountSyncStatus | null = null;
 
   try {
     await ensureColumns();
     await ensureOfferLinkSchema();
     await backfillMetaAccountOffers();
+    lastSync = await getAccountSyncStatus();
     const [accRes, ofertasRes] = await Promise.all([
       pool.query(`
         SELECT
@@ -92,7 +95,7 @@ export default async function StatusContasPage() {
 
   return (
     <V2MediaLabLayout title="Status de Contas">
-      <ClientStatusContas initialAccounts={accounts} ofertasOptions={ofertasOptions} />
+      <ClientStatusContas initialAccounts={accounts} ofertasOptions={ofertasOptions} lastSync={lastSync} />
     </V2MediaLabLayout>
   );
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { RefreshCw, PlusCircle, Search, ChevronDown, ChevronRight, X, Tag, User, Check } from 'lucide-react';
+import type { AccountSyncStatus } from '@/lib/account-sync';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -370,14 +371,65 @@ function NewAccountModal({
   );
 }
 
+// ─── Sync Freshness ───────────────────────────────────────────────────────────
+//
+// Lê o blob last_account_sync (app_settings) e mostra "há X · N contas". Vermelho
+// se a última execução falhou ou está obsoleta (>2h) — o Account Sync horário
+// deveria mantê-la sempre fresca. Tempo relativo é calculado no cliente (a partir
+// de ran_at_ms, epoch absoluto) e re-tickado a cada 60s; um flag `mounted` evita
+// mismatch de hidratação.
+
+const STALE_MS = 2 * 60 * 60 * 1000; // 2h
+
+function relativeFromMs(ms: number): string {
+  const diff = Math.max(0, Date.now() - ms);
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'agora há pouco';
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h`;
+  return `há ${Math.floor(h / 24)}d`;
+}
+
+function SyncFreshness({ lastSync }: { lastSync: AccountSyncStatus | null }) {
+  const [mounted, setMounted] = useState(false);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    setMounted(true);
+    const id = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!lastSync) {
+    return <span className="text-xs text-gray-400 dark:text-gray-500">Contas nunca sincronizadas automaticamente</span>;
+  }
+
+  const stale = !lastSync.ok || (mounted && Date.now() - lastSync.ran_at_ms > STALE_MS);
+  const when = mounted ? relativeFromMs(lastSync.ran_at_ms) : '…';
+  const dotCls = stale ? 'bg-red-500' : 'bg-green-500';
+  const textCls = stale ? 'text-red-500' : 'text-gray-500 dark:text-gray-400';
+
+  return (
+    <span className={`flex items-center gap-1.5 text-xs ${textCls}`} title="Última sincronização de contas Meta">
+      <span className={`w-1.5 h-1.5 rounded-full ${dotCls}`} />
+      {lastSync.ok
+        ? <>Sincronizado {when}{typeof lastSync.count === 'number' ? ` · ${lastSync.count} contas` : ''}</>
+        : <>Falha na última sincronização ({when})</>}
+    </span>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ClientStatusContas({
   initialAccounts,
   ofertasOptions = [],
+  lastSync = null,
 }: {
   initialAccounts: Account[];
   ofertasOptions?: { value: string; label: string }[];
+  lastSync?: AccountSyncStatus | null;
 }) {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(initialAccounts.map(a => a.bm_name)));
@@ -645,6 +697,9 @@ export default function ClientStatusContas({
 
       {/* Action Bar */}
       <div className="flex justify-end items-center gap-3">
+        <div className="mr-auto">
+          <SyncFreshness lastSync={lastSync} />
+        </div>
         {syncProgress && (
           <div className="flex-1 max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm px-4 py-2">
             <div className="flex items-center justify-between gap-2 mb-1.5">
