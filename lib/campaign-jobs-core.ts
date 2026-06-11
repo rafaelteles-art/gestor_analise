@@ -66,8 +66,24 @@ export function pickRunnableJobId(
 /**
  * Recompute counts from a run_state. created/failed are the sizes of the
  * respective maps (excluding media-only `m:` checkpoint keys, which aren't ad
- * entities). `skipped` is supplied separately (we accumulate it as events arrive,
- * since skips aren't stored in run_state). `total` is preserved from prior counts.
+ * entities).
+ *
+ * `skipped` is NOT stored in run_state, so it is accumulated from `prior.skipped`
+ * as skipped events arrive. IMPORTANT: this accumulation is only correct WITHIN a
+ * single processJob run. The caller MUST reset the skipped baseline to 0 at the
+ * start of each run (processJob does — see `counts.skipped = 0` there). Otherwise a
+ * budget-abort resume would double-count: the persisted job.counts.skipped already
+ * includes the prior tick's skips, and the orchestrator re-emits skipped events for
+ * entities it re-skips on resume. Because each run's authoritative
+ * result.counts.skipped reflects only that run, the live per-run baseline must also
+ * start at 0 to stay consistent with it.
+ *
+ * `total` has no channel in BatchRunResult, so we DERIVE it from observed entities:
+ * total = distinct entities created + failed + skipped so far. This is a live,
+ * monotonically-growing denominator (never the permanent 0 it used to seed), so the
+ * progress UI shows created/failed against a real total instead of /0. We take the
+ * max with `prior.total` so an aborted-and-resumed run never regresses the
+ * denominator the user already saw, even though `skipped` resets per run.
  */
 export function reduceCounts(
   runState: BatchRunState,
@@ -79,5 +95,6 @@ export function reduceCounts(
   const failed = Object.keys(runState.failed).filter(isEntityKey).length;
   const skipped =
     event && event.kind === 'skipped' ? prior.skipped + 1 : prior.skipped;
-  return { created, failed, skipped, total: prior.total };
+  const total = Math.max(prior.total, created + failed + skipped);
+  return { created, failed, skipped, total };
 }

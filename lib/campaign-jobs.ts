@@ -239,6 +239,31 @@ export async function saveJobProgress(
   );
 }
 
+/**
+ * Persist run_state/counts on a budget pause and RELEASE the lease so the very
+ * next tick can resume immediately. Status stays 'running'; leased_until is
+ * cleared (NULL). Mirrors advanceAndRelease() in lib/sync-jobs.ts.
+ *
+ * Without this, a budget abort would leave the fresh 20-minute lease that the
+ * preceding appendJobEvent/saveJobProgress wrote, and claimNextCampaignJob only
+ * treats a running job as runnable when its lease is NULL or expired — so the
+ * 2-minute cron would not be able to resume the job for ~18 minutes.
+ */
+export async function releaseLeaseForResume(
+  id: number,
+  runState: BatchRunState,
+  counts: JobCounts
+): Promise<void> {
+  await pool.query(
+    `UPDATE campaign_jobs SET
+        run_state = $2::jsonb,
+        counts = $3::jsonb,
+        leased_until = NULL
+      WHERE id = $1`,
+    [id, JSON.stringify(runState), JSON.stringify(counts)]
+  );
+}
+
 /** Mark a job finished. Releases the lease. status ∈ done|done_with_errors|error|cancelled. */
 export async function finishJob(
   id: number,
@@ -457,6 +482,15 @@ async function processJob(
     skipped: 0,
     total: 0,
   };
+  // Reset the skipped baseline to 0 for THIS run. skipped is not stored in
+  // run_state, so on a budget-abort resume job.counts.skipped already holds the
+  // prior tick's skips; the orchestrator re-emits skipped events for entities it
+  // re-skips on resume, which would otherwise inflate the running count (and the
+  // value we persist mid-run via appendJobEvent). The authoritative
+  // result.counts.skipped at the end reflects only the current run, so the live
+  // per-run baseline must also start at 0 to match. created/failed/total are
+  // derived from run_state (carried forward) and are unaffected.
+  counts = { ...counts, skipped: 0 };
 
   let cancelRequested = job.cancel_requested;
   let eventsSinceCancelCheck = 0;
@@ -518,8 +552,12 @@ async function processJob(
       await finishJob(job.id, 'cancelled');
       return 'finished';
     }
-    // Budget abort: leave status 'running'; lease expiry lets the next tick
-    // resume from run_state. Persist progress only.
+    // Budget abort: leave status 'running' but RELEASE the lease (leased_until =
+    // NULL) so the very next 2-minute cron tick can resume from run_state. The
+    // saveJobProgress above (and every appendJobEvent during the run) wrote a
+    // fresh 20-minute lease; we must clear it here, otherwise claimNextCampaignJob
+    // would not consider the job runnable until that lease expired (~18 min late).
+    await releaseLeaseForResume(job.id, runState, counts);
     return 'budget';
   }
 

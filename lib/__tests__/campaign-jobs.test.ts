@@ -141,4 +141,45 @@ describe('reduceCounts — event → counts reducer', () => {
     const created: BatchEvent = { kind: 'created', key: 'c:0:0', entity: 'campaign', name: 'X', id: '1' };
     expect(reduceCounts(rs, { ...base, skipped: 5 }, created).skipped).toBe(5);
   });
+
+  it('derives total from observed entities when prior.total is 0 (no permanent /0)', () => {
+    // Reproduces the enqueue seed (total: 0). After entities flow through,
+    // total must reflect created+failed+skipped, never stay 0.
+    const zero: JobCounts = { created: 0, failed: 0, skipped: 0, total: 0 };
+    const rs: BatchRunState = {
+      created: { 'c:0:0': '111', 's:0:0:0': '222' },
+      failed: { 'a:0:0:0:0': 'boom' },
+    };
+    const event: BatchEvent = { kind: 'created', key: 's:0:0:0', entity: 'adset', name: 'Y', id: '222' };
+    // created 2 + failed 1 + skipped 0 = 3 (media m: keys excluded)
+    expect(reduceCounts(rs, zero, event)).toEqual({ created: 2, failed: 1, skipped: 0, total: 3 });
+  });
+
+  it('counts a skipped event into the derived total', () => {
+    const zero: JobCounts = { created: 0, failed: 0, skipped: 0, total: 0 };
+    const rs: BatchRunState = { created: { 'c:0:0': '111' }, failed: {} };
+    const event: BatchEvent = { kind: 'skipped', key: 'a:1:0:0:0', reason: 'ancestor failed' };
+    // created 1 + failed 0 + skipped 1 = 2
+    expect(reduceCounts(rs, zero, event)).toEqual({ created: 1, failed: 0, skipped: 1, total: 2 });
+  });
+
+  it('never regresses total below the denominator the user already saw', () => {
+    // A resumed run resets skipped to 0 (processJob does this); total must not
+    // shrink even though created+failed+skipped of the current run is smaller.
+    const prior: JobCounts = { created: 1, failed: 0, skipped: 0, total: 10 };
+    const rs: BatchRunState = { created: { 'c:0:0': '111' }, failed: {} };
+    expect(reduceCounts(rs, prior).total).toBe(10);
+  });
+
+  it('media-only m: checkpoint keys do not inflate the derived total', () => {
+    const zero: JobCounts = { created: 0, failed: 0, skipped: 0, total: 0 };
+    const rs: BatchRunState = {
+      created: { 'm:0': 'img:abc', 'm:1': 'vid:999', 'c:0:0': '111' },
+      failed: {},
+    };
+    // only c:0:0 counts → created 1, total 1
+    const out = reduceCounts(rs, zero);
+    expect(out.created).toBe(1);
+    expect(out.total).toBe(1);
+  });
 });
