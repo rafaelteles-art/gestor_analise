@@ -1,4 +1,4 @@
-// Google Drive download lib — Contract 2 of docs/superpowers/plans/
+// Task A3 — Google Drive download lib — Contract 2 of docs/superpowers/plans/
 // 2026-06-11-campaign-builder-features.md. Real implementation by Task A3:
 // user-OAuth refresh token stored in app_settings under GOOGLE_DRIVE_OAUTH,
 // plain-fetch Drive REST (no googleapis npm package).

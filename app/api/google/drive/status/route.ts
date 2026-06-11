@@ -1,3 +1,4 @@
+// Task A3 — Google Drive connection status + disconnect endpoint.
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getGoogleDriveOAuth,

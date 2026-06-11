@@ -1,3 +1,4 @@
+// Task A3 — Google Drive integration UI panel.
 'use client';
 
 import { useState, useEffect } from 'react';
