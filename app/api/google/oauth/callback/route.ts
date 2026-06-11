@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
     await setGoogleDriveOAuth({
       refresh_token: refreshToken,
       email,
-      connected_at: new Date().toISOString(),
+      connected_at: new Date().toISOString(), // UTC audit timestamp — intentionally timezone-agnostic
     });
 
     // Bust the in-memory access-token cache so next request refreshes
