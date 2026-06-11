@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { RefreshCw, PlusCircle, Search, ChevronDown, ChevronRight, X, Tag, User, Check } from 'lucide-react';
+import { RefreshCw, PlusCircle, Search, ChevronDown, ChevronRight, X, Tag, User, Check, Pencil } from 'lucide-react';
 import type { AccountSyncStatus } from '@/lib/account-sync';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -23,6 +23,108 @@ interface Account {
   perfil: string | null;
   account_status: string;
   timezone: string | null;
+  nickname: string | null;
+}
+
+// ─── Nickname Cell ────────────────────────────────────────────────────────────
+//
+// Exibe o apelido (se houver) abaixo do nome oficial, com um lápis para editar.
+// Ao clicar no lápis (ou no apelido), mostra um input; Enter/blur salva via PATCH.
+// String vazia limpa o apelido (o servidor armazena NULL).
+
+function NicknameCell({
+  accountId,
+  accountName,
+  nickname,
+  onSaved,
+}: {
+  accountId: string;
+  accountName: string;
+  nickname: string | null;
+  onSaved: (accountId: string, nickname: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(nickname ?? '');
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keep draft in sync when parent optimistically reverts
+  useEffect(() => {
+    if (!editing) setDraft(nickname ?? '');
+  }, [nickname, editing]);
+
+  const startEdit = () => {
+    setDraft(nickname ?? '');
+    setEditing(true);
+    // Focus on next tick after render
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const commit = async () => {
+    if (!editing) return;
+    setEditing(false);
+    const trimmed = draft.trim();
+    const newNickname = trimmed === '' ? null : trimmed;
+
+    // Optimistic update
+    onSaved(accountId, newNickname);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/accounts/nickname', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id: accountId, nickname: trimmed }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      // Revert on error
+      onSaved(accountId, nickname);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { setEditing(false); setDraft(nickname ?? ''); }
+  };
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-1.5">
+        <span className="font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">
+          {accountName}
+        </span>
+        <button
+          onClick={startEdit}
+          title="Editar apelido"
+          className={`text-gray-300 dark:text-gray-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors shrink-0 ${saving ? 'opacity-40' : ''}`}
+        >
+          <Pencil className="w-3 h-3" />
+        </button>
+      </div>
+
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          placeholder="Apelido (Enter para salvar)"
+          className="text-[11px] px-1.5 py-0.5 border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 outline-none focus:ring-1 focus:ring-indigo-400 w-36"
+        />
+      ) : nickname ? (
+        <span
+          onClick={startEdit}
+          className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium cursor-pointer hover:underline truncate max-w-[180px]"
+          title={nickname}
+        >
+          {nickname}
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 // ─── Account Status Badge ─────────────────────────────────────────────────────
@@ -527,6 +629,11 @@ export default function ClientStatusContas({
     }
   }, [accounts]);
 
+  // ── Update Nickname (optimistic; NicknameCell handles the actual PATCH) ──
+  const updateNickname = useCallback((accountId: string, nickname: string | null) => {
+    setAccounts(accs => accs.map(a => a.account_id === accountId ? { ...a, nickname } : a));
+  }, []);
+
   // ── Update Field (gestor — arrays) ──
   const updateField = useCallback(async (accountId: string, field: string, value: string[]) => {
     const prev = (accounts.find(a => a.account_id === accountId)?.[field as keyof Account] ?? []) as string[];
@@ -987,8 +1094,13 @@ export default function ClientStatusContas({
                               className="rounded border-gray-300 dark:border-gray-700 text-indigo-600 accent-indigo-600"
                             />
                           </td>
-                          <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                            {acc.account_name}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <NicknameCell
+                              accountId={acc.account_id}
+                              accountName={acc.account_name}
+                              nickname={acc.nickname}
+                              onSaved={updateNickname}
+                            />
                           </td>
                           <td className="px-4 py-3 font-mono text-gray-400 dark:text-gray-500 text-[11px]">
                             {acc.account_id}

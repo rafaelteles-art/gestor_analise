@@ -14,6 +14,8 @@ interface AccountRow {
   account_status: string | null;
   /** preenchido server-side cruzando access_token com getMetaProfiles() */
   profile_name: string | null;
+  /** apelido livre dado pelo usuário; null se não definido */
+  nickname: string | null;
 }
 
 export default async function CampaignsPage() {
@@ -25,16 +27,19 @@ export default async function CampaignsPage() {
     profileNames = profiles.map((p) => p.name);
     const tokenToProfile = new Map(profiles.map((p) => [p.token, p.name]));
 
-    // Garante a coluna (caso /campaigns seja aberta antes do primeiro sync pós-deploy).
+    // Garante as colunas (caso /campaigns seja aberta antes do primeiro sync pós-deploy).
     await pool.query(
       `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS accessible_profiles TEXT[] DEFAULT '{}'`
+    );
+    await pool.query(
+      `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS nickname TEXT`
     );
 
     // Mostra todas as contas que não estão desabilitadas/fechadas, independente de is_selected.
     // O usuário pode publicar em qualquer conta visível na BM dele.
     const res = await pool.query(
       `SELECT account_id, account_name, bm_name, moeda, timezone, account_status,
-              access_token, accessible_profiles
+              access_token, accessible_profiles, nickname
          FROM meta_ad_accounts
         WHERE access_token IS NOT NULL
           AND COALESCE(account_status, 'ACTIVE') NOT IN ('DISABLED', 'CLOSED', 'PENDING_CLOSURE')
@@ -65,6 +70,7 @@ export default async function CampaignsPage() {
           timezone: r.timezone,
           account_status: r.account_status,
           profile_name: null,
+          nickname: r.nickname ?? null,
         }];
       }
 
@@ -76,6 +82,7 @@ export default async function CampaignsPage() {
         timezone: r.timezone,
         account_status: r.account_status,
         profile_name: pname,
+        nickname: r.nickname ?? null,
       }));
     });
   } catch (err) {

@@ -94,6 +94,12 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
       `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS accessible_profiles TEXT[] DEFAULT '{}'`
     );
 
+    // Apelido livre dado pelo usuário (A4). Não sobrescrito pelo sync — o upsert
+    // abaixo usa COALESCE para preservar o valor existente.
+    await pool.query(
+      `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS nickname TEXT`
+    );
+
     const validAccounts: any[] = [];
     // Map<account_id, Set<profile_name>> — quem viu o quê (calculado ANTES do dedup)
     const accessibleByAccount = new Map<string, Set<string>>();
@@ -263,7 +269,7 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
                moeda           = EXCLUDED.moeda,
                cartao          = COALESCE(EXCLUDED.cartao, meta_ad_accounts.cartao),
                timezone        = COALESCE(EXCLUDED.timezone, meta_ad_accounts.timezone),
-               accessible_profiles = EXCLUDED.accessible_profiles;`,
+               accessible_profiles = EXCLUDED.accessible_profiles`,
             [
               account.account_id,
               account.account_name,
