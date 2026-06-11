@@ -11,7 +11,30 @@
  *  - Lookalike Audiences:    https://developers.facebook.com/docs/marketing-api/audiences/guides/lookalike-audiences/
  */
 
-import { toDatetimeLocal } from '@/lib/timezone';
+// Relative imports (nao `@/lib/...`) de proposito: o vitest deste repo NAO
+// resolve o alias `@/` (sem vite-tsconfig-paths), entao importar este modulo num
+// teste quebrava em "Cannot find package '@/lib/timezone'". Caminhos relativos
+// resolvem igual no tsc/Next e tornam expandBatch/dropCriativoToken (e o resto do
+// modulo) importaveis pelos testes.
+import { toDatetimeLocal } from './timezone';
+import type {
+  SeparationLevel,
+  BatchRunState,
+  BatchEvent,
+  BatchRunOpts,
+  BatchRunResult,
+} from './batch-contract';
+
+// Re-export do contrato compartilhado entre agentes (lib/batch-contract.ts).
+export type {
+  SeparationLevel,
+  BatchRunState,
+  BatchEvent,
+  BatchRunOpts,
+  BatchRunResult,
+  CreateCampaignBatchFn,
+  CreativeMedia,
+} from './batch-contract';
 
 export const META_API_VERSION = 'v22.0';
 const GRAPH = `https://graph.facebook.com/${META_API_VERSION}`;
@@ -301,6 +324,30 @@ export interface BatchCreateInput {
     conjunto_de_produtos?: string;
     budget?: string;
   };
+  /**
+   * Nivel de separacao de criativos (F7). Total SEMPRE N*C*S*A — muda so o
+   * AGRUPAMENTO. Default 'campaign' = comportamento historico (cada criativo
+   * isolado em suas proprias campanhas). Veja `expandBatch`.
+   */
+  separation_level?: SeparationLevel;
+  /**
+   * Contexto de data/hora CONGELADO no momento do enfileiramento (A1).
+   * Quando presente, {{data}}/{{hora}}/{{ano}}/... usam estes valores em vez de
+   * now() — garante que um job que so roda 2 min depois (ou retoma horas apos um
+   * budget abort) mantenha o carimbo de quando o usuario clicou em criar.
+   * Ausente -> fallback para o relogio de parede atual (back-compat).
+   */
+  frozen_context?: {
+    ano?: string;
+    mes?: string;
+    dia?: string;
+    hora?: string;
+    minuto?: string;
+    /** 'YYYY-MM-DD' opcional — alguns templates usam {{data}} direto. */
+    data?: string;
+    /** 'HH:mm' opcional — alguns templates usam {{hora}} a partir daqui. */
+    hora_completa?: string;
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -308,10 +355,22 @@ export interface BatchCreateInput {
 // ────────────────────────────────────────────────────────────────────────────
 
 class MetaApiError extends Error {
+  /** HTTP status da resposta Graph (quando conhecido) — classifica 429/5xx como transitorio. */
+  public httpStatus?: number;
+  /** `Retry-After` em segundos (quando a Meta o envia) — honrado pelo backoff. */
+  public retryAfterSec?: number;
   constructor(public step: string, public fbCode: number | undefined, message: string, public raw?: unknown) {
     super(message);
     this.name = 'MetaApiError';
   }
+}
+
+/** Le e parseia o header `Retry-After` (segundos) de uma Response. */
+function parseRetryAfter(res: Response): number | undefined {
+  const h = res.headers.get('retry-after');
+  if (!h) return undefined;
+  const n = Number(h);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
 // Constrói uma mensagem rica a partir do objeto error do Meta. Sem isso só
@@ -347,9 +406,24 @@ async function postGraph<T>(path: string, params: Record<string, unknown>, token
   body.append('access_token', token);
 
   const res = await fetch(url, { method: 'POST', body });
-  const data: any = await res.json();
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {
+    // 5xx/gateway pode devolver HTML/texto sem JSON — segue p/ classificar via status.
+  }
   if (data?.error) {
-    throw new MetaApiError(step, data.error.code, buildMetaErrorMessage(data.error), data.error);
+    const e = new MetaApiError(step, data.error.code, buildMetaErrorMessage(data.error), data.error);
+    e.httpStatus = res.status;
+    e.retryAfterSec = parseRetryAfter(res);
+    throw e;
+  }
+  if (!res.ok) {
+    // Sem objeto `error` no corpo mas status HTTP de falha (ex.: 429/500/502/503).
+    const e = new MetaApiError(step, undefined, `HTTP ${res.status} ${res.statusText || ''}`.trim(), data);
+    e.httpStatus = res.status;
+    e.retryAfterSec = parseRetryAfter(res);
+    throw e;
   }
   return data as T;
 }
@@ -1092,7 +1166,42 @@ export async function createAdCreative(
   // 1905371253614148). Em creatives DPA, omitimos esse bloco; Advantage+ Creative
   // segue funcionando para single/carousel/video.
   if (c.type !== 'dpa') {
+    // `degrees_of_freedom_spec` com o bundle COMPLETO de Advantage+ Creative
+    // dispara (#100/1772103) "IG account missing" em DPA mesmo com identidade
+    // valida — bug confirmado pela Meta Dev Community (thread 1905371253614148).
+    // Por isso o bundle visual segue so para single/carousel/video.
     params.degrees_of_freedom_spec = { creative_features_spec };
+  } else {
+    // ── DPA: "Midia dinamica" + "Priorizar videos" hardcoded ON (F8) ──────────
+    // Espelha os toggles do Ads Manager em anuncios de catalogo (Advantage+
+    // Catalog). Aplicado SEMPRE que type==='dpa', sem flag de UI.
+    //
+    // Campos verificados contra a doc atual do Marketing API (jun/2026):
+    //  - "Midia dinamica"  -> creative_features_spec.media_type_automation
+    //      A AdCreativeFeaturesSpec lista `media_type_automation`
+    //      (developers.facebook.com/docs/marketing-api/reference/ad-creative-features-spec/).
+    //      A Meta passou a defaultar este campo p/ OPT_IN em Advantage+ Catalog
+    //      ads via Marketing API a partir de set/2025 (enforcement 100% out/2025) —
+    //      e exatamente o campo por tras do toggle "Dynamic Media"/"Midia dinamica"
+    //      (ppc.land/meta-enables-dynamic-media-by-default-for-catalog-ads-starting-september-2025).
+    //  - "Priorizar videos" -> creative_features_spec.video_highlights
+    //      "Prioritize Video" e um sub-toggle que so aparece sob "Dynamic Media"
+    //      em formato Single Image/Video (help.adsmurai.com/product-level-video).
+    //      Na AdCreativeFeaturesSpec o recurso de video de catalogo correspondente
+    //      e `video_highlights` (cluster de automacao de video: media_type_automation /
+    //      video_to_image / video_highlights). NOTA: a doc nao nomeia este campo
+    //      literalmente como "Prioritize Video"; mantemos a melhor correspondencia
+    //      verificada — se a Meta rejeitar, o retry-then-skip isola so este ad.
+    //
+    // IMPORTANTE: enviamos APENAS estes dois flags de catalogo no
+    // degrees_of_freedom_spec do DPA — NAO o bundle visual completo (image_*),
+    // que e o que historicamente disparava (#100/1772103). Bloco minimo = baixo risco.
+    params.degrees_of_freedom_spec = {
+      creative_features_spec: {
+        media_type_automation: { enroll_status: 'OPT_IN' },
+        video_highlights: { enroll_status: 'OPT_IN' },
+      },
+    };
   }
   if (c.url_tags) params.url_tags = c.url_tags;
   // Multi-Advertiser Ads: a Meta defaulta para OPT_IN em OUTCOME_SALES desde 2024.
@@ -1240,6 +1349,189 @@ function substituteDirectAdsVars(
 }
 
 /**
+ * Remove o token {{criativo}} (e os separadores adjacentes) de um template de
+ * nome, para uso quando a ENTIDADE nomeada contem mais de um criativo — caso em
+ * que {{criativo}} nao tem valor unico. F7.
+ * Separadores reconhecidos: - (hifen) U+2014 U+2013 _ |.
+ */
+export function dropCriativoToken(tpl: string): string {
+  return tpl
+    .replace(/\s*[-\u2014\u2013_|]\s*\{\{criativo\}\}\s*[-\u2014\u2013_|]\s*/g, ' - ')
+    .replace(/\s*[-\u2014\u2013_|]?\s*\{\{criativo\}\}\s*[-\u2014\u2013_|]?\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Separacao de criativos (F7) — expansao pura, testavel sem a Meta
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Uma campanha planejada da expansao batch, com sua chave determinista. */
+export interface PlannedCampaign {
+  key: string;                 // c:<cr|->:<ci>
+  creativeIdx: number | null;  // null = compartilhada (varios criativos)
+  campIdx: number;             // 0-based
+  campSuffixNum: number;       // numeracao continua do sufixo _C (1-based)
+}
+export interface PlannedAdSet {
+  key: string;                 // s:<cr|->:<ci>:<si>
+  campKey: string;             // chave da campanha-pai
+  creativeIdx: number | null;
+  campIdx: number;
+  adsetIdx: number;            // 0-based dentro da campanha
+  setSuffixNum: number;        // numeracao continua do sufixo _CJ dentro da campanha
+}
+export interface PlannedAd {
+  key: string;                 // a:<cr>:<ci>:<si>:<ai>
+  adsetKey: string;            // chave do adset-pai
+  creativeIdx: number;         // o ad SEMPRE pertence a um criativo concreto
+  campIdx: number;
+  adsetIdx: number;
+  adIdx: number;               // 0-based dentro do adset
+  adSuffixNum: number;         // numeracao continua do sufixo _AD dentro do adset
+}
+export interface ExpandedBatch {
+  campaigns: PlannedCampaign[];
+  adsets: PlannedAdSet[];
+  ads: PlannedAd[];
+}
+
+/**
+ * Expande o plano batch em listas planas de entidades com chaves deterministas,
+ * conforme o nivel de separacao. Funcao PURA (sem Meta) — base da idempotencia
+ * (Contract 1) e dos testes de agrupamento.
+ *
+ * Total SEMPRE n*c*s*a anuncios — muda so onde os criativos se ramificam:
+ *   'campaign': n*c campanhas (cada criativo isolado; c:<cr>:<ci>), s adsets cada, a ads cada.
+ *   'adset':    c campanhas compartilhadas (c:-:<ci>); dentro de cada, cada criativo
+ *               ganha s adsets (s:<cr>:<ci>:<si>), a ads cada.
+ *   'ad':       c campanhas + s adsets compartilhados (s:-:<ci>:<si>); dentro de cada
+ *               adset, cada criativo aparece como a ads (a:<cr>:<ci>:<si>:<ai>).
+ * Sufixos _C/_CJ/_AD numeram CONTINUO dentro de cada pai (1-based).
+ */
+export function expandBatch(
+  n: number,
+  c: number,
+  s: number,
+  a: number,
+  level: SeparationLevel = 'campaign'
+): ExpandedBatch {
+  const N = Math.max(1, Math.floor(n));
+  const C = Math.max(1, Math.floor(c));
+  const S = Math.max(1, Math.floor(s));
+  const A = Math.max(1, Math.floor(a));
+
+  const campaigns: PlannedCampaign[] = [];
+  const adsets: PlannedAdSet[] = [];
+  const ads: PlannedAd[] = [];
+
+  if (level === 'campaign') {
+    for (let cr = 0; cr < N; cr++) {
+      for (let ci = 0; ci < C; ci++) {
+        const campKey = `c:${cr}:${ci}`;
+        campaigns.push({ key: campKey, creativeIdx: cr, campIdx: ci, campSuffixNum: ci + 1 });
+        for (let si = 0; si < S; si++) {
+          const adsetKey = `s:${cr}:${ci}:${si}`;
+          adsets.push({ key: adsetKey, campKey, creativeIdx: cr, campIdx: ci, adsetIdx: si, setSuffixNum: si + 1 });
+          for (let ai = 0; ai < A; ai++) {
+            ads.push({ key: `a:${cr}:${ci}:${si}:${ai}`, adsetKey, creativeIdx: cr, campIdx: ci, adsetIdx: si, adIdx: ai, adSuffixNum: ai + 1 });
+          }
+        }
+      }
+    }
+  } else if (level === 'adset') {
+    for (let ci = 0; ci < C; ci++) {
+      const campKey = `c:-:${ci}`;
+      campaigns.push({ key: campKey, creativeIdx: null, campIdx: ci, campSuffixNum: ci + 1 });
+      let setSuffix = 0; // _CJ continuo dentro da campanha (todos criativos x S)
+      for (let cr = 0; cr < N; cr++) {
+        for (let si = 0; si < S; si++) {
+          setSuffix += 1;
+          const adsetKey = `s:${cr}:${ci}:${si}`;
+          adsets.push({ key: adsetKey, campKey, creativeIdx: cr, campIdx: ci, adsetIdx: si, setSuffixNum: setSuffix });
+          for (let ai = 0; ai < A; ai++) {
+            ads.push({ key: `a:${cr}:${ci}:${si}:${ai}`, adsetKey, creativeIdx: cr, campIdx: ci, adsetIdx: si, adIdx: ai, adSuffixNum: ai + 1 });
+          }
+        }
+      }
+    }
+  } else {
+    // 'ad'
+    for (let ci = 0; ci < C; ci++) {
+      const campKey = `c:-:${ci}`;
+      campaigns.push({ key: campKey, creativeIdx: null, campIdx: ci, campSuffixNum: ci + 1 });
+      for (let si = 0; si < S; si++) {
+        const adsetKey = `s:-:${ci}:${si}`;
+        adsets.push({ key: adsetKey, campKey, creativeIdx: null, campIdx: ci, adsetIdx: si, setSuffixNum: si + 1 });
+        let adSuffix = 0; // _AD continuo dentro do adset (todos criativos x A)
+        for (let cr = 0; cr < N; cr++) {
+          for (let ai = 0; ai < A; ai++) {
+            adSuffix += 1;
+            ads.push({ key: `a:${cr}:${ci}:${si}:${ai}`, adsetKey, creativeIdx: cr, campIdx: ci, adsetIdx: si, adIdx: ai, adSuffixNum: adSuffix });
+          }
+        }
+      }
+    }
+  }
+
+  return { campaigns, adsets, ads };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Retry-then-skip-branch (Contract 1)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Codigos de erro Meta tratados como TRANSITORIOS (vale retry com backoff):
+ * 1 (desconhecido/temporario), 2 (servico indisponivel), 4 (app request limit),
+ * 17 (user request limit), 341 (limite temporario), 368 (bloqueio temporario),
+ * 80004 (too many calls to ad account). HTTP 429 e 5xx tambem entram aqui.
+ */
+const TRANSIENT_FB_CODES = new Set([1, 2, 4, 17, 341, 368, 80004]);
+const RETRY_BACKOFFS_MS = [2000, 8000, 30000];
+
+function isTransientError(err: unknown): boolean {
+  if (err instanceof MetaApiError) {
+    if (err.fbCode !== undefined && TRANSIENT_FB_CODES.has(err.fbCode)) return true;
+    if (err.httpStatus === 429) return true;
+    if (err.httpStatus !== undefined && err.httpStatus >= 500 && err.httpStatus <= 599) return true;
+  }
+  return false;
+}
+
+/** `Retry-After` em ms a partir de um MetaApiError; undefined se ausente/invalido. */
+function retryAfterMs(err: unknown): number | undefined {
+  if (err instanceof MetaApiError && err.retryAfterSec !== undefined) {
+    const ms = err.retryAfterSec * 1000;
+    return Number.isFinite(ms) && ms > 0 ? ms : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Executa UMA mutacao Graph (create campaign/adset/creative/ad) com retry
+ * exponencial em erros transitorios. Backoff 2s/8s/30s, honrando `Retry-After`
+ * quando a Meta o fornecer. Esgotadas as tentativas — ou erro permanente logo
+ * de cara — relanca o ultimo erro para o caller marcar a branch como falha.
+ */
+async function graphMutationWithRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= RETRY_BACKOFFS_MS.length; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const transient = isTransientError(err);
+      if (!transient || attempt === RETRY_BACKOFFS_MS.length) throw err;
+      const wait = retryAfterMs(err) ?? RETRY_BACKOFFS_MS[attempt];
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+  throw lastErr;
+}
+
+
+/**
  * Orquestrador batch — aplica multiplicadores e round-robin de páginas.
  * Emite os mesmos eventos que createFullCampaign, mas com índices ampliados
  * (campaign_index, adset_index, ad_index) pra UI poder mostrar progresso.
@@ -1250,8 +1542,8 @@ function substituteDirectAdsVars(
  */
 export async function createCampaignBatch(
   input: BatchCreateInput,
-  onEvent: (e: OrchestratorEvent) => void
-): Promise<{ campaign_ids: string[]; adset_ids: string[]; ad_ids: string[] }> {
+  opts: BatchRunOpts
+): Promise<BatchRunResult> {
   const {
     account_id,
     access_token,
@@ -1266,11 +1558,40 @@ export async function createCampaignBatch(
     creatives,
     url_tags_template,
     context,
+    separation_level,
+    frozen_context,
   } = input;
 
-  const now = new Date();
-  // Relógio de parede no fuso do app (GMT-3): 'YYYY-MM-DDTHH:mm'.
-  const nowLocal = toDatetimeLocal(now);
+  const { onEvent, runState, shouldAbort } = opts;
+  if (!runState.created) runState.created = {};
+  if (!runState.failed) runState.failed = {};
+
+  const level: SeparationLevel = separation_level ?? 'campaign';
+
+  // ── Contexto de data/hora: CONGELADO no enfileiramento quando presente. ─────
+  const fc = frozen_context;
+  let dt = { ano: '', mes: '', dia: '', hora: '', minuto: '' };
+  if (fc && (fc.ano || fc.data)) {
+    const data = fc.data ?? '';
+    const horaC = fc.hora_completa ?? '';
+    dt = {
+      ano:    fc.ano ?? data.slice(0, 4),
+      mes:    fc.mes ?? data.slice(5, 7),
+      dia:    fc.dia ?? data.slice(8, 10),
+      hora:   fc.hora ?? horaC.slice(0, 2),
+      minuto: fc.minuto ?? horaC.slice(3, 5),
+    };
+  } else {
+    const nowLocal = toDatetimeLocal(new Date()); // 'YYYY-MM-DDTHH:mm' em GMT-3
+    dt = {
+      ano:    nowLocal.slice(0, 4),
+      mes:    nowLocal.slice(5, 7),
+      dia:    nowLocal.slice(8, 10),
+      hora:   nowLocal.slice(11, 13),
+      minuto: nowLocal.slice(14, 16),
+    };
+  }
+
   const baseCtx = {
     conta_nome:           context?.conta_nome,
     conta_apelido:        context?.conta_apelido,
@@ -1283,37 +1604,29 @@ export async function createCampaignBatch(
     conjunto_de_produtos: context?.conjunto_de_produtos,
     budget:               context?.budget,
     criativos:            String(creatives.length),
-    ano:                  nowLocal.slice(0, 4),
-    mes:                  nowLocal.slice(5, 7),
-    dia:                  nowLocal.slice(8, 10),
-    hora:                 nowLocal.slice(11, 13),
-    minuto:               nowLocal.slice(14, 16),
+    ano:                  dt.ano,
+    mes:                  dt.mes,
+    dia:                  dt.dia,
+    hora:                 dt.hora,
+    minuto:               dt.minuto,
   };
 
-  const totalCampaigns = creatives.length * Math.max(1, nCamp);
-  const totalAds = totalCampaigns * Math.max(1, nAdSet) * Math.max(1, nAd);
-  onEvent({ type: 'start', total: totalAds });
+  // ── Plano determinista de entidades (chaves p/ resume idempotente). ─────────
+  const plan = expandBatch(creatives.length, nCamp, nAdSet, nAd, level);
 
-  const campaign_ids: string[] = [];
-  const adset_ids: string[] = [];
-  const ad_ids: string[] = [];
+  const counts = { created: 0, failed: 0, skipped: 0 };
 
-  let adGlobalIdx = 0;
-
-  // Pré-computa a sequência página-por-ad. Páginas em `page_allocations`
-  // contribuem exatamente `count` slots; o restante é preenchido em
-  // round-robin entre as páginas sem alocação manual (auto pool). Se não
-  // houver auto pool e ainda sobrarem slots, faz round-robin sobre todas
-  // as páginas.
+  // ── Sequencia pagina-por-ad: indexada pela ORDEM dos ads no plano. ──────────
+  const totalAds = plan.ads.length;
   const pageSequence: string[] = (() => {
     if (page_ids.length === 0) return [];
     const manual = page_allocations ?? {};
     const seq: string[] = [];
     for (const pid of page_ids) {
-      const n = Math.max(0, Math.floor(manual[pid] ?? 0));
-      for (let i = 0; i < n; i++) seq.push(pid);
+      const cnt = Math.max(0, Math.floor(manual[pid] ?? 0));
+      for (let i = 0; i < cnt; i++) seq.push(pid);
     }
-    const autoPool = page_ids.filter(pid => manual[pid] === undefined);
+    const autoPool = page_ids.filter((pid) => manual[pid] === undefined);
     const rrPool = autoPool.length > 0 ? autoPool : page_ids;
     let rr = 0;
     while (seq.length < totalAds) {
@@ -1323,126 +1636,179 @@ export async function createCampaignBatch(
     return seq.slice(0, totalAds);
   })();
 
-  try {
-    for (let cIdx = 0; cIdx < creatives.length; cIdx++) {
-      const crv = creatives[cIdx];
+  const resolveName = (tplName: string, creativeName: string | null, suffix: string): string => {
+    if (creativeName === null) {
+      const dropped = dropCriativoToken(tplName);
+      return `${dropped}${suffix}`;
+    }
+    const replaced = tplName.replace(/\{\{\s*criativo\s*\}\}/gi, creativeName);
+    const needsSuffix = creatives.length > 1 && replaced === tplName;
+    return `${replaced}${needsSuffix ? ` — ${creativeName}` : ''}${suffix}`;
+  };
 
-      for (let ci = 1; ci <= Math.max(1, nCamp); ci++) {
-        const campSuffix = nCamp > 1 ? `_C${pad2(ci)}` : '';
-        // Substitui o token {{criativo}} (case-insensitive) pelo nome deste criativo.
-        // O nome da campanha vindo do client pode conter outros tokens (eles já foram
-        // resolvidos no submit, exceto {{criativo}} que é por-criativo).
-        const baseName = campaignTpl.name || crv.name;
-        const resolvedName = baseName.replace(/\{\{\s*criativo\s*\}\}/gi, crv.name);
-        // Garante unicidade quando há múltiplos criativos e o usuário não usou
-        // {{criativo}} no template: anexa o nome do criativo apenas como fallback.
-        const needsCreativeSuffix = creatives.length > 1 && resolvedName === baseName;
-        const campSpec: CampaignSpec = {
-          ...campaignTpl,
-          name: `${resolvedName}${needsCreativeSuffix ? ` — ${crv.name}` : ''}${campSuffix}`,
-        };
+  const mergeMedia = (creativeSpec: CreativeSpec, raw: any): CreativeSpec => {
+    const media = raw?.media;
+    if (media && media.source === 'meta') {
+      return {
+        ...creativeSpec,
+        image_hash: media.image_hash ?? creativeSpec.image_hash,
+        video_id: media.video_id ?? creativeSpec.video_id,
+        video_thumbnail_url: media.video_thumbnail_url ?? creativeSpec.video_thumbnail_url,
+      };
+    }
+    return creativeSpec;
+  };
 
-        const camp = await createCampaign(account_id, access_token, campSpec);
-        campaign_ids.push(camp.id);
-        onEvent({ type: 'campaign_created', id: camp.id });
+  const created = runState.created;
+  const failed = runState.failed;
 
-        for (let si = 1; si <= Math.max(1, nAdSet); si++) {
-          const setSuffix = nAdSet > 1 ? `_CJ${pad2(si)}` : '';
-          // Quando o criativo define seu próprio product_set_id (DPA com sets
-          // distintos por anúncio), espelhamos no promoted_object do adset —
-          // senão a Meta otimiza pelo set "errado" e pode rejeitar o creative.
-          const overridePsid = crv.creative.product_set_id;
-          const adsetSpec: AdSetSpec = {
-            ...adsetTpl,
-            name: `${adsetTpl.name || campSpec.name}${setSuffix}`,
-            promoted_object: overridePsid
-              ? { ...adsetTpl.promoted_object, product_set_id: overridePsid }
-              : adsetTpl.promoted_object,
-          };
+  // ── 1) CAMPANHAS ────────────────────────────────────────────────────────────
+  for (const pc of plan.campaigns) {
+    if (shouldAbort()) return { aborted: true, counts };
+    if (created[pc.key]) continue;
 
-          const adset = await createAdSet(account_id, access_token, camp.id, adsetSpec);
-          adset_ids.push(adset.id);
-          onEvent({ type: 'adset_created', id: adset.id });
+    const creativeName = pc.creativeIdx === null ? null : creatives[pc.creativeIdx].name;
+    const campSuffix = nCamp > 1 ? `_C${pad2(pc.campSuffixNum)}` : '';
+    const baseTplName = campaignTpl.name || creativeName || 'Campanha';
+    const name = resolveName(baseTplName, creativeName, campSuffix);
+    const campSpec: CampaignSpec = { ...campaignTpl, name };
 
-          for (let ai = 1; ai <= Math.max(1, nAd); ai++) {
-            adGlobalIdx += 1;
-            const adSuffix = nAd > 1 ? `_AD${pad2(ai)}` : '';
-            const adName = `${crv.name}${adSuffix}`;
-            onEvent({ type: 'ad_progress', index: adGlobalIdx, total: totalAds, message: adName });
+    try {
+      const camp = await graphMutationWithRetry(() => createCampaign(account_id, access_token, campSpec));
+      created[pc.key] = camp.id;
+      counts.created += 1;
+      await onEvent({ kind: 'created', key: pc.key, entity: 'campaign', name, id: camp.id });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      failed[pc.key] = msg;
+      counts.failed += 1;
+      await onEvent({ kind: 'failed', key: pc.key, entity: 'campaign', name, error: msg, permanent: true });
+    }
+  }
 
-            // Página primária definida por `pageSequence` (respeita
-            // page_allocations); fallback de auto-retry varre as demais
-            // páginas após a primária.
-            const primaryPage = pageSequence[adGlobalIdx - 1] ?? page_ids[0];
-            const pagesToTry = page_ids.length > 0
-              ? [primaryPage, ...page_ids.filter(p => p !== primaryPage)]
-              : [crv.creative.page_id];
-
-            // URL tags com variáveis DirectAds resolvidas (Meta vars ficam intactas).
-            const resolvedUrlTags = url_tags_template
-              ? substituteDirectAdsVars(url_tags_template, {
-                  ...baseCtx,
-                  criativo:       crv.name,
-                  fila:           cIdx + 1,
-                  index:          cIdx + 1,
-                  conjunto:       si,
-                  adset:          si,
-                  ad_sequencial:  adGlobalIdx,
-                })
-              : undefined;
-
-            let crCreated: { id: string } | null = null;
-            let usedPageId: string | undefined;
-            let lastErr: unknown = null;
-            for (const pId of pagesToTry) {
-              try {
-                crCreated = await createAdCreative(account_id, access_token, {
-                  ...crv.creative,
-                  name: `${adName} — Creative`,
-                  page_id: pId,
-                  url_tags: resolvedUrlTags ?? crv.creative.url_tags,
-                });
-                usedPageId = pId;
-                break;
-              } catch (e) {
-                lastErr = e;
-                if (!page_auto_retry) throw e;
-              }
-            }
-            if (!crCreated) throw lastErr ?? new Error('Nenhuma página disponível para o creative.');
-
-            onEvent({ type: 'creative_created', index: adGlobalIdx, id: crCreated.id, page_id: usedPageId });
-
-            // Ads sempre ACTIVE — herdam o estado da campanha; pausar a campanha pausa todos.
-            const ad = await createAd(account_id, access_token, adset.id, adName, crCreated.id, 'ACTIVE');
-            ad_ids.push(ad.id);
-            onEvent({ type: 'ad_created', index: adGlobalIdx, id: ad.id, page_id: usedPageId });
-          }
-        }
-      }
+  // ── 2) ADSETS ────────────────────────────────────────────────────────────────
+  for (const ps of plan.adsets) {
+    if (shouldAbort()) return { aborted: true, counts };
+    if (created[ps.key]) continue;
+    if (failed[ps.campKey]) {
+      counts.skipped += 1;
+      await onEvent({ kind: 'skipped', key: ps.key, reason: `campanha-pai falhou (${ps.campKey})` });
+      continue;
+    }
+    const campId = created[ps.campKey];
+    if (!campId) {
+      counts.skipped += 1;
+      await onEvent({ kind: 'skipped', key: ps.key, reason: `campanha-pai ausente (${ps.campKey})` });
+      continue;
     }
 
-    onEvent({
-      type: 'done',
-      campaign_id: campaign_ids[campaign_ids.length - 1],
-      adset_id: adset_ids[adset_ids.length - 1],
-      ad_ids,
-    });
-    return { campaign_ids, adset_ids, ad_ids };
-  } catch (err: any) {
-    const step = err instanceof MetaApiError ? err.step : 'unknown';
-    const fbCode = err instanceof MetaApiError ? err.fbCode : undefined;
-    onEvent({
-      type: 'error',
-      step,
-      fbCode,
-      error: err?.message ?? String(err),
-      campaign_id: campaign_ids[campaign_ids.length - 1],
-      adset_id: adset_ids[adset_ids.length - 1],
-      ad_ids,
-    });
-    throw err;
+    const creativeName = ps.creativeIdx === null ? null : creatives[ps.creativeIdx].name;
+    const setSuffix = nAdSet > 1 ? `_CJ${pad2(ps.setSuffixNum)}` : '';
+    const baseTplName = adsetTpl.name || campaignTpl.name || creativeName || 'Conjunto';
+    const name = resolveName(baseTplName, creativeName, setSuffix);
+
+    const overridePsid = ps.creativeIdx === null ? undefined : creatives[ps.creativeIdx].creative.product_set_id;
+    const adsetSpec: AdSetSpec = {
+      ...adsetTpl,
+      name,
+      promoted_object: overridePsid
+        ? { ...adsetTpl.promoted_object, product_set_id: overridePsid }
+        : adsetTpl.promoted_object,
+    };
+
+    try {
+      const adset = await graphMutationWithRetry(() => createAdSet(account_id, access_token, campId, adsetSpec));
+      created[ps.key] = adset.id;
+      counts.created += 1;
+      await onEvent({ kind: 'created', key: ps.key, entity: 'adset', name, id: adset.id });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      failed[ps.key] = msg;
+      counts.failed += 1;
+      await onEvent({ kind: 'failed', key: ps.key, entity: 'adset', name, error: msg, permanent: true });
+    }
   }
+
+  // ── 3) ADS (creative + ad) ────────────────────────────────────────────────────
+  for (let adOrdinal = 0; adOrdinal < plan.ads.length; adOrdinal++) {
+    const pa = plan.ads[adOrdinal];
+    if (shouldAbort()) return { aborted: true, counts };
+    if (created[pa.key]) continue;
+
+    const adsetKey = pa.adsetKey;
+    const campKey = level === 'campaign' ? `c:${pa.creativeIdx}:${pa.campIdx}` : `c:-:${pa.campIdx}`;
+    if (failed[adsetKey] || failed[campKey]) {
+      counts.skipped += 1;
+      const why = failed[adsetKey] ? `conjunto-pai falhou (${adsetKey})` : `campanha-avo falhou (${campKey})`;
+      await onEvent({ kind: 'skipped', key: pa.key, reason: why });
+      continue;
+    }
+    const adsetId = created[adsetKey];
+    if (!adsetId) {
+      counts.skipped += 1;
+      await onEvent({ kind: 'skipped', key: pa.key, reason: `conjunto-pai ausente (${adsetKey})` });
+      continue;
+    }
+
+    const crv = creatives[pa.creativeIdx];
+    const creativeSpec = mergeMedia(crv.creative, crv as any);
+    const adSuffix = nAd > 1 ? `_AD${pad2(pa.adSuffixNum)}` : '';
+    const adName = `${crv.name}${adSuffix}`;
+
+    const primaryPage = pageSequence[adOrdinal] ?? page_ids[0];
+    const pagesToTry =
+      page_ids.length > 0
+        ? [primaryPage, ...page_ids.filter((p) => p !== primaryPage)]
+        : [creativeSpec.page_id];
+
+    const resolvedUrlTags = url_tags_template
+      ? substituteDirectAdsVars(url_tags_template, {
+          ...baseCtx,
+          criativo:      crv.name,
+          fila:          pa.creativeIdx + 1,
+          index:         pa.creativeIdx + 1,
+          conjunto:      pa.adsetIdx + 1,
+          adset:         pa.adsetIdx + 1,
+          ad_sequencial: adOrdinal + 1,
+        })
+      : undefined;
+
+    try {
+      let crCreated: { id: string } | null = null;
+      let lastErr: unknown = null;
+      for (const pId of pagesToTry) {
+        try {
+          crCreated = await graphMutationWithRetry(() =>
+            createAdCreative(account_id, access_token, {
+              ...creativeSpec,
+              name: `${adName} — Creative`,
+              page_id: pId,
+              url_tags: resolvedUrlTags ?? creativeSpec.url_tags,
+            })
+          );
+          break;
+        } catch (e) {
+          lastErr = e;
+          if (!page_auto_retry) throw e;
+        }
+      }
+      if (!crCreated) throw lastErr ?? new Error('Nenhuma pagina disponivel para o creative.');
+
+      const ad = await graphMutationWithRetry(() =>
+        createAd(account_id, access_token, adsetId, adName, crCreated!.id, 'ACTIVE')
+      );
+      created[pa.key] = ad.id;
+      counts.created += 1;
+      await onEvent({ kind: 'created', key: pa.key, entity: 'ad', name: adName, id: ad.id });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      failed[pa.key] = msg;
+      counts.failed += 1;
+      await onEvent({ kind: 'failed', key: pa.key, entity: 'ad', name: adName, error: msg, permanent: true });
+    }
+  }
+
+  return { aborted: false, counts };
 }
 
 export async function createFullCampaign(
