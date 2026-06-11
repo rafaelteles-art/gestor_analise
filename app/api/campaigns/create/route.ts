@@ -1,35 +1,36 @@
 import { NextResponse } from 'next/server';
-import {
-  createCampaignBatch,
-  createFullCampaign,
-  type BatchCreateInput,
-  type CreateFullCampaignInput,
-  type OrchestratorEvent,
-} from '@/lib/meta-campaigns';
-import { pool } from '@/lib/db';
+import { enqueueCampaignJobs } from '@/lib/campaign-jobs';
 import { resolveAuth } from '../_helpers';
+import { toDatetimeLocal } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 300;
 
 /**
- * POST /api/campaigns/create
+ * POST /api/campaigns/create  — ENQUEUE-ONLY (ADR-0005)
  *
- * Aceita dois formatos:
- *   1) Legado (1 campanha × 1 conjunto × N ads):
- *      { account_id | account_ids[], profile_name?, campaign, adset, ads }
- *   2) Batch (multiplicador):
- *      { account_id | account_ids[], profile_name?, batch: { campaigns_per_creative, adsets_per_campaign,
- *        ads_per_adset, page_ids, page_auto_retry, campaign, adset, creatives } }
+ * Was synchronous NDJSON streaming (campaign→adset→ad on the Graph API). It now
+ * only validates + freezes context + inserts jobs into the per-Profile
+ * `campaign_jobs` queue; the actual creation runs in the worker
+ * (lib/campaign-jobs.ts → runQueueTick), driven by the cron poller and the
+ * browser kick (/api/campaigns/queue/tick).
  *
- * Broadcast multi-conta: se `account_ids` for um array com 2+ entradas, executa o mesmo
- * payload sequencialmente em cada conta, emitindo `account_start`/`account_done`/`account_error`
- * em volta de cada execução e um `broadcast_summary` no fim. Em modo single-account
- * (apenas `account_id` ou `account_ids` com 1 entrada) o comportamento legado é preservado
- * — nada de eventos broadcast.
+ * Accepts the same payload shapes as before:
+ *   1) Legado: { account_id | account_ids[], profile_name?, campaign, adset, ads }
+ *   2) Batch:  { account_id | account_ids[], profile_name?, batch: {…} }
  *
- * Resposta: NDJSON streaming em ambos os casos.
+ * Multi-account broadcast (account_ids.length ≥ 2): one job per ad account,
+ * sharing a broadcast_group_id. Single account: one job (still stamped with a
+ * group id for consistent history grouping).
+ *
+ * Naming context ({{data}}/{{hora}}/…) is FROZEN NOW into each job's payload as
+ * `frozen_context` (computed via the GMT-3 helpers — never raw new Date()), so a
+ * job that runs hours later still uses the enqueue-time clock.
+ *
+ * Optional `reenqueue_of: number` records provenance from the fila history page;
+ * when present any incoming `frozen_context` is stripped and recomputed fresh.
+ *
+ * Response: 202 { jobs: [{ id, account_id, profile_name }], broadcast_group_id }.
  */
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -49,13 +50,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Campos obrigatórios: account_id ou account_ids[].' }, { status: 400 });
   }
 
-  const isBroadcast = accountIds.length > 1;
-  const isBatch = !!body.batch;
+  const isBatch = !!(body as any).batch;
 
-  // Validação prévia do payload — falha cedo se faltar algo, evita abrir
-  // stream pra erro de schema.
+  // Validação prévia do payload — falha cedo se faltar algo (mesma validação
+  // que a rota síncrona antiga fazia antes de abrir o stream).
   if (isBatch) {
-    const b = body.batch;
+    const b = (body as any).batch;
     if (!b || !b.campaign || !b.adset || !Array.isArray(b.creatives) || b.creatives.length === 0) {
       return NextResponse.json(
         { error: 'batch.campaign, batch.adset e batch.creatives são obrigatórios.' },
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       );
     }
   } else {
-    const { campaign, adset, ads } = body;
+    const { campaign, adset, ads } = body as any;
     if (!campaign || !adset || !Array.isArray(ads) || ads.length === 0) {
       return NextResponse.json(
         { error: 'campaign, adset, ads (não-vazio) são obrigatórios.' },
@@ -72,170 +72,102 @@ export async function POST(req: Request) {
     }
   }
 
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      // Conta ads efetivamente publicados por página (somando todas as contas
-      // em broadcast) — usado pra incrementar `meta_pages.ads_running` no DB
-      // uma única vez no fim. Acumula via eventos, então mesmo em falha parcial
-      // os ads já criados são contabilizados.
-      const adsPerPage = new Map<string, number>();
-      const send = (e: OrchestratorEvent) => {
-        if (e.type === 'ad_created' && e.page_id) {
-          adsPerPage.set(e.page_id, (adsPerPage.get(e.page_id) ?? 0) + 1);
-        }
-        try {
-          controller.enqueue(encoder.encode(JSON.stringify(e) + '\n'));
-        } catch {
-          // cliente desconectou
-        }
-      };
+  // reenqueue_of: provenance from the fila page. When present we force a fresh
+  // frozen_context (the history payload may carry a stale one).
+  const reenqueueOfRaw = (body as any).reenqueue_of;
+  const reenqueueOf =
+    typeof reenqueueOfRaw === 'number' && Number.isFinite(reenqueueOfRaw)
+      ? reenqueueOfRaw
+      : undefined;
 
-      // Resultado por conta — agregado pro broadcast_summary final.
-      const success: Array<{ account_id: string; campaign_ids: string[]; adset_ids: string[]; ad_ids: string[] }> = [];
-      const failed: Array<{ account_id: string; error: string }> = [];
+  // Separation level (A2 orchestrator consumes this). Default 'campaign' = legacy.
+  const separationLevel = (body as any).separation_level;
 
-      try {
-        for (let idx = 0; idx < accountIds.length; idx++) {
-          const acctId = accountIds[idx];
+  // FREEZE the date/time substitution context NOW, in GMT-3, exactly as the
+  // orchestrator's baseCtx does (toDatetimeLocal → 'YYYY-MM-DDTHH:mm'). The
+  // worker passes this through to substituteDirectAdsVars instead of new Date().
+  const nowLocal = toDatetimeLocal();
+  const frozenDateParts = {
+    ano: nowLocal.slice(0, 4),
+    mes: nowLocal.slice(5, 7),
+    dia: nowLocal.slice(8, 10),
+    hora: nowLocal.slice(11, 13),
+    minuto: nowLocal.slice(14, 16),
+  };
 
-          if (isBroadcast) {
-            send({ type: 'account_start', account_id: acctId, index: idx, total: accountIds.length });
-          }
+  const broadcast_group_id = globalThis.crypto.randomUUID();
+  const jobsToInsert: {
+    profile_name: string;
+    account_id: string;
+    account_name: string | null;
+    payload: any;
+  }[] = [];
+  const authFailures: { account_id: string; error: string }[] = [];
 
-          // Wrapper que injeta `account_id` em todo evento — UI usa pra agrupar
-          // progresso por conta no modo broadcast. Em single-account, injeta
-          // mesmo assim (custo zero) pra manter shape consistente.
-          const accountSend = (e: OrchestratorEvent) => send({ ...e, account_id: acctId });
+  for (const acctId of accountIds) {
+    const auth = await resolveAuth(acctId, profile_name);
+    if (!auth) {
+      authFailures.push({ account_id: acctId, error: 'Conta/perfil sem token válido.' });
+      continue;
+    }
 
-          try {
-            const acctAuth = await resolveAuth(acctId, profile_name);
-            if (!acctAuth) {
-              const err = 'Conta/perfil sem token válido.';
-              failed.push({ account_id: acctId, error: err });
-              if (isBroadcast) {
-                send({ type: 'account_error', account_id: acctId, error: err });
-                continue;
-              } else {
-                // Single-account: comportamento legado — encerra com erro HTTP-style.
-                send({ type: 'error', step: 'auth', error: err, account_id: acctId });
-                return;
-              }
-            }
+    // The frozen context merges any user-supplied context (account name, pixel,
+    // estrutura, etc. — already passed by the builder) with the frozen date
+    // parts. account_id defaults into conta_id like the orchestrator does.
+    const userContext =
+      (isBatch ? (body as any).batch?.context : (body as any).context) ?? {};
+    const frozen_context = {
+      ...userContext,
+      conta_id: userContext.conta_id ?? acctId,
+      conta_nome: userContext.conta_nome ?? auth.account_name,
+      ...frozenDateParts,
+    };
 
-            if (isBatch) {
-              const b = body.batch;
-              const payload: BatchCreateInput = {
-                account_id: acctId,
-                access_token: acctAuth.token,
-                campaigns_per_creative: Math.max(1, Number(b.campaigns_per_creative) || 1),
-                adsets_per_campaign: Math.max(1, Number(b.adsets_per_campaign) || 1),
-                ads_per_adset: Math.max(1, Number(b.ads_per_adset) || 1),
-                page_ids: Array.isArray(b.page_ids) ? b.page_ids : [],
-                page_allocations: (b.page_allocations && typeof b.page_allocations === 'object')
-                  ? Object.fromEntries(
-                      Object.entries(b.page_allocations as Record<string, unknown>)
-                        .map(([k, v]) => [k, Math.max(0, Number(v) || 0)])
-                    )
-                  : undefined,
-                page_auto_retry: Boolean(b.page_auto_retry),
-                campaign: b.campaign,
-                adset: b.adset,
-                creatives: b.creatives,
-                url_tags_template: typeof b.url_tags_template === 'string' && b.url_tags_template.trim()
-                  ? b.url_tags_template
-                  : undefined,
-                context: b.context && typeof b.context === 'object' ? b.context : undefined,
-              };
-              const result = await createCampaignBatch(payload, accountSend);
-              success.push({
-                account_id: acctId,
-                campaign_ids: result.campaign_ids,
-                adset_ids: result.adset_ids,
-                ad_ids: result.ad_ids,
-              });
-            } else {
-              const { campaign, adset, ads } = body;
-              const payload: CreateFullCampaignInput = {
-                account_id: acctId,
-                access_token: acctAuth.token,
-                campaign,
-                adset,
-                ads,
-              };
-              const result = await createFullCampaign(payload, accountSend);
-              // createFullCampaign retorna shape diferente — normalizamos para o summary.
-              success.push({
-                account_id: acctId,
-                campaign_ids: result.campaign_id ? [result.campaign_id] : [],
-                adset_ids: result.adset_id ? [result.adset_id] : [],
-                ad_ids: Array.isArray(result.ad_ids) ? result.ad_ids : [],
-              });
-            }
+    // Build the per-account payload the worker will hand to createCampaignBatch.
+    // We keep the original request shape (batch vs legacy) and inject the frozen
+    // token + account_id + frozen_context + separation_level. We strip any
+    // client-provided frozen_context (esp. on re-enqueue) and recompute above.
+    const basePayload: any = {
+      ...body,
+      account_id: acctId,
+      access_token: auth.token,
+      profile_name: profile_name ?? null,
+      separation_level: separationLevel,
+      frozen_context,
+      reenqueue_of: reenqueueOf,
+    };
+    // Remove broadcast-only / stale fields so each job payload is self-contained.
+    delete basePayload.account_ids;
 
-            if (isBroadcast) {
-              send({ type: 'account_done', account_id: acctId, index: idx, total: accountIds.length });
-            }
-          } catch (e: any) {
-            const errMsg = e?.message ?? String(e);
-            failed.push({ account_id: acctId, error: errMsg });
-            if (isBroadcast) {
-              // Em broadcast, segue pra próxima conta.
-              send({ type: 'account_error', account_id: acctId, error: errMsg });
-            } else {
-              // Single-account: erro já foi emitido como evento pelo orquestrador.
-              // Não rethrow — apenas sai do loop.
-              break;
-            }
-          }
-        }
+    jobsToInsert.push({
+      profile_name: profile_name ?? 'Default',
+      account_id: acctId,
+      account_name: auth.account_name ?? null,
+      payload: basePayload,
+    });
+  }
 
-        if (isBroadcast) {
-          send({
-            type: 'broadcast_summary',
-            total: accountIds.length,
-            success,
-            failed,
-          });
-        }
-      } finally {
-        // Commit dos incrementos em meta_pages.ads_running. Sempre tenta —
-        // mesmo em falha parcial, ads que foram criados na Meta devem ser
-        // contabilizados localmente para não estourar o limite na próxima
-        // execução. Falhas aqui não afetam o stream para o cliente.
-        if (adsPerPage.size > 0) {
-          try {
-            const ids: string[] = [];
-            const deltas: number[] = [];
-            for (const [id, n] of adsPerPage) {
-              if (n > 0) { ids.push(id); deltas.push(n); }
-            }
-            if (ids.length > 0) {
-              await pool.query(
-                `UPDATE meta_pages AS m
-                    SET ads_running = ads_running + d.delta,
-                        updated_at  = now()
-                   FROM UNNEST($1::text[], $2::int[]) AS d(page_id, delta)
-                  WHERE m.page_id = d.page_id`,
-                [ids, deltas]
-              );
-            }
-          } catch (e) {
-            // Não relançar — não vale derrubar a resposta. Próxima sincronização
-            // via /api/pages/sync reconcilia a contagem com a fonte da verdade.
-            console.error('[campaigns/create] falha ao atualizar meta_pages.ads_running:', e);
-          }
-        }
-        controller.close();
-      }
+  if (jobsToInsert.length === 0) {
+    return NextResponse.json(
+      { error: 'Nenhuma conta com token válido.', failures: authFailures },
+      { status: 400 }
+    );
+  }
+
+  const { ids } = await enqueueCampaignJobs(jobsToInsert, { broadcast_group_id });
+
+  const jobs = ids.map((id, i) => ({
+    id,
+    account_id: jobsToInsert[i].account_id,
+    profile_name: jobsToInsert[i].profile_name,
+  }));
+
+  return NextResponse.json(
+    {
+      jobs,
+      broadcast_group_id,
+      ...(authFailures.length ? { failures: authFailures } : {}),
     },
-  });
-
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'application/x-ndjson; charset=utf-8',
-      'Cache-Control': 'no-cache, no-transform',
-      'X-Accel-Buffering': 'no',
-    },
-  });
+    { status: 202 }
+  );
 }
