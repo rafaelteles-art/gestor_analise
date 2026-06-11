@@ -94,8 +94,8 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
       `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS accessible_profiles TEXT[] DEFAULT '{}'`
     );
 
-    // Apelido livre dado pelo usuário (A4). Não sobrescrito pelo sync — o upsert
-    // abaixo usa COALESCE para preservar o valor existente.
+    // Apelido livre dado pelo usuário (A4). Não sobrescrito pelo sync — nickname
+    // preservado por nao constar no INSERT nem no DO UPDATE SET.
     await pool.query(
       `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS nickname TEXT`
     );
