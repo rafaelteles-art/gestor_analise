@@ -21,6 +21,7 @@ import { downloadDriveFile, getDriveFileMeta } from './google-drive';
 import {
   pickRunnableJobId,
   reduceCounts,
+  clampListLimit,
   type CampaignJobStatus,
   type JobCounts,
   type RunnableJobView,
@@ -32,6 +33,7 @@ import {
 export {
   pickRunnableJobId,
   reduceCounts,
+  clampListLimit,
   type CampaignJobStatus,
   type JobCounts,
   type RunnableJobView,
@@ -149,13 +151,42 @@ export async function enqueueCampaignJobs(
 }
 
 /**
- * Atomically claim the next runnable job with per-Profile FIFO serialization.
+ * Atomically claim the next runnable job with RACE-SAFE per-Profile FIFO
+ * serialization.
  *
  * Runnable =
  *   (status 'pending' AND no OTHER job with the same profile_name is currently
  *    'running' with an unexpired lease)
  *   OR
  *   (status 'running' with an expired/null lease — crashed mid-run, resume).
+ *
+ * Why a plain NOT EXISTS guard is NOT enough — and why we add a profile-keyed
+ * advisory lock:
+ *   Under READ COMMITTED, the correlated `NOT EXISTS (… status='running' …)`
+ *   subquery is evaluated against each transaction's own snapshot. Two ticks can
+ *   each claim a DIFFERENT pending job for the SAME profile: tick A locks+flips
+ *   J1 (profile P) to 'running' but has not committed; tick B's snapshot predates
+ *   A's change, so B still sees "no live P run", skips A's row via SKIP LOCKED,
+ *   and claims J2 (also profile P). Both commit → two concurrent batches on one
+ *   Meta token, defeating ADR-0005. `FOR UPDATE SKIP LOCKED` only locks the chosen
+ *   candidate row, never the sibling pending rows, and does not re-evaluate the
+ *   correlated NOT EXISTS across the other in-flight transaction.
+ *
+ *   The fix is a real mutual-exclusion primitive keyed by profile_name:
+ *   `pg_try_advisory_xact_lock(hashtext(profile_name))`. The lock is held by THIS
+ *   claim's implicit transaction until it commits — i.e. exactly until the
+ *   `status='running'` flip becomes visible to everyone else. So when tick B tries
+ *   to claim for profile P it must first win the same profile lock; it can only do
+ *   so AFTER tick A has committed, at which point A's running row IS visible and
+ *   B's NOT EXISTS correctly blocks. The lock is non-blocking (`try_`): if another
+ *   tx currently holds profile P's lock, that profile's candidates are simply
+ *   skipped and the SELECT considers the next profile's jobs — no head-of-line
+ *   blocking across profiles, no deadlock. The lock is the LAST conjunct so it is
+ *   only acquired for rows that already passed the cheaper status / NOT EXISTS /
+ *   lease predicates (Postgres short-circuits AND left→right), minimising
+ *   transiently-held locks. hashtext() can collide across distinct profile names,
+ *   which would only make the claim slightly more conservative (serialize two
+ *   unrelated profiles for one fast UPDATE) — never less safe.
  *
  * Ordered by id (FIFO). SKIP LOCKED so concurrent ticks never grab the same row.
  * Single UPDATE … RETURNING flips it to 'running', stamps started_at (first time
@@ -172,19 +203,25 @@ export async function claimNextCampaignJob(): Promise<CampaignJob | null> {
         SELECT j.id FROM campaign_jobs j
          WHERE
            (
-             j.status = 'pending'
-             AND NOT EXISTS (
-               SELECT 1 FROM campaign_jobs r
-                WHERE r.profile_name = j.profile_name
-                  AND r.status = 'running'
-                  AND r.leased_until IS NOT NULL
-                  AND r.leased_until > now()
+             (
+               j.status = 'pending'
+               AND NOT EXISTS (
+                 SELECT 1 FROM campaign_jobs r
+                  WHERE r.profile_name = j.profile_name
+                    AND r.status = 'running'
+                    AND r.leased_until IS NOT NULL
+                    AND r.leased_until > now()
+               )
+             )
+             OR (
+               j.status = 'running'
+               AND (j.leased_until IS NULL OR j.leased_until < now())
              )
            )
-           OR (
-             j.status = 'running'
-             AND (j.leased_until IS NULL OR j.leased_until < now())
-           )
+           -- LAST conjunct on purpose: only acquired for rows that already passed
+           -- the predicates above. Held by this claim's tx until commit, making
+           -- the per-profile claim decision mutually exclusive (see doc above).
+           AND pg_try_advisory_xact_lock(hashtext(j.profile_name))
          ORDER BY j.id ASC
          LIMIT 1
          FOR UPDATE SKIP LOCKED
@@ -337,7 +374,10 @@ export async function listJobs(
     params.push(filters.before_id);
     where.push(`id < $${params.length}`);
   }
-  const limit = Math.min(Math.max(1, filters.limit ?? 50), 200);
+  // clampListLimit (pure, unit-tested) handles the NaN case: ?limit=abc →
+  // Number('abc') = NaN, which nullish-coalescing would NOT catch and which would
+  // bind a NaN LIMIT that Postgres rejects → a 500 on a malformed query string.
+  const limit = clampListLimit(filters.limit);
   params.push(limit);
   const sql =
     `SELECT ${ALL_COLUMNS_NO_PAYLOAD} FROM campaign_jobs` +

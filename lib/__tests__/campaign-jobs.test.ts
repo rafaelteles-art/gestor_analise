@@ -1,10 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 // Import from the dependency-free core module (not ../campaign-jobs, which pulls
 // in lib/meta-campaigns.ts whose `@/` aliases vitest can't resolve). The main
 // module re-exports these same functions.
 import {
   pickRunnableJobId,
   reduceCounts,
+  clampListLimit,
   type RunnableJobView,
   type JobCounts,
 } from '../campaign-jobs-core';
@@ -181,5 +185,69 @@ describe('reduceCounts — event → counts reducer', () => {
     const out = reduceCounts(rs, zero);
     expect(out.created).toBe(1);
     expect(out.total).toBe(1);
+  });
+});
+
+describe('clampListLimit — list page-size clamp (NaN-safe)', () => {
+  it('defaults to 50 when no limit is given', () => {
+    expect(clampListLimit(undefined)).toBe(50);
+  });
+
+  it('falls back to the default (not NaN) when limit is NaN', () => {
+    // Repro of the bug: ?limit=abc → Number('abc') = NaN. `?? 50` does NOT catch
+    // NaN, so without the Number.isFinite gate this would produce NaN and bind a
+    // NaN LIMIT that Postgres rejects → 500 on a malformed query string.
+    expect(clampListLimit(NaN)).toBe(50);
+    expect(Number.isNaN(clampListLimit(NaN))).toBe(false);
+  });
+
+  it('passes a valid in-range limit through unchanged', () => {
+    expect(clampListLimit(25)).toBe(25);
+  });
+
+  it('clamps below 1 up to 1', () => {
+    expect(clampListLimit(0)).toBe(1);
+    expect(clampListLimit(-5)).toBe(1);
+  });
+
+  it('clamps above the max (200) down to 200', () => {
+    expect(clampListLimit(10_000)).toBe(200);
+  });
+
+  it('floors a non-integer so the bound is always a clean integer for LIMIT $n', () => {
+    expect(clampListLimit(12.9)).toBe(12);
+  });
+
+  it('treats Infinity as non-finite and falls back to the default', () => {
+    expect(clampListLimit(Infinity)).toBe(50);
+    expect(clampListLimit(-Infinity)).toBe(50);
+  });
+});
+
+describe('claim SQL — race-safe per-Profile serialization guard', () => {
+  // The two-transaction race cannot be exercised against the pure
+  // pickRunnableJobId model (it sees a single static snapshot, never two
+  // concurrent claims). The real guarantee lives in the SQL claim, so we assert
+  // here that the profile-keyed advisory lock is present in the claim statement.
+  // This is a REGRESSION GUARD: if someone deletes the lock (reintroducing the
+  // bug where two ticks each claim a different pending job for the same profile),
+  // this test fails. We read the source as text rather than importing the module,
+  // because lib/campaign-jobs.ts pulls in meta-campaigns.ts (whose `@/` aliases
+  // vitest can't resolve).
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'campaign-jobs.ts'),
+    'utf8'
+  );
+
+  it('locks the claim per profile_name with pg_try_advisory_xact_lock', () => {
+    expect(src).toContain('pg_try_advisory_xact_lock(hashtext(j.profile_name))');
+  });
+
+  it('still uses FOR UPDATE SKIP LOCKED so concurrent ticks never grab the same row', () => {
+    expect(src).toContain('FOR UPDATE SKIP LOCKED');
+  });
+
+  it('keeps the NOT EXISTS live-run guard for the common case', () => {
+    expect(src).toContain('NOT EXISTS');
   });
 });

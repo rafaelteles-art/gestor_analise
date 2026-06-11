@@ -85,6 +85,25 @@ export function pickRunnableJobId(
  * max with `prior.total` so an aborted-and-resumed run never regresses the
  * denominator the user already saw, even though `skipped` resets per run.
  */
+/**
+ * Clamp a requested list page size into [1, 200], defaulting to 50.
+ *
+ * Defensive against NaN: the list route does `?limit=abc → Number('abc') = NaN`,
+ * and nullish-coalescing (`?? 50`) does NOT catch NaN. Without the Number.isFinite
+ * gate, NaN would survive Math.min(Math.max(1, NaN), 200) = NaN and bind a NaN
+ * LIMIT, which Postgres rejects → a trivially malformed query string would 500
+ * instead of falling back to the default page size. Non-integers are floored so
+ * the bound is always a clean integer for `LIMIT $n`.
+ */
+export function clampListLimit(
+  raw: number | undefined,
+  def = 50,
+  max = 200
+): number {
+  const n = Number.isFinite(raw as number) ? Math.floor(raw as number) : def;
+  return Math.min(Math.max(1, n), max);
+}
+
 export function reduceCounts(
   runState: BatchRunState,
   prior: JobCounts,
