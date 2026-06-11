@@ -11,9 +11,9 @@ export const runtime = 'nodejs';
  */
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const fileId = params.id;
+  const { id: fileId } = await params;
   if (!fileId) {
     return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
   }
