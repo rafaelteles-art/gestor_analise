@@ -847,9 +847,28 @@ export async function uploadImage(
   form.append(filename, new Blob([new Uint8Array(bytes)], { type: mime }), filename);
 
   const res = await fetch(url, { method: 'POST', body: form });
-  const data: any = await res.json();
+  // Espelha postGraph/getGraph: um 5xx/gateway da Meta pode devolver HTML/texto
+  // sem JSON. Sem este guard, res.json() lançaria um SyntaxError cru (não-
+  // MetaApiError) que isTransientError() NÃO classifica como transiente — logo o
+  // retry/backoff não absorveria o 5xx. Corpo não-JSON: classificamos via status.
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {
+    // corpo não-JSON — segue p/ classificar via status HTTP abaixo.
+  }
   if (data?.error) {
-    throw new MetaApiError('uploadImage', data.error.code, buildMetaErrorMessage(data.error), data.error);
+    const e = new MetaApiError('uploadImage', data.error.code, buildMetaErrorMessage(data.error), data.error);
+    e.httpStatus = res.status;
+    e.retryAfterSec = parseRetryAfter(res);
+    throw e;
+  }
+  if (!res.ok) {
+    // Sem objeto `error` no corpo mas status HTTP de falha (ex.: 429/5xx).
+    const e = new MetaApiError('uploadImage', undefined, `HTTP ${res.status} ${res.statusText || ''}`.trim(), data);
+    e.httpStatus = res.status;
+    e.retryAfterSec = parseRetryAfter(res);
+    throw e;
   }
   // Resposta no formato: { images: { <filename>: { hash, url } } }
   const entry = data?.images?.[filename];
@@ -881,9 +900,28 @@ export async function uploadVideo(
   form.append('name', filename);
 
   const res = await fetch(url, { method: 'POST', body: form });
-  const data: any = await res.json();
+  // Espelha postGraph/getGraph: um 5xx/gateway da Meta pode devolver HTML/texto
+  // sem JSON. Sem este guard, res.json() lançaria um SyntaxError cru (não-
+  // MetaApiError) que isTransientError() NÃO classifica como transiente — logo o
+  // retry/backoff não absorveria o 5xx. Corpo não-JSON: classificamos via status.
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {
+    // corpo não-JSON — segue p/ classificar via status HTTP abaixo.
+  }
   if (data?.error) {
-    throw new MetaApiError('uploadVideo', data.error.code, buildMetaErrorMessage(data.error), data.error);
+    const e = new MetaApiError('uploadVideo', data.error.code, buildMetaErrorMessage(data.error), data.error);
+    e.httpStatus = res.status;
+    e.retryAfterSec = parseRetryAfter(res);
+    throw e;
+  }
+  if (!res.ok) {
+    // Sem objeto `error` no corpo mas status HTTP de falha (ex.: 429/5xx).
+    const e = new MetaApiError('uploadVideo', undefined, `HTTP ${res.status} ${res.statusText || ''}`.trim(), data);
+    e.httpStatus = res.status;
+    e.retryAfterSec = parseRetryAfter(res);
+    throw e;
   }
   const video_id = (data?.id ?? data?.video_id) as string | undefined;
   if (!video_id) throw new MetaApiError('uploadVideo', undefined, 'Resposta sem video_id', data);
