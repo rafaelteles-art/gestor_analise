@@ -17,10 +17,27 @@ export function defaultCreativeName(opts: {
   productSetName?: string;
   fileName?: string;
 }): string {
-  if (opts.dpa && opts.productSetName)
-    return opts.productSetName
+  // The contract is that this NEVER returns an empty string — the queued job
+  // must not ship an unnamed creative. Each branch below therefore falls
+  // through to the next candidate when stripping leaves nothing behind:
+  //   product set name → file name (stem) → "Criativo 1".
+
+  if (opts.dpa && opts.productSetName) {
+    // Strip a trailing DD/MM[/YYYY] date token (and adjacent dash separator).
+    // A product set named purely by a date (e.g. "06/06") strips to "" — fall
+    // through to the file name / last resort instead of returning empty.
+    const stripped = opts.productSetName
       .replace(/\s*[-—–]?\s*\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b\s*$/, '')
       .trim();
-  if (opts.fileName) return opts.fileName.replace(/\.[^.]+$/, '');
+    if (stripped) return stripped;
+  }
+
+  if (opts.fileName) {
+    // Drop the file extension. A leading-dot file (e.g. ".env") strips to ""
+    // — fall through to the last resort rather than returning empty.
+    const stem = opts.fileName.replace(/\.[^.]+$/, '').trim();
+    if (stem) return stem;
+  }
+
   return 'Criativo 1';
 }

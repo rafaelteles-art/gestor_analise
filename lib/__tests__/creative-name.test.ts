@@ -41,6 +41,24 @@ describe('defaultCreativeName', () => {
       expect(defaultCreativeName({ dpa: true, productSetName: '06/06 Promo' }))
         .toBe('06/06 Promo');
     });
+
+    it('never returns "" when the set name is entirely a date token', () => {
+      // Stripping the whole name leaves nothing — must fall through, not return ''.
+      expect(defaultCreativeName({ dpa: true, productSetName: '06/06' }))
+        .not.toBe('');
+      expect(defaultCreativeName({ dpa: true, productSetName: '06/06' }))
+        .toBe('Criativo 1');
+      expect(defaultCreativeName({ dpa: true, productSetName: '06/06/2026' }))
+        .not.toBe('');
+      expect(defaultCreativeName({ dpa: true, productSetName: '06/06/2026' }))
+        .toBe('Criativo 1');
+    });
+
+    it('falls through to the file name when the set name is entirely a date', () => {
+      expect(
+        defaultCreativeName({ dpa: true, productSetName: '06/06', fileName: 'promo.mp4' }),
+      ).toBe('promo');
+    });
   });
 
   describe('non-DPA / fallback: file name without extension', () => {
@@ -57,6 +75,12 @@ describe('defaultCreativeName', () => {
     it('keeps a file name that has no extension', () => {
       expect(defaultCreativeName({ dpa: false, fileName: 'promo-final' }))
         .toBe('promo-final');
+    });
+
+    it('never returns "" for a leading-dot file name', () => {
+      // ".env" → /\.[^.]+$/ would strip the whole string; must fall through.
+      expect(defaultCreativeName({ dpa: false, fileName: '.env' })).not.toBe('');
+      expect(defaultCreativeName({ dpa: false, fileName: '.env' })).toBe('Criativo 1');
     });
   });
 
