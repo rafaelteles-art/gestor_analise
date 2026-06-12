@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { todayStr, toDatetimeLocal, datetimeLocalToISO } from '@/lib/timezone';
+import {
+  SearchableSelect as SSSelect,
+  filterOptions as ssFilterOptions,
+  type SSOption,
+} from '@/app/components/SearchableSelect';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Tipos (alinhados com app/lib/meta-campaigns.ts — repetidos aqui pra evitar
@@ -12,6 +17,7 @@ import { todayStr, toDatetimeLocal, datetimeLocalToISO } from '@/lib/timezone';
 interface Account {
   account_id: string;
   account_name: string;
+  nickname?: string | null;
   bm_name: string;
   moeda: string | null;
   timezone: string | null;
@@ -293,26 +299,51 @@ const inputBase = 'text-xs px-3 py-2 rounded-md border border-gray-200 dark:bord
 function AccountMultiSelect({
   accounts, selected, onChange,
 }: {
-  accounts: { account_id: string; account_name: string; bm_name: string; account_status: string | null }[];
+  accounts: { account_id: string; account_name: string; nickname?: string | null; bm_name: string; account_status: string | null }[];
   selected: string[];
   onChange: (ids: string[]) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [acctFilter, setAcctFilter] = useState('');
+
+  // Build SSOption list for filtering (label = nickname || account_name, sublabel = account_id)
+  const acctOptions: SSOption[] = useMemo(
+    () => accounts.map(a => ({
+      value: a.account_id,
+      label: a.nickname || a.account_name,
+      sublabel: a.account_id,
+      group: a.bm_name || '— sem BM —',
+    })),
+    [accounts],
+  );
+
+  const filteredAcctOptions = useMemo(
+    () => ssFilterOptions(acctOptions, acctFilter),
+    [acctOptions, acctFilter],
+  );
 
   const grouped = useMemo(() => {
+    // When filter active, group only filtered results; otherwise group all
+    const src = acctFilter.trim() ? filteredAcctOptions : acctOptions;
     const m = new Map<string, typeof accounts>();
-    for (const a of accounts) {
+    for (const o of src) {
+      const a = accounts.find(x => x.account_id === o.value);
+      if (!a) continue;
       const key = a.bm_name || '— sem BM —';
       const arr = m.get(key) ?? [];
       arr.push(a);
       m.set(key, arr);
     }
     return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [accounts]);
+  }, [accounts, acctOptions, filteredAcctOptions, acctFilter]);
 
   const selectedSet = new Set(selected);
   const primaryId = selected[0];
   const primary = accounts.find(a => a.account_id === primaryId);
+
+  /** Display label: nickname if set, otherwise account_name */
+  const acctLabel = (a: { account_name: string; nickname?: string | null }) =>
+    a.nickname || a.account_name;
 
   const toggle = (id: string) => {
     if (selectedSet.has(id)) {
@@ -341,8 +372,8 @@ function AccountMultiSelect({
   const summary = selected.length === 0
     ? '— nenhuma conta —'
     : selected.length === 1
-      ? `${primary?.bm_name ?? ''} — ${primary?.account_name ?? primaryId} (${primaryId})`
-      : `${primary?.account_name ?? primaryId} +${selected.length - 1} conta(s)`;
+      ? `${primary?.bm_name ?? ''} — ${primary ? acctLabel(primary) : primaryId} (${primaryId})`
+      : `${primary ? acctLabel(primary) : primaryId} +${selected.length - 1} conta(s)`;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -371,8 +402,22 @@ function AccountMultiSelect({
 
       {expanded && (
         <div className="border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 max-h-72 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+          {accounts.length > 0 && (
+            <div className="px-2 py-1.5 sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 z-10">
+              <input
+                type="text"
+                value={acctFilter}
+                onChange={e => setAcctFilter(e.target.value)}
+                placeholder="Filtrar contas…"
+                className="w-full text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-indigo-400"
+              />
+            </div>
+          )}
           {accounts.length === 0 && (
             <div className="px-3 py-3 text-[11px] text-gray-400 dark:text-gray-500">— nenhuma conta deste perfil —</div>
+          )}
+          {grouped.length === 0 && acctFilter.trim() && (
+            <div className="px-3 py-3 text-[11px] text-gray-400 dark:text-gray-500 italic">Nenhum resultado para "{acctFilter}"</div>
           )}
           {grouped.map(([bmName, list]) => {
             const ids = list.map(a => a.account_id);
@@ -406,7 +451,10 @@ function AccountMultiSelect({
                           className="w-3.5 h-3.5 accent-indigo-600"
                         />
                         <span className="text-[11px] text-gray-700 dark:text-gray-300 flex-1 truncate">
-                          {a.account_name}
+                          {acctLabel(a)}
+                          {a.nickname && (
+                            <span className="text-gray-400 dark:text-gray-500 ml-1 text-[10px]">({a.account_name})</span>
+                          )}
                           <span className="text-gray-400 dark:text-gray-500"> ({a.account_id})</span>
                           {a.account_status && a.account_status !== 'ACTIVE' && (
                             <span className="text-amber-600 dark:text-amber-400"> · {a.account_status}</span>
@@ -532,129 +580,7 @@ function OptionCard<T extends string>({
   );
 }
 
-/**
- * Combobox simples com busca. Substitui <select> nativo quando a lista pode
- * ter muitos itens (catálogos, product sets). Usa apenas estado local; o pai
- * controla apenas `value` e `onChange` — igual a um <select>.
- *
- * `emptyOption` opcional: quando fornecido, aparece como primeira linha
- * selecionável representando o valor "" (ex: "— todos os produtos —").
- */
-function SearchableSelect({
-  value,
-  onChange,
-  options,
-  placeholder,
-  emptyOption,
-  disabled,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string; secondary?: string }[];
-  placeholder: string;
-  emptyOption?: { label: string };
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const selected = options.find(o => o.value === value);
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return options;
-    const q = query.toLowerCase();
-    return options.filter(o =>
-      o.label.toLowerCase().includes(q)
-      || o.value.toLowerCase().includes(q)
-      || (o.secondary?.toLowerCase().includes(q) ?? false)
-    );
-  }, [options, query]);
-
-  // Fecha quando clica fora
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  const displayLabel = selected
-    ? selected.label
-    : (value === '' && emptyOption ? emptyOption.label : placeholder);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen(o => !o)}
-        className={cls(
-          inputBase,
-          'w-full text-left flex justify-between items-center gap-2',
-          disabled && 'cursor-not-allowed'
-        )}
-      >
-        <span className={cls('truncate', selected || (value === '' && emptyOption) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500')}>
-          {displayLabel}
-        </span>
-        <span className="text-gray-400 dark:text-gray-500 text-[10px] shrink-0">{open ? '▲' : '▼'}</span>
-      </button>
-      {open && !disabled && (
-        <div className="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg flex flex-col overflow-hidden">
-          <input
-            autoFocus
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Buscar…"
-            className="text-xs px-3 py-2 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-indigo-300"
-          />
-          <div className="overflow-y-auto max-h-56">
-            {emptyOption && (
-              <button
-                type="button"
-                onClick={() => { onChange(''); setOpen(false); setQuery(''); }}
-                className={cls(
-                  'block w-full text-left px-3 py-1.5 text-xs italic text-gray-500 dark:text-gray-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-400',
-                  value === '' && 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400'
-                )}
-              >
-                {emptyOption.label}
-              </button>
-            )}
-            {filtered.length === 0 ? (
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 px-3 py-2 italic">
-                {options.length === 0 ? 'Nenhuma opção disponível' : `Nenhum resultado para "${query}"`}
-              </p>
-            ) : (
-              filtered.map(o => (
-                <button
-                  type="button"
-                  key={o.value}
-                  onClick={() => { onChange(o.value); setOpen(false); setQuery(''); }}
-                  className={cls(
-                    'block w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-400',
-                    o.value === value && 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 font-semibold'
-                  )}
-                >
-                  <span className="truncate">{o.label}</span>
-                  {o.secondary && (
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">({o.secondary})</span>
-                  )}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// Local SearchableSelect removed — all usages now use SSSelect from @/app/components/SearchableSelect.
 
 function EmBreve() {
   return (
@@ -714,17 +640,18 @@ function AudiencePicker({
           );
         })}
       </div>
-      <select
-        className={inputBase}
-        value=""
-        onChange={e => { add(e.target.value); e.currentTarget.value = ''; }}
+      <SSSelect
+        options={available.map(a => ({
+          value: a.id,
+          label: a.subtype ? `[${a.subtype}] ${a.name}` : a.name,
+          sublabel: a.id,
+        }))}
+        value={null}
+        onChange={v => { if (v) add(v); }}
+        placeholder={available.length === 0 ? '— todos já adicionados —' : '+ adicionar público…'}
         disabled={available.length === 0}
-      >
-        <option value="">{available.length === 0 ? '— todos já adicionados —' : '+ adicionar público...'}</option>
-        {available.map(a => (
-          <option key={a.id} value={a.id}>{a.subtype ? `[${a.subtype}] ` : ''}{a.name}</option>
-        ))}
-      </select>
+        clearable={false}
+      />
     </div>
   );
 }
@@ -772,15 +699,18 @@ function ChipPicker<T extends string | number>({
           );
         })}
       </div>
-      <select className={inputBase} value="" onChange={e => {
-        const raw = e.target.value; if (!raw) return;
-        const opt = options.find(o => String(o.value) === raw);
-        if (opt) add(opt.value);
-        e.currentTarget.value = '';
-      }} disabled={available.length === 0 || loading}>
-        <option value="">{dropdownLabel}</option>
-        {available.map(o => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
-      </select>
+      <SSSelect
+        options={available.map(o => ({ value: String(o.value), label: o.label }))}
+        value={null}
+        onChange={v => {
+          if (!v) return;
+          const opt = options.find(o => String(o.value) === v);
+          if (opt) add(opt.value);
+        }}
+        placeholder={dropdownLabel}
+        disabled={available.length === 0 || loading}
+        clearable={false}
+      />
     </div>
   );
 }
@@ -863,12 +793,13 @@ function LookalikeBuilder({
           <input className={inputBase} value={name} onChange={e => setName(e.target.value)} placeholder="LAL 1% BR — Compradores 90d" />
         </Field>
         <Field label="Público de origem">
-          <select className={inputBase} value={seed} onChange={e => setSeed(e.target.value)}>
-            <option value="">— escolha —</option>
-            {customAudiences.map(a => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
+          <SSSelect
+            options={customAudiences.map(a => ({ value: a.id, label: a.name, sublabel: a.id }))}
+            value={seed || null}
+            onChange={v => setSeed(v ?? '')}
+            placeholder="— escolha —"
+            clearable={false}
+          />
         </Field>
         <Field label="Tamanho (% top)" hint="1% = mais semelhante, 20% = mais alcance">
           <input type="number" min={1} max={20} step={1}
@@ -878,9 +809,12 @@ function LookalikeBuilder({
           />
         </Field>
         <Field label="País">
-          <select className={inputBase} value={country} onChange={e => setCountry(e.target.value)}>
-            {COUNTRIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-          </select>
+          <SSSelect
+            options={COUNTRIES.map(c => ({ value: c.key, label: c.label }))}
+            value={country}
+            onChange={v => setCountry(v ?? 'BR')}
+            clearable={false}
+          />
         </Field>
       </div>
       {err && <p className="text-[11px] text-rose-600 dark:text-rose-400">{err}</p>}
@@ -1854,7 +1788,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       return `${startTime.slice(8, 10)}/${startTime.slice(5, 7)}`;
     })();
     const resolvedCampaignName = campaignName
-      .replace(/\{\{\s*conta\s*\}\}/gi,     account?.account_name ?? '')
+      .replace(/\{\{\s*conta\s*\}\}/gi,     (account?.nickname || account?.account_name) ?? '')
       .replace(/\{\{\s*orcamento\s*\}\}/gi, campaignType)
       .replace(/\{\{\s*estrutura\s*\}\}/gi, `${campaignsPerCreative}-${adsetsPerCampaign}-${adsPerAdset}`)
       .replace(/\{\{\s*data\s*\}\}/gi,      startDate);
@@ -2039,6 +1973,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         url_tags_template: urlTagsTpl?.trim() || undefined,
         context: {
           conta_nome: account?.account_name,
+          conta_apelido: account?.nickname || account?.account_name,
           conta_id: accountId,
           pixel: pixels.find(p => p.id === pixelId)?.name,
           objetivo: isDPA ? 'DPA' : 'SALES',
@@ -2191,7 +2126,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               {isBroadcast && (
                 <div className="mt-2 text-[11px] leading-relaxed bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 text-amber-800 dark:text-amber-400">
                   <strong>Atenção — IDs account-scoped:</strong> pixels, públicos, catálogos e product sets exibidos são da conta primária
-                  <span className="font-mono"> ({account?.account_name ?? accountId})</span>. Em broadcast, esses IDs serão enviados <em>tal qual</em> para as demais contas — se não existirem
+                  <span className="font-mono"> ({(account?.nickname || account?.account_name) ?? accountId})</span>. Em broadcast, esses IDs serão enviados <em>tal qual</em> para as demais contas — se não existirem
                   na conta destino, a chamada à Meta falha (erro #100). A criação segue nas demais contas e o resumo final mostra sucessos/falhas.
                   <br />
                   <strong>Alocação de páginas:</strong> cada conta respeita o cap localmente, então a mesma página pode receber até
@@ -2436,26 +2371,27 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 return (
                   <div className="grid grid-cols-3 gap-3 mt-2">
                     <Field label="Business Manager" hint={catalogBmFilter ? `filtrando ${filteredCatalogs.length}/${catalogs.length}` : `${bmOptions.length} BM(s) com catálogo`}>
-                      <SearchableSelect
-                        value={catalogBmFilter}
-                        onChange={(v) => { setCatalogBmFilter(v); if (catalogId && v) {
-                          // Se o catálogo atualmente selecionado não pertence ao novo BM, limpa
-                          const cur = catalogs.find(c => c.id === catalogId);
-                          if (cur && cur.bm_id !== v) { setCatalogId(''); setProductSetId(''); }
-                        } }}
+                      <SSSelect
                         options={bmOptions.map(b => ({
                           value: b.id,
                           label: b.name,
-                          secondary: `${b.count} catálogos · ${b.id}`,
+                          sublabel: `${b.count} catálogos · ${b.id}`,
                         }))}
+                        value={catalogBmFilter || null}
+                        onChange={v => {
+                          const nv = v ?? '';
+                          setCatalogBmFilter(nv);
+                          if (catalogId && nv) {
+                            const cur = catalogs.find(c => c.id === catalogId);
+                            if (cur && cur.bm_id !== nv) { setCatalogId(''); setProductSetId(''); }
+                          }
+                        }}
                         placeholder="— todos os BMs —"
-                        emptyOption={{ label: '— todos os BMs —' }}
+                        clearable={true}
                       />
                     </Field>
                     <Field label="Catálogo">
-                      <SearchableSelect
-                        value={catalogId}
-                        onChange={(v) => { setCatalogId(v); setProductSetId(''); }}
+                      <SSSelect
                         options={filteredCatalogs.map(c => {
                           const bits: string[] = [];
                           if (c.bm_name && !catalogBmFilter) bits.push(c.bm_name);
@@ -2463,24 +2399,26 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                           return {
                             value: c.id,
                             label: c.name,
-                            secondary: bits.length ? bits.join(' · ') : c.id,
+                            sublabel: bits.length ? bits.join(' · ') : c.id,
                           };
                         })}
+                        value={catalogId || null}
+                        onChange={v => { setCatalogId(v ?? ''); setProductSetId(''); }}
                         placeholder="— selecione —"
                       />
                     </Field>
                     <Field label="Conjunto de Produtos (fallback)" hint="Usado quando o criativo não define o próprio set.">
-                      <SearchableSelect
-                        value={productSetId}
-                        onChange={setProductSetId}
+                      <SSSelect
                         options={productSets.map(s => ({
                           value: s.id,
                           label: s.name,
-                          secondary: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
+                          sublabel: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
                         }))}
+                        value={productSetId || null}
+                        onChange={v => setProductSetId(v ?? '')}
                         placeholder={loadingProductSets ? 'Carregando…' : '— opcional, defina por criativo abaixo —'}
-                        emptyOption={{ label: '— sem fallback (definir por criativo) —' }}
                         disabled={!catalogId || loadingProductSets}
+                        clearable={true}
                       />
                     </Field>
                   </div>
@@ -2738,15 +2676,17 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         >
           <div className="grid grid-cols-2 gap-3">
             <Field label="Pixel">
-              <select className={inputBase} value={pixelId} onChange={e => setPixelId(e.target.value)} disabled={pixels.length === 0}>
-                {pixels.length === 0 && <option value="">— sem pixels nessa conta —</option>}
-                {pixels.length > 0 && !pixelId && <option value="">— selecione um pixel —</option>}
-                {pixels.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.id}){p.last_fired_time ? '' : ' · sem disparos recentes'}
-                  </option>
-                ))}
-              </select>
+              <SSSelect
+                options={pixels.map(p => ({
+                  value: p.id,
+                  label: p.name + (p.last_fired_time ? '' : ' · sem disparos recentes'),
+                  sublabel: p.id,
+                }))}
+                value={pixelId || null}
+                onChange={v => setPixelId(v ?? '')}
+                placeholder={pixels.length === 0 ? '— sem pixels nessa conta —' : '— selecione um pixel —'}
+                disabled={pixels.length === 0}
+              />
             </Field>
             <Field label="Evento de conversão">
               <select className={inputBase} value={customEvent} onChange={e => setCustomEvent(e.target.value as CustomEvent)}>
@@ -2803,23 +2743,32 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             </div>
 
             <Field label="Usar um público salvo">
-              <select className={inputBase} value="" onChange={e => {
-                const id = e.target.value;
-                if (id && !includedAudiences.includes(id)) setIncludedAudiences([...includedAudiences, id]);
-                e.currentTarget.value = '';
-              }}>
-                <option value="">— selecione —</option>
-                {audiences.saved.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <SSSelect
+                options={audiences.saved.map(a => ({
+                  value: a.id,
+                  label: a.name,
+                  sublabel: a.id,
+                }))}
+                value={null}
+                onChange={id => {
+                  if (id && !includedAudiences.includes(id))
+                    setIncludedAudiences([...includedAudiences, id]);
+                }}
+                placeholder="— selecione —"
+                clearable={false}
+              />
             </Field>
 
             {/* Controles */}
             <SubBlock label="Controles">
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Localizações">
-                  <select className={inputBase} value={country} onChange={e => setCountry(e.target.value)}>
-                    {COUNTRIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-                  </select>
+                  <SSSelect
+                    options={COUNTRIES.map(c => ({ value: c.key, label: c.label }))}
+                    value={country}
+                    onChange={v => setCountry(v ?? 'BR')}
+                    clearable={false}
+                  />
                 </Field>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Idade Mínima">
@@ -3302,7 +3251,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               Broadcast em andamento — conta {broadcastProgress.current}/{broadcastProgress.total}
             </p>
             <p className="text-[11px] text-indigo-700 dark:text-indigo-400 mt-0.5 font-mono">
-              {accounts.find(a => a.account_id === broadcastProgress.account_id)?.account_name ?? broadcastProgress.account_id}
+              {(() => { const a = accounts.find(x => x.account_id === broadcastProgress.account_id); return (a?.nickname || a?.account_name) ?? broadcastProgress.account_id; })()}
               <span className="text-indigo-400 dark:text-indigo-500"> ({broadcastProgress.account_id})</span>
             </p>
           </div>
@@ -3330,7 +3279,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                   <div key={`ok-${s.account_id}`} className="px-4 py-2 flex items-center gap-3 bg-white dark:bg-gray-900">
                     <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">✓</span>
                     <span className="text-[11px] flex-1 truncate text-gray-800 dark:text-gray-100">
-                      {acct?.account_name ?? s.account_id}
+                      {(acct?.nickname || acct?.account_name) ?? s.account_id}
                       <span className="text-gray-400 dark:text-gray-500 font-mono"> ({s.account_id})</span>
                     </span>
                     <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">
@@ -3355,7 +3304,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                     <div className="flex items-center gap-3">
                       <span className="text-rose-600 dark:text-rose-400 font-bold text-[11px]">✗</span>
                       <span className="text-[11px] flex-1 truncate text-gray-800 dark:text-gray-100">
-                        {acct?.account_name ?? f.account_id}
+                        {(acct?.nickname || acct?.account_name) ?? f.account_id}
                         <span className="text-gray-400 dark:text-gray-500 font-mono"> ({f.account_id})</span>
                       </span>
                     </div>
@@ -3388,7 +3337,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         onClose={() => setShowNameModal(false)}
         onApply={(n) => setCampaignName(n)}
         vars={{
-          conta: accounts.find(a => a.account_id === accountId)?.account_name ?? '',
+          conta: (() => { const a = accounts.find(x => x.account_id === accountId); return (a?.nickname || a?.account_name) ?? ''; })(),
           orcamento: campaignType,
           estrutura: `${campaignsPerCreative}-${adsetsPerCampaign}-${adsPerAdset}`,
           criativo: useCatalog
@@ -3612,17 +3561,17 @@ function AdEditor({
                   : 'Cada criativo precisa do seu (sem fallback definido).'
               }
             >
-              <SearchableSelect
-                value={ad.product_set_id}
-                onChange={(v) => onChange({ product_set_id: v })}
+              <SSSelect
                 options={productSets.map(s => ({
                   value: s.id,
                   label: s.name,
-                  secondary: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
+                  sublabel: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
                 }))}
-                placeholder={loadingProductSets ? 'Carregando…' : '— selecione um conjunto —'}
-                emptyOption={defaultPsid ? { label: '— usar fallback global —' } : undefined}
+                value={ad.product_set_id || null}
+                onChange={v => onChange({ product_set_id: v ?? '' })}
+                placeholder={loadingProductSets ? 'Carregando…' : (defaultPsid ? '— usar fallback global —' : '— selecione um conjunto —')}
                 disabled={!catalogId || loadingProductSets}
+                clearable={!!defaultPsid}
               />
             </Field>
           </div>
