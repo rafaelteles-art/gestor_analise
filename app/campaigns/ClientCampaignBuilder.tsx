@@ -1980,6 +1980,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [enqueueError, setEnqueueError] = useState<string | null>(null);
   const [showQueueWidget, setShowQueueWidget] = useState(false);
   const queueRows = useQueuePolling(queuedJobIds);
+  // Keep the last non-empty snapshot so the widget stays visible after polling
+  // stops (the active=1 endpoint drops finished jobs, so queueRows becomes []
+  // right when the user most wants to see the done/done_with_errors summary).
+  const lastQueueRowsRef = useRef(queueRows);
+  if (queueRows.length > 0) lastQueueRowsRef.current = queueRows;
+  const displayQueueRows = queueRows.length > 0 ? queueRows : lastQueueRowsRef.current;
 
   // ── Publish state ─────────────────────────────────────────────────────────
   const [running, setRunning] = useState(false);
@@ -3523,11 +3529,15 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           </div>
         )}
 
-        {/* Queue widget — shown after a successful enqueue; polls job progress */}
-        {showQueueWidget && queueRows.length > 0 && (
+        {/* Queue widget — shown after a successful enqueue; polls job progress.
+            Uses displayQueueRows (last non-empty snapshot) so the final
+            done/done_with_errors state stays visible after polling stops —
+            the active=1 endpoint only returns pending|running jobs, so the
+            last real-time poll yields an empty set for our finished jobs. */}
+        {showQueueWidget && displayQueueRows.length > 0 && (
           <div className="mt-3">
             <QueueWidget
-              jobs={queueRows}
+              jobs={displayQueueRows}
               onClose={() => setShowQueueWidget(false)}
             />
           </div>
