@@ -39,6 +39,17 @@ export type {
 export const META_API_VERSION = 'v22.0';
 const GRAPH = `https://graph.facebook.com/${META_API_VERSION}`;
 
+/**
+ * Gate p/ logs de diagnóstico (targeting/promoted_object/object_story_spec/PBIA).
+ * No batch (N*C*S*A) esses logs disparam por-entidade e despejam IDs de audiência,
+ * pixel e spec de catálogo centenas de vezes. Ficam OFF por padrão; ligue com
+ * META_DEBUG=1 (ou =true) só para diagnosticar. Não é flag de UI.
+ */
+const META_DEBUG = process.env.META_DEBUG === '1' || process.env.META_DEBUG === 'true';
+function metaDebugLog(...args: unknown[]): void {
+  if (META_DEBUG) console.log(...args);
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Tipos públicos
 // ────────────────────────────────────────────────────────────────────────────
@@ -433,8 +444,29 @@ async function getGraph<T>(path: string, token: string, params: Record<string, s
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
   u.searchParams.set('access_token', token);
   const res = await fetch(u.toString());
-  const data: any = await res.json();
-  if (data?.error) throw new MetaApiError('GET ' + path, data.error.code, buildMetaErrorMessage(data.error), data.error);
+  // Espelha postGraph: 5xx/gateway pode devolver HTML/texto sem JSON. Sem este
+  // guard, res.json() lançaria um SyntaxError cru (não-MetaApiError), que
+  // isTransientError() NÃO classifica como transiente — logo o retry/backoff não
+  // absorveria o 5xx que ele justamente existe pra cobrir (ex.: PBIA dentro de
+  // createAdCreative virando falha permanente). Classificamos via res.status.
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {
+    // corpo não-JSON — segue p/ classificar via status HTTP abaixo.
+  }
+  if (data?.error) {
+    const e = new MetaApiError('GET ' + path, data.error.code, buildMetaErrorMessage(data.error), data.error);
+    e.httpStatus = res.status;
+    e.retryAfterSec = parseRetryAfter(res);
+    throw e;
+  }
+  if (!res.ok) {
+    const e = new MetaApiError('GET ' + path, undefined, `HTTP ${res.status} ${res.statusText || ''}`.trim(), data);
+    e.httpStatus = res.status;
+    e.retryAfterSec = parseRetryAfter(res);
+    throw e;
+  }
   return data as T;
 }
 
@@ -925,8 +957,9 @@ export async function createAdSet(
   if (spec.end_time) params.end_time = spec.end_time;
   if (spec.attribution_spec) params.attribution_spec = spec.attribution_spec;
 
-  // DEBUG: log exato dos params enviados (remover depois de diagnosticar erro de promoted_object)
-  console.log('[createAdSet] params →', JSON.stringify({
+  // DEBUG (gated por META_DEBUG): params exatos enviados — usado p/ diagnosticar
+  // erro de promoted_object. OFF no batch hot path por padrão.
+  metaDebugLog('[createAdSet] params →', JSON.stringify({
     optimization_goal: params.optimization_goal,
     promoted_object: params.promoted_object,
     destination_type: params.destination_type,
@@ -1130,16 +1163,16 @@ export async function createAdCreative(
   // direto dá (#100) "must be a valid Instagram account id". A Meta resolve
   // a PBIA automaticamente quando o campo é omitido E ela existe na Página.
   const incomingIg = c.instagram_user_id ?? c.instagram_actor_id;
-  console.log('[createAdCreative] page_id=', c.page_id, 'instagram_user_id IN=', incomingIg);
+  metaDebugLog('[createAdCreative] page_id=', c.page_id, 'instagram_user_id IN=', incomingIg);
   if (!incomingIg && c.page_id) {
     const pbia = await resolvePageBackedInstagram(c.page_id, token);
     // v22.0: PBIA agora é aceita como `instagram_user_id` (era rejeitada como
     // `instagram_actor_id` na v21). Setar explicitamente — DPA exige identidade
     // declarada no creative, não resolve por omissão.
     c = { ...c, instagram_user_id: pbia };
-    console.log('[createAdCreative] PBIA resolved=', pbia, '— setado em instagram_user_id (v22 API).');
+    metaDebugLog('[createAdCreative] PBIA resolved=', pbia, '— setado em instagram_user_id (v22 API).');
   } else {
-    console.log('[createAdCreative] IG identity já veio na spec. Skip resolver.');
+    metaDebugLog('[createAdCreative] IG identity já veio na spec. Skip resolver.');
   }
 
   // Advantage+ creative optimizations — `standard_enhancements` foi descontinuado
@@ -1213,7 +1246,7 @@ export async function createAdCreative(
   }
 
   if (c.type === 'dpa') {
-    console.log('[createAdCreative DPA] →', JSON.stringify({
+    metaDebugLog('[createAdCreative DPA] →', JSON.stringify({
       account_id: accountId,
       product_set_id: params.product_set_id,
       object_story_spec: params.object_story_spec,
@@ -1297,8 +1330,11 @@ function pad2(n: number): string {
  * Suporta `{{sequencial:NN}}` (sequencial global do ad). Valores ausentes viram
  * string vazia em vez de erro, pra não quebrar a criação por causa de uma var
  * faltante.
+ *
+ * Exportada para teste de regressão da resolução own-property-only (templates são
+ * user-authored; ver meta-campaigns-naming.test.ts).
  */
-function substituteDirectAdsVars(
+export function substituteDirectAdsVars(
   tpl: string,
   vars: {
     conta_nome?: string;
@@ -1342,7 +1378,13 @@ function substituteDirectAdsVars(
       return String(v).padStart(width, '0');
     }
     const lookup: Record<string, string | number | undefined> = vars as any;
-    if (key in lookup && lookup[key] !== undefined) return String(lookup[key]);
+    // hasOwnProperty (não `key in lookup`): o operador `in` anda na prototype chain,
+    // então tokens user-authored como {{toString}}/{{constructor}}/{{valueOf}}
+    // casariam com herdados de Object.prototype e injetariam o source da função
+    // (String(fn)) na string resolvida. Object.hasOwn limita às chaves próprias.
+    if (Object.prototype.hasOwnProperty.call(lookup, key) && lookup[key] !== undefined) {
+      return String(lookup[key]);
+    }
     // Não resolvido: deixa intacto (não atrapalha quem usa via Meta)
     return match;
   });

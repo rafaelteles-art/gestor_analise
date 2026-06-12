@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { dropCriativoToken } from '../meta-campaigns';
+import { dropCriativoToken, substituteDirectAdsVars } from '../meta-campaigns';
 
 /**
  * F7 — {{criativo}} drop rule. When the named entity contains MORE THAN ONE
@@ -42,5 +42,40 @@ describe('dropCriativoToken', () => {
     expect(dropCriativoToken('A \u2014 {{criativo}} \u2014 B')).toBe('A - B');
     expect(dropCriativoToken('A \u2013 {{criativo}} \u2013 B')).toBe('A - B');
     expect(dropCriativoToken('A_{{criativo}}_B')).toBe('A - B');
+  });
+});
+
+/**
+ * Regression: substituteDirectAdsVars must resolve only OWN properties of the
+ * vars lookup. Templates are user-authored, so tokens that name inherited
+ * Object.prototype members ({{toString}}, {{constructor}}, {{valueOf}},
+ * {{hasOwnProperty}}) must NOT resolve to an inherited Function \u2014 otherwise
+ * String(fn) would inject the function source into the resolved name/url_tags.
+ * The fix uses Object.prototype.hasOwnProperty.call(lookup, key) instead of
+ * `key in lookup`.
+ */
+describe('substituteDirectAdsVars \u2014 own-property resolution', () => {
+  const prototypeTokens = ['toString', 'constructor', 'valueOf', 'hasOwnProperty', '__proto__'];
+
+  for (const token of prototypeTokens) {
+    it(`leaves {{${token}}} intact instead of resolving an inherited member`, () => {
+      const tpl = `pre {{${token}}} post`;
+      const out = substituteDirectAdsVars(tpl, {});
+      // Token preserved verbatim \u2014 no function source code injected.
+      expect(out).toBe(`pre {{${token}}} post`);
+      expect(out).not.toContain('function');
+      expect(out).not.toContain('native code');
+      expect(out).not.toContain('=>');
+    });
+  }
+
+  it('still resolves a real own variable', () => {
+    expect(substituteDirectAdsVars('[{{conta_nome}}]', { conta_nome: 'ACME' })).toBe('[ACME]');
+  });
+
+  it('preserves Meta-native tokens (resolved by Meta at delivery)', () => {
+    expect(substituteDirectAdsVars('{{campaign.name}} / {{ad.id}}', {})).toBe(
+      '{{campaign.name}} / {{ad.id}}'
+    );
   });
 });
