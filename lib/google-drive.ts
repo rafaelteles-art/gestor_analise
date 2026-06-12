@@ -117,63 +117,91 @@ export function invalidateAccessTokenCache() {
 export async function getDriveFileMeta(
   fileId: string
 ): Promise<{ name: string; mimeType: string; size: number }> {
-  const token = await getAccessToken();
-
   const url = new URL(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`);
   url.searchParams.set('fields', 'name,mimeType,size');
   url.searchParams.set('supportsAllDrives', 'true');
 
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // Allow one automatic retry on HTTP 401: the cached access token may have
+  // been rotated by Google before our 59-min TTL (or clock skew defeated the
+  // 60s buffer). On the first 401 we bust the cache and immediately fetch a
+  // fresh token; if that new token still gets a 401, the refresh_token itself
+  // has been revoked and we surface a permanent DriveAuthError.
+  // A 403 (permission denied) is never a token-expiry and is NOT retried.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = await getAccessToken();
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    if (res.status === 401) {
-      // Bust the cache — the access token is dead; next caller will refresh.
-      invalidateAccessTokenCache();
-      throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      if (res.status === 401) {
+        // Bust the cache so the next getAccessToken() call exchanges the
+        // refresh_token for a brand-new access token.
+        invalidateAccessTokenCache();
+        if (attempt === 0) continue; // retry once with a fresh token
+        // Second 401 → refresh_token itself is revoked (permanent failure).
+        throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
+      }
+      if (res.status === 403) {
+        // Permission denied — not a token expiry; do NOT retry.
+        throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
+      }
+      throw new Error(`Drive API error ${res.status}: ${text}`);
     }
-    if (res.status === 403) {
-      // Permission denied — not a token expiry; do NOT bust the cache.
-      throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
-    }
-    throw new Error(`Drive API error ${res.status}: ${text}`);
+
+    const json = await res.json();
+    return {
+      name: json.name ?? '',
+      mimeType: json.mimeType ?? '',
+      size: Number(json.size ?? 0),
+    };
   }
 
-  const json = await res.json();
-  return {
-    name: json.name ?? '',
-    mimeType: json.mimeType ?? '',
-    size: Number(json.size ?? 0),
-  };
+  // Unreachable — TypeScript needs an explicit return after the loop.
+  throw new DriveAuthError('Sem acesso ao arquivo do Google Drive');
 }
 
 export async function downloadDriveFile(fileId: string): Promise<Buffer> {
-  const token = await getAccessToken();
-
   const url = new URL(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`);
   url.searchParams.set('alt', 'media');
   url.searchParams.set('supportsAllDrives', 'true');
 
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // Allow one automatic retry on HTTP 401: the cached access token may have
+  // been rotated by Google before our 59-min TTL (or clock skew defeated the
+  // 60s buffer). On the first 401 we bust the cache and immediately fetch a
+  // fresh token; if that new token still gets a 401, the refresh_token itself
+  // has been revoked and we surface a permanent DriveAuthError.
+  // A 403 (permission denied) is never a token-expiry and is NOT retried.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = await getAccessToken();
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    if (res.status === 401) {
-      // Bust the cache — the access token is dead; next caller will refresh.
-      invalidateAccessTokenCache();
-      throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      if (res.status === 401) {
+        // Bust the cache so the next getAccessToken() call exchanges the
+        // refresh_token for a brand-new access token.
+        invalidateAccessTokenCache();
+        if (attempt === 0) continue; // retry once with a fresh token
+        // Second 401 → refresh_token itself is revoked (permanent failure).
+        throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
+      }
+      if (res.status === 403) {
+        // Permission denied — not a token expiry; do NOT retry.
+        throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
+      }
+      throw new Error(`Drive download error ${res.status}: ${text}`);
     }
-    if (res.status === 403) {
-      // Permission denied — not a token expiry; do NOT bust the cache.
-      throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
-    }
-    throw new Error(`Drive download error ${res.status}: ${text}`);
+
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
   }
 
-  const arrayBuffer = await res.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  // Unreachable — TypeScript needs an explicit return after the loop.
+  throw new DriveAuthError('Sem acesso ao arquivo do Google Drive');
 }
