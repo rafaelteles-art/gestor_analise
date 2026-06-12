@@ -136,25 +136,42 @@ export async function enqueueCampaignJobs(
   const broadcast_group_id =
     opts?.broadcast_group_id ?? globalThis.crypto.randomUUID();
 
+  // A multi-account broadcast must be ALL-OR-NOTHING (review fix). The N per-account
+  // INSERTs run inside ONE transaction on a single pooled client: if any INSERT
+  // throws mid-loop (DB blip, connection drop), we ROLLBACK so NONE of the jobs are
+  // committed. Without this, earlier accounts' jobs would already be committed and
+  // would run while the route returns 500 to the caller; the user retries the whole
+  // broadcast and the already-enqueued accounts get a DUPLICATE set of real
+  // campaigns (double-spend), since enqueue has no idempotency key.
   const ids: number[] = [];
-  for (const j of jobs) {
-    // total is computed by the orchestrator once it expands the batch; we seed
-    // counts with zeros and let onEvent fill them in. We DO stamp broadcast_group_id
-    // even for single-account jobs so history can always group consistently.
-    const res = await pool.query(
-      `INSERT INTO campaign_jobs
-         (status, profile_name, account_id, account_name, broadcast_group_id, payload)
-       VALUES ('pending', $1, $2, $3, $4, $5::jsonb)
-       RETURNING id`,
-      [
-        j.profile_name,
-        j.account_id,
-        j.account_name ?? null,
-        broadcast_group_id,
-        JSON.stringify(j.payload),
-      ]
-    );
-    ids.push(Number(res.rows[0].id));
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const j of jobs) {
+      // total is computed by the orchestrator once it expands the batch; we seed
+      // counts with zeros and let onEvent fill them in. We DO stamp broadcast_group_id
+      // even for single-account jobs so history can always group consistently.
+      const res = await client.query(
+        `INSERT INTO campaign_jobs
+           (status, profile_name, account_id, account_name, broadcast_group_id, payload)
+         VALUES ('pending', $1, $2, $3, $4, $5::jsonb)
+         RETURNING id`,
+        [
+          j.profile_name,
+          j.account_id,
+          j.account_name ?? null,
+          broadcast_group_id,
+          JSON.stringify(j.payload),
+        ]
+      );
+      ids.push(Number(res.rows[0].id));
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
   return { ids, broadcast_group_id };
 }
@@ -552,8 +569,18 @@ function applyMediaCheckpoint(
       filename: original.filename,
     };
   } else if (stored.startsWith('vid:')) {
+    // The checkpoint is written as `vid:${video_id}|${thumbnail_url}` (see
+    // resolveDriveMedia). Split on the FIRST delimiter ONLY (review fix): a naive
+    // split-on-all-delimiters takes only the first two segments and silently drops
+    // everything after the first delimiter, so a Meta CDN thumbnail URL that itself
+    // contains the delimiter (signed URLs are not guaranteed to encode it) — or any
+    // future delimited value — would corrupt the thumbnail on resume with no error.
+    // video_id is the segment before the first delimiter; thumb is EVERYTHING after
+    // it (which may legitimately contain more delimiters).
     const rest = stored.slice(4);
-    const [video_id, thumb] = rest.split('|');
+    const sep = rest.indexOf('|');
+    const video_id = sep === -1 ? rest : rest.slice(0, sep);
+    const thumb = sep === -1 ? '' : rest.slice(sep + 1);
     creative.media = {
       source: 'meta',
       video_id,
