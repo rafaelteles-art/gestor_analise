@@ -1,18 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 // Import from the dependency-free core module (not ../campaign-jobs, which pulls
 // in lib/meta-campaigns.ts whose `@/` aliases vitest can't resolve). The main
-// module re-exports these same functions.
+// module re-exports these same functions AND calls these exact builders, so
+// asserting against the builder output / pure classifiers here gives BEHAVIORAL
+// coverage of the real query text and decision logic — not a readFileSync string
+// match over the source file (review fix #3).
 import {
   pickRunnableJobId,
   reduceCounts,
   clampListLimit,
   isTransientMediaError,
   normalizeBatchInput,
+  buildClaimSql,
+  buildCancelSql,
+  classifyCancelOutcome,
+  shouldContinueDraining,
+  decodeVidCheckpoint,
+  runEnqueueTransaction,
   type RunnableJobView,
   type JobCounts,
+  type TxClient,
+  type EnqueueRow,
 } from '../campaign-jobs-core';
 import type { BatchRunState, BatchEvent } from '../batch-contract';
 
@@ -68,6 +76,28 @@ describe('pickRunnableJobId — per-Profile FIFO serialization', () => {
       job({ id: 8, profile_name: 'P1', status: 'running', leased_until: null }),
     ];
     expect(pickRunnableJobId(jobs, NOW)).toBe(8);
+  });
+
+  it('at the EXACT lease boundary (leased_until == now) a running job IS runnable', () => {
+    // Review fix #2: the model must mirror the SQL's single-now() semantics at the
+    // tick boundary. With `<= now()` in both the model and buildClaimSql's resume
+    // branch, a lease that expires at precisely now() is resumable (NOT a momentary
+    // limbo where the row is neither blocker nor runnable, which strict `<` produced).
+    const jobs = [
+      job({ id: 9, profile_name: 'P1', status: 'running', leased_until: NOW }),
+    ];
+    expect(pickRunnableJobId(jobs, NOW)).toBe(9);
+  });
+
+  it('a running job whose lease == now does NOT block a same-profile pending job', () => {
+    // The other half of the boundary: at leased_until == now the live-run blocker
+    // (strict `>` in both model and SQL) is false, so a sibling pending job is also
+    // runnable. FIFO → the lower id (the just-expired running row) wins.
+    const jobs = [
+      job({ id: 4, profile_name: 'P1', status: 'running', leased_until: NOW }),
+      job({ id: 7, profile_name: 'P1', status: 'pending' }),
+    ];
+    expect(pickRunnableJobId(jobs, NOW)).toBe(4);
   });
 
   it('an expired-lease running P1 job does NOT block another P1 pending job; lower id wins', () => {
@@ -374,161 +404,209 @@ describe('normalizeBatchInput — payload→BatchCreateInput unwrap (review fix 
   });
 });
 
-describe('worker tick — transient pause must YIELD, not busy-retry (review fix #1)', () => {
-  // The busy-retry loop lives in runQueueTick/processJob inside lib/campaign-jobs.ts,
-  // which pulls in meta-campaigns.ts (whose `@/` aliases vitest can't resolve), so
-  // we can't import and drive the loop here. We assert the structural guarantees on
-  // the source text instead — a REGRESSION GUARD: if someone collapses the transient
-  // pause back into the budget pause (the original bug), these fail.
-  const src = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), '..', 'campaign-jobs.ts'),
-    'utf8'
-  );
-
-  it('distinguishes a transient media pause from a budget pause', () => {
-    // A transient throttle yields a distinct outcome, not the same 'budget' the
-    // time-budget abort uses.
-    expect(src).toContain("kind: 'paused-transient'");
-    expect(src).toContain("kind: 'paused-budget'");
+describe('shouldContinueDraining — worker tick yield-vs-continue (review fix #1)', () => {
+  // BEHAVIORAL coverage (not a source-text grep): runQueueTick calls this exact pure
+  // function to decide whether to keep draining. A transient throttle ('yield') MUST
+  // stop the loop so a later cron tick backs off instead of busy-retrying the
+  // throttled Meta endpoint by immediately re-claiming the just-released job; a
+  // 'finished'/'budget' outcome keeps draining other profiles' work this tick.
+  it('STOPS draining on a transient yield (the backoff guarantee)', () => {
+    expect(shouldContinueDraining('yield')).toBe(false);
   });
 
-  it('processJob returns a distinct yield outcome for the transient pause', () => {
-    expect(src).toContain("media.kind === 'paused-transient'");
-    expect(src).toContain("return 'yield'");
+  it('keeps draining after a job finishes', () => {
+    expect(shouldContinueDraining('finished')).toBe(true);
   });
 
-  it('runQueueTick BREAKS the drain loop on yield so a later tick provides backoff', () => {
-    // The exact line that stops the tick from immediately re-claiming the just-
-    // released job and tight-looping on the throttled Meta endpoint.
-    expect(src).toContain("if (outcome === 'yield') break;");
+  it('keeps draining after a budget pause (other profiles may still have work)', () => {
+    expect(shouldContinueDraining('budget')).toBe(true);
   });
 });
 
-describe('claim SQL — race-safe per-Profile serialization guard', () => {
-  // The two-transaction race cannot be exercised against the pure
-  // pickRunnableJobId model (it sees a single static snapshot, never two
-  // concurrent claims). The real guarantee lives in the SQL claim, so we assert
-  // here that the profile-keyed advisory lock is present in the claim statement.
-  // This is a REGRESSION GUARD: if someone deletes the lock (reintroducing the
-  // bug where two ticks each claim a different pending job for the same profile),
-  // this test fails. We read the source as text rather than importing the module,
-  // because lib/campaign-jobs.ts pulls in meta-campaigns.ts (whose `@/` aliases
-  // vitest can't resolve).
-  const src = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), '..', 'campaign-jobs.ts'),
-    'utf8'
-  );
+describe('buildClaimSql — race-safe per-Profile claim statement (review fix #3)', () => {
+  // BEHAVIORAL: assert against the ACTUAL SQL string claimNextCampaignJob runs
+  // (claimNextCampaignJob calls buildClaimSql()), not a readFileSync of the source
+  // file. The two-transaction race (two ticks each claim a different pending job for
+  // the same profile) can't be exercised without a live Postgres, but the query that
+  // prevents it is exactly this string — so verifying its structure here ties the
+  // guarantee to the real query and survives cosmetic refactors of campaign-jobs.ts.
+  const sql = buildClaimSql();
 
-  it('locks the claim per profile_name with pg_try_advisory_xact_lock', () => {
-    expect(src).toContain('pg_try_advisory_xact_lock(hashtext(j.profile_name))');
+  it('acquires a profile-keyed advisory lock as the mutual-exclusion primitive', () => {
+    // Without this lock two concurrent ticks could each claim a different pending job
+    // for the same profile → two batches on one Meta token, defeating ADR-0005.
+    expect(sql).toContain('pg_try_advisory_xact_lock(hashtext(j.profile_name))');
   });
 
-  it('still uses FOR UPDATE SKIP LOCKED so concurrent ticks never grab the same row', () => {
-    expect(src).toContain('FOR UPDATE SKIP LOCKED');
+  it('uses FOR UPDATE SKIP LOCKED so concurrent ticks never grab the same row', () => {
+    expect(sql).toContain('FOR UPDATE SKIP LOCKED');
   });
 
-  it('keeps the NOT EXISTS live-run guard for the common case', () => {
-    expect(src).toContain('NOT EXISTS');
-  });
-});
-
-describe('requestCancel SQL — already-cancelled job must NOT return a false-success', () => {
-  // requestCancel() cannot be unit-tested against the DB here (no pool in vitest),
-  // but the correctness guarantee lives in the SQL shape. We assert the structural
-  // properties as a REGRESSION GUARD: if someone reverts the CTE-based fix back to
-  // the plain UPDATE…RETURNING form (where both "just cancelled" and "already
-  // cancelled" look identical), these tests fail.
-  //
-  // The bug: the original UPDATE returned `status='cancelled'` for BOTH cases, so
-  // the function returned 'cancelled' for a double-cancel. The CTE captures
-  // old_status BEFORE the mutation, so we can return 'not_cancellable' for the
-  // second call.
-  const src = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), '..', 'campaign-jobs.ts'),
-    'utf8'
-  );
-
-  it('uses a CTE to capture old_status before the UPDATE', () => {
-    // The CTE name 'prev' is how we read the pre-mutation status.
-    expect(src).toContain('WITH prev AS (');
-    expect(src).toContain('old_status');
+  it('blocks a pending job behind a same-profile live run via NOT EXISTS', () => {
+    expect(sql).toContain('NOT EXISTS');
+    expect(sql).toMatch(/r\.status\s*=\s*'running'/);
+    expect(sql).toContain('r.leased_until > now()'); // strict: live run blocks
   });
 
-  it('locks the cancel target row inside the CTE to serialize concurrent calls', () => {
-    // FOR UPDATE inside the CTE ensures two concurrent double-clicks serialize: the
-    // second call sees old_status='cancelled' (already flipped) and returns
-    // 'not_cancellable' instead of a false-success 'cancelled'.
-    expect(src).toContain('FOR UPDATE');
+  it('treats an expired-or-exactly-now running lease as resumable (<= now boundary)', () => {
+    // Mirrors pickRunnableJobId's `<=` so the unit model is faithful at the tick
+    // boundary (review fix #2). A strict `<` here would diverge from the model.
+    expect(sql).toContain('j.leased_until <= now()');
+    expect(sql).not.toContain('j.leased_until < now()'); // the old, divergent operator
   });
 
-  it('classifies the outcome based on old_status, not the post-update status', () => {
-    // The only way to return 'cancelled' is when old_status was 'pending'. A job
-    // that was ALREADY cancelled will have old_status='cancelled' and must fall
-    // through to 'not_cancellable'.
-    expect(src).toContain("row.old_status === 'pending'");
-    expect(src).not.toMatch(/row\.status\s*===\s*'cancelled'/);
+  it('claims FIFO by id and flips the row to running with a fresh lease', () => {
+    expect(sql).toContain('ORDER BY j.id ASC');
+    expect(sql).toMatch(/status\s*=\s*'running'/);
+    expect(sql).toContain("leased_until = now() + ($1 || ' minutes')::interval");
+    expect(sql).toContain('started_at = COALESCE(started_at, now())');
   });
 });
 
-describe('enqueueCampaignJobs — multi-account broadcast must be all-or-nothing (review fix)', () => {
-  // The atomicity guarantee lives in the SQL transaction, not a pure function, and
-  // enqueueCampaignJobs() cannot be unit-tested against the DB here (no pool in
-  // vitest, and the module pulls in meta-campaigns.ts whose `@/` aliases vitest
-  // can't resolve). We assert the structural shape as a REGRESSION GUARD: if someone
-  // reverts the per-account INSERT loop back to N independent pool.query() calls
-  // (the original bug — a mid-loop failure commits a partial broadcast, then a user
-  // retry double-enqueues the already-inserted accounts → double-spend), these fail.
-  const src = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), '..', 'campaign-jobs.ts'),
-    'utf8'
-  );
-
-  it('acquires ONE pooled client and wraps the inserts in BEGIN/COMMIT', () => {
-    expect(src).toContain('const client = await pool.connect()');
-    expect(src).toContain("await client.query('BEGIN')");
-    expect(src).toContain("await client.query('COMMIT')");
+describe('classifyCancelOutcome — double-cancel must NOT false-succeed (review fix #3)', () => {
+  // BEHAVIORAL: requestCancel runs buildCancelSql() then feeds the RETURNING row to
+  // this exact pure classifier. We drive it with the rows the CTE produces in each
+  // real scenario and assert the verdict — so the "already-cancelled returns 409, not
+  // a false-success 200" guarantee is tested by EXECUTING the decision, not grepping.
+  it('returns not_found when no row came back (id does not exist)', () => {
+    expect(classifyCancelOutcome(undefined)).toBe('not_found');
   });
 
-  it('rolls back on error so no partial subset of the broadcast survives', () => {
-    expect(src).toContain("await client.query('ROLLBACK')");
+  it('returns cancelled when THIS call flipped pending→cancelled (old_status pending)', () => {
+    // The CTE captured old_status BEFORE the update; pending means we just cancelled.
+    expect(classifyCancelOutcome({ old_status: 'pending', cancel_requested: false })).toBe('cancelled');
   });
 
-  it('releases the client in finally (no pool leak on success or failure)', () => {
-    expect(src).toContain('client.release()');
+  it('returns cancel_requested for a running job we flagged for cooperative stop', () => {
+    expect(classifyCancelOutcome({ old_status: 'running', cancel_requested: true })).toBe('cancel_requested');
   });
 
-  it('inserts each job on the transactional client, NOT a fresh pool.query per row', () => {
-    // The for-loop body must INSERT via the leased client. A `pool.query(` INSERT
-    // inside enqueue would mean the row escapes the transaction (the original bug).
-    // Line-ending-agnostic (the file is CRLF on Windows): match across whitespace.
-    expect(src).toMatch(/await client\.query\(\s*`INSERT INTO campaign_jobs/);
-    // Guard against the regression: the INSERT must not run on the bare pool again.
-    expect(src).not.toMatch(/pool\.query\(\s*`INSERT INTO campaign_jobs/);
+  it('returns not_cancellable (→ 409) for an ALREADY-cancelled job — the core bug', () => {
+    // The second of two concurrent cancels: the CTE's FOR UPDATE serialized it, so it
+    // sees old_status='cancelled' (already flipped by the first call) and
+    // cancel_requested=false → must NOT report a false-success 'cancelled'.
+    expect(classifyCancelOutcome({ old_status: 'cancelled', cancel_requested: false })).toBe('not_cancellable');
+  });
+
+  it('returns not_cancellable for terminal jobs (done / done_with_errors / error)', () => {
+    for (const old_status of ['done', 'done_with_errors', 'error']) {
+      expect(classifyCancelOutcome({ old_status, cancel_requested: false })).toBe('not_cancellable');
+    }
   });
 });
 
-describe('applyMediaCheckpoint vid: decode — split on the FIRST delimiter only (review fix)', () => {
-  // applyMediaCheckpoint lives in campaign-jobs.ts (pulls in meta-campaigns.ts,
-  // unimportable in vitest), so this is a source-text REGRESSION GUARD. The bug:
-  // decoding `vid:${video_id}|${thumbnail_url}` with rest.split('|') and taking
-  // [video_id, thumb] silently DISCARDS anything after the first '|'. A Meta CDN
-  // thumbnail URL is not guaranteed free of '|' (signed query strings), so a '|' in
-  // the URL — or any future change to the stored format — would corrupt the thumb on
-  // resume WITHOUT error. The fix splits on indexOf('|')/slice so the thumbnail keeps
-  // everything after the first delimiter intact.
-  const src = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), '..', 'campaign-jobs.ts'),
-    'utf8'
-  );
+describe('buildCancelSql — CTE captures old_status before mutating (review fix #3)', () => {
+  // BEHAVIORAL: this is the exact string requestCancel runs. The plain
+  // UPDATE…RETURNING form could not tell "just cancelled" from "already cancelled"
+  // (both show status='cancelled'); the CTE reads the pre-mutation status, locked
+  // FOR UPDATE so concurrent double-clicks serialize.
+  const sql = buildCancelSql();
 
-  it('does NOT decode the vid checkpoint with the lossy rest.split("|") destructure', () => {
-    expect(src).not.toMatch(/const\s*\[\s*video_id\s*,\s*thumb\s*\]\s*=\s*rest\.split\('\|'\)/);
+  it('reads the pre-mutation status via a prev CTE locked FOR UPDATE', () => {
+    expect(sql).toContain('WITH prev AS (');
+    expect(sql).toMatch(/SELECT status FROM campaign_jobs WHERE id = \$1 FOR UPDATE/);
   });
 
-  it('splits on the FIRST delimiter via indexOf so the thumbnail keeps any later "|"', () => {
-    expect(src).toContain("const sep = rest.indexOf('|')");
-    // video_id = before the first '|'; thumb = everything after it (slice(sep + 1)).
-    expect(src).toContain('rest.slice(0, sep)');
-    expect(src).toContain('rest.slice(sep + 1)');
+  it('returns prev.status AS old_status so the classifier can distinguish the cases', () => {
+    expect(sql).toContain('RETURNING prev.status AS old_status');
+    expect(sql).toContain('campaign_jobs.cancel_requested');
+  });
+
+  it('only flips pending→cancelled, and only flags cancel_requested for a running job', () => {
+    expect(sql).toMatch(/WHEN prev\.status = 'pending' THEN 'cancelled'/);
+    expect(sql).toMatch(/WHEN prev\.status = 'running' THEN TRUE/);
+  });
+});
+
+describe('runEnqueueTransaction — multi-account broadcast is all-or-nothing (review fix #3)', () => {
+  // BEHAVIORAL: enqueueCampaignJobs delegates the BEGIN/INSERT×N/COMMIT to THIS exact
+  // function with the leased pool client injected. We drive it with a fake client that
+  // records the query sequence (and can be made to throw on the Kth insert) and assert
+  // the atomicity contract by EXECUTION — not by readFileSync-ing the source. The bug
+  // it guards: a partial commit on a mid-loop failure, which a user retry would then
+  // double-enqueue → duplicate real campaigns (double-spend).
+
+  // A fake pg client: records every (text, params) call; optional failAtInsert makes
+  // the Nth INSERT (1-based) throw, simulating a DB blip mid-broadcast.
+  function fakeClient(opts: { failAtInsert?: number } = {}) {
+    const calls: string[] = [];
+    let insertSeen = 0;
+    let nextId = 100;
+    const client: TxClient = {
+      async query(text: string) {
+        const head = text.trim().split(/\s+/).slice(0, 3).join(' ');
+        if (/^INSERT INTO campaign_jobs/.test(text.trim())) {
+          insertSeen++;
+          if (opts.failAtInsert && insertSeen === opts.failAtInsert) {
+            calls.push(`INSERT#${insertSeen}-THROW`);
+            throw new Error('connection reset mid-broadcast');
+          }
+          calls.push(`INSERT#${insertSeen}`);
+          return { rows: [{ id: nextId++ }] };
+        }
+        calls.push(head); // BEGIN / COMMIT / ROLLBACK
+        return { rows: [] };
+      },
+    };
+    return { client, calls: () => calls };
+  }
+
+  const rows: EnqueueRow[] = [
+    { profile_name: 'P1', account_id: 'act_1', account_name: 'A', payload: { batch: {} } },
+    { profile_name: 'P1', account_id: 'act_2', account_name: 'B', payload: { batch: {} } },
+    { profile_name: 'P1', account_id: 'act_3', account_name: 'C', payload: { batch: {} } },
+  ];
+
+  it('commits all rows in one transaction and returns the ids in input order', async () => {
+    const { client, calls } = fakeClient();
+    const ids = await runEnqueueTransaction(client, rows, 'grp-1');
+    expect(ids).toEqual([100, 101, 102]);
+    // BEGIN → 3 INSERTs → COMMIT, exactly once, in order. No ROLLBACK.
+    expect(calls()).toEqual(['BEGIN', 'INSERT#1', 'INSERT#2', 'INSERT#3', 'COMMIT']);
+  });
+
+  it('ROLLS BACK and rethrows when an insert fails mid-loop (no partial commit)', async () => {
+    const { client, calls } = fakeClient({ failAtInsert: 2 });
+    await expect(runEnqueueTransaction(client, rows, 'grp-1')).rejects.toThrow(
+      'connection reset mid-broadcast'
+    );
+    // The 1st insert succeeded, the 2nd threw → ROLLBACK, and crucially NO COMMIT, so
+    // the already-inserted row #1 never survives. A retry re-enqueues the FULL set.
+    expect(calls()).toEqual(['BEGIN', 'INSERT#1', 'INSERT#2-THROW', 'ROLLBACK']);
+    expect(calls()).not.toContain('COMMIT');
+  });
+
+  it('handles a single-account broadcast (one INSERT, still wrapped in a transaction)', async () => {
+    const { client, calls } = fakeClient();
+    const ids = await runEnqueueTransaction(client, [rows[0]], 'grp-1');
+    expect(ids).toEqual([100]);
+    expect(calls()).toEqual(['BEGIN', 'INSERT#1', 'COMMIT']);
+  });
+});
+
+describe('decodeVidCheckpoint — split on the FIRST delimiter only (review fix #3)', () => {
+  // BEHAVIORAL: applyMediaCheckpoint in campaign-jobs.ts calls THIS exact function to
+  // decode `vid:${video_id}|${thumbnail_url}`, so we test the real production decode,
+  // not a replica. The bug was `rest.split('|')` + `[video_id, thumb]`, which silently
+  // DISCARDED anything after the first '|' — a Meta CDN signed thumbnail URL is not
+  // guaranteed free of '|'. The fix splits on indexOf('|') so the thumbnail keeps
+  // everything after the first delimiter.
+  it('keeps a thumbnail URL that itself contains "|" intact (the regression)', () => {
+    const out = decodeVidCheckpoint('vid:1789|https://cdn.example/t.jpg?sig=a|b|c');
+    expect(out.video_id).toBe('1789');
+    // The lossy split would have dropped "|b|c"; the fix preserves the whole tail.
+    expect(out.thumbnail_url).toBe('https://cdn.example/t.jpg?sig=a|b|c');
+  });
+
+  it('decodes a plain video_id|thumbnail with no extra delimiters', () => {
+    const out = decodeVidCheckpoint('vid:999|https://cdn/t.jpg');
+    expect(out.video_id).toBe('999');
+    expect(out.thumbnail_url).toBe('https://cdn/t.jpg');
+  });
+
+  it('handles a checkpoint with no thumbnail (delimiter absent → undefined)', () => {
+    const out = decodeVidCheckpoint('vid:42');
+    expect(out.video_id).toBe('42');
+    expect(out.thumbnail_url).toBeUndefined();
   });
 });

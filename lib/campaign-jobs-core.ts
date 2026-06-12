@@ -53,7 +53,20 @@ export function pickRunnableJobId(
       return !profileHasLiveRun(j.profile_name);
     }
     if (j.status === 'running') {
-      return j.leased_until === null || j.leased_until < nowMs;
+      // `<=` (NOT `<`) is the faithful mirror of the SQL claim at the tick
+      // boundary (review fix). In SQL, now() is ONE transaction timestamp:
+      // the live-run blocker uses `r.leased_until > now()` and the running-
+      // resume branch uses `j.leased_until <= now()`. At leased_until == now()
+      // a running row must therefore be BOTH "not a live-run blocker" (strict
+      // `>` above is false) AND "itself runnable" (resume). A strict `<` here
+      // would, at exact equality, make the running row neither a blocker NOR
+      // runnable — a state Postgres's single now() cannot produce, so the
+      // model would diverge from the SQL at precisely the boundary it claims
+      // to model. With `<=` the equality case mirrors SQL exactly: an
+      // expired-or-exactly-now lease is resumable. (The SQL's running-resume
+      // predicate is correspondingly `<=` — see buildClaimSql in
+      // lib/campaign-jobs.ts.)
+      return j.leased_until === null || j.leased_until <= nowMs;
     }
     return false;
   });
@@ -202,4 +215,214 @@ export function reduceCounts(
     event && event.kind === 'skipped' ? prior.skipped + 1 : prior.skipped;
   const total = Math.max(prior.total, created + failed + skipped);
   return { created, failed, skipped, total };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SQL builders + outcome classifiers (review fix #3)
+//
+// These were previously inline template literals in lib/campaign-jobs.ts, and the
+// only "tests" for the most load-bearing guarantees (advisory-lock race safety,
+// CTE double-cancel correctness, transaction atomicity) were readFileSync +
+// string-match assertions over that file — spell-checkers, not behavioral tests:
+// they passed even if the logic was broken and broke on harmless reformatting.
+//
+// Extracting the query text into pure, exported builders here (dependency-free, so
+// vitest can import them without pulling in meta-campaigns.ts's `@/` aliases) lets
+// the test suite assert against the ACTUAL SQL the production code runs — and the
+// pure decision logic (cancel classification, enqueue plan) against real inputs —
+// instead of the bytes of the source file. lib/campaign-jobs.ts now calls these
+// builders, so a refactor that changes behavior changes the builder output and the
+// tests catch it; a cosmetic reformat of campaign-jobs.ts does not.
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The single UPDATE…RETURNING that atomically claims the next runnable job with
+ * race-safe per-Profile FIFO serialization. $1 is the lease length in minutes.
+ *
+ * Race safety rests on two primitives that MUST both be present:
+ *   - pg_try_advisory_xact_lock(hashtext(profile_name)) as the LAST conjunct, so a
+ *     second concurrent tick cannot claim a different pending job for the same
+ *     profile before the first tick's status='running' flip is visible.
+ *   - FOR UPDATE SKIP LOCKED, so concurrent ticks never block on / re-grab the same
+ *     candidate row.
+ * The running-resume branch uses `<= now()` (matches pickRunnableJobId's `<=`): an
+ * expired-or-exactly-now lease is resumable; the live-run blocker uses strict
+ * `> now()`.
+ */
+export function buildClaimSql(): string {
+  return `UPDATE campaign_jobs SET
+        status = 'running',
+        started_at = COALESCE(started_at, now()),
+        leased_until = now() + ($1 || ' minutes')::interval
+      WHERE id = (
+        SELECT j.id FROM campaign_jobs j
+         WHERE
+           (
+             (
+               j.status = 'pending'
+               AND NOT EXISTS (
+                 SELECT 1 FROM campaign_jobs r
+                  WHERE r.profile_name = j.profile_name
+                    AND r.status = 'running'
+                    AND r.leased_until IS NOT NULL
+                    AND r.leased_until > now()
+               )
+             )
+             OR (
+               j.status = 'running'
+               AND (j.leased_until IS NULL OR j.leased_until <= now())
+             )
+           )
+           -- LAST conjunct on purpose: only acquired for rows that already passed
+           -- the predicates above. Held by this claim's tx until commit, making
+           -- the per-profile claim decision mutually exclusive.
+           AND pg_try_advisory_xact_lock(hashtext(j.profile_name))
+         ORDER BY j.id ASC
+         LIMIT 1
+         FOR UPDATE SKIP LOCKED
+      )
+      RETURNING *`;
+}
+
+/**
+ * The CTE-based cancel statement. $1 is the job id. The `prev` CTE captures
+ * old_status BEFORE the mutation (locked FOR UPDATE so concurrent double-cancels
+ * serialize), so the caller can tell "this call just cancelled" from "was already
+ * cancelled". Returns prev.status AS old_status + the post-update cancel_requested.
+ */
+export function buildCancelSql(): string {
+  return `WITH prev AS (
+       SELECT status FROM campaign_jobs WHERE id = $1 FOR UPDATE
+     )
+     UPDATE campaign_jobs SET
+         status         = CASE WHEN prev.status = 'pending' THEN 'cancelled' ELSE campaign_jobs.status END,
+         cancel_requested = CASE WHEN prev.status = 'running' THEN TRUE ELSE campaign_jobs.cancel_requested END,
+         finished_at    = CASE WHEN prev.status = 'pending' THEN now() ELSE campaign_jobs.finished_at END
+       FROM prev
+       WHERE campaign_jobs.id = $1
+       RETURNING prev.status AS old_status, campaign_jobs.cancel_requested`;
+}
+
+export type CancelOutcome =
+  | 'cancelled'
+  | 'cancel_requested'
+  | 'not_cancellable'
+  | 'not_found';
+
+/**
+ * Classify the cancel SQL's RETURNING row into the route-facing outcome. PURE so it
+ * is directly unit-testable: feed it the {old_status, cancel_requested} the CTE
+ * returns (or undefined for a missing row) and assert the verdict.
+ *
+ *  - no row            → 'not_found'
+ *  - old_status pending → 'cancelled'  (THIS call performed pending→cancelled)
+ *  - else cancel_requested true → 'cancel_requested' (running job flagged)
+ *  - else              → 'not_cancellable' (already terminal / already cancelled)
+ *
+ * The "already cancelled" job has old_status='cancelled' (not 'pending') and
+ * cancel_requested=false, so it correctly yields 'not_cancellable' → the route
+ * returns 409 instead of a false-success 200.
+ */
+export function classifyCancelOutcome(
+  row: { old_status?: string; cancel_requested?: boolean } | undefined
+): CancelOutcome {
+  if (!row) return 'not_found';
+  if (row.old_status === 'pending') return 'cancelled';
+  if (row.cancel_requested) return 'cancel_requested';
+  return 'not_cancellable';
+}
+
+/**
+ * Decide whether to STOP draining the tick or KEEP going after processing one job.
+ * PURE mirror of the loop control in runQueueTick: a transient throttle ('yield')
+ * must break the loop (so a later cron tick provides backoff and we don't busy-
+ * retry the throttled Meta endpoint by immediately re-claiming the just-released
+ * job); 'finished'/'budget' keep draining. Extracted so the yield-vs-continue
+ * decision has real behavioral coverage instead of a source-text grep.
+ */
+export function shouldContinueDraining(
+  outcome: 'finished' | 'budget' | 'yield'
+): boolean {
+  return outcome !== 'yield';
+}
+
+/**
+ * Decode a `vid:` media checkpoint stored as `vid:${video_id}|${thumbnail_url}`.
+ * PURE so it is directly unit-testable; applyMediaCheckpoint in lib/campaign-jobs.ts
+ * calls this exact function (review fix #3 — no replicated decode to drift).
+ *
+ * Splits on the FIRST '|' via indexOf, NOT rest.split('|'), so the thumbnail keeps
+ * everything after the first delimiter intact. A Meta CDN signed thumbnail URL is
+ * not guaranteed free of '|' (query strings), and the lossy `[video_id, thumb] =
+ * rest.split('|')` form silently DISCARDED anything after the first delimiter,
+ * corrupting the thumbnail on resume WITHOUT error.
+ */
+export function decodeVidCheckpoint(stored: string): {
+  video_id: string;
+  thumbnail_url: string | undefined;
+} {
+  const rest = stored.slice(4); // drop the "vid:" prefix
+  const sep = rest.indexOf('|');
+  const video_id = sep === -1 ? rest : rest.slice(0, sep);
+  const thumb = sep === -1 ? '' : rest.slice(sep + 1);
+  return { video_id, thumbnail_url: thumb || undefined };
+}
+
+// Minimal client surface the enqueue transaction needs — exactly what a pooled pg
+// client exposes. Dependency-injected so the transaction logic is unit-testable
+// with a fake client (review fix #3) instead of only verifiable by reading source.
+export interface TxClient {
+  query(text: string, params?: unknown[]): Promise<{ rows: any[] }>;
+}
+
+export interface EnqueueRow {
+  profile_name: string;
+  account_id: string;
+  account_name?: string | null;
+  payload: unknown;
+}
+
+/**
+ * Insert N campaign jobs ATOMICALLY on one client: BEGIN, one INSERT per job,
+ * COMMIT — or ROLLBACK and rethrow if ANY insert fails. PURE w.r.t. the DB driver
+ * (it only touches the injected client), so a fake client can assert the all-or-
+ * nothing contract behaviorally (review fix #3): a mid-loop failure must ROLLBACK
+ * and surface the error so NO partial subset of a multi-account broadcast commits.
+ * Without this, a partial commit + a user retry would double-enqueue the already-
+ * inserted accounts → duplicate real campaigns (double-spend). The caller leases the
+ * client from the pool and releases it in finally; the COMMIT/ROLLBACK live here.
+ */
+export async function runEnqueueTransaction(
+  client: TxClient,
+  jobs: EnqueueRow[],
+  broadcast_group_id: string
+): Promise<number[]> {
+  const ids: number[] = [];
+  try {
+    await client.query('BEGIN');
+    for (const j of jobs) {
+      const res = await client.query(
+        `INSERT INTO campaign_jobs
+           (status, profile_name, account_id, account_name, broadcast_group_id, payload)
+         VALUES ('pending', $1, $2, $3, $4, $5::jsonb)
+         RETURNING id`,
+        [
+          j.profile_name,
+          j.account_id,
+          j.account_name ?? null,
+          broadcast_group_id,
+          JSON.stringify(j.payload),
+        ]
+      );
+      ids.push(Number(res.rows[0].id));
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    // Roll back so NO partial subset of the broadcast survives. The caller rethrows;
+    // because nothing committed, a user retry re-enqueues the FULL broadcast exactly
+    // once (no double-spend on the already-inserted rows).
+    await client.query('ROLLBACK');
+    throw err;
+  }
+  return ids;
 }

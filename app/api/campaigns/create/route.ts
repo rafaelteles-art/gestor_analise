@@ -15,9 +15,18 @@ export const runtime = 'nodejs';
  * (lib/campaign-jobs.ts → runQueueTick), driven by the cron poller and the
  * browser kick (/api/campaigns/queue/tick).
  *
- * Accepts the same payload shapes as before:
- *   1) Legado: { account_id | account_ids[], profile_name?, campaign, adset, ads }
- *   2) Batch:  { account_id | account_ids[], profile_name?, batch: {…} }
+ * Accepts ONLY the batch payload shape:
+ *   { account_id | account_ids[], profile_name?, batch: {…} }
+ *
+ * The legacy synchronous shape `{ campaign, adset, ads }` is NO LONGER accepted
+ * (review fix). The queue worker runs exactly one orchestrator — createCampaignBatch
+ * — which reads `creatives` / `campaigns_per_creative`, never `ads`. A legacy-shaped
+ * payload passed enqueue validation but then `creatives` was undefined inside the
+ * worker, so the job ALWAYS finished as 'error' with a cryptic "Cannot read
+ * properties of undefined (reading 'length')". The legacy orchestrator
+ * createFullCampaign is never dispatched to from the queue, and no live caller sends
+ * the legacy shape (the builder + the fila re-enqueue both POST `batch:{…}`). So we
+ * reject it at the route with a clear 400 instead of silently failing at run time.
  *
  * Multi-account broadcast (account_ids.length ≥ 2): one job per ad account,
  * sharing a broadcast_group_id. Single account: one job (still stamped with a
@@ -52,21 +61,29 @@ export async function POST(req: Request) {
 
   const isBatch = !!(body as any).batch;
 
-  // Validação prévia do payload — falha cedo se faltar algo (mesma validação
+  // The queue worker runs ONLY createCampaignBatch, which reads batch.creatives /
+  // campaigns_per_creative — never the legacy `ads`. A legacy `{campaign, adset, ads}`
+  // payload would pass an `ads` validation here but then fail deep in the worker with
+  // a cryptic "Cannot read properties of undefined (reading 'length')" (creatives is
+  // undefined), finishing every such job as 'error'. So we require the batch shape up
+  // front and reject the legacy shape with an explicit, actionable 400 (review fix).
+  if (!isBatch) {
+    return NextResponse.json(
+      {
+        error:
+          'Payload legado { campaign, adset, ads } não é mais aceito. Envie o formato batch: { batch: { campaign, adset, creatives, ... } }.',
+      },
+      { status: 400 }
+    );
+  }
+
+  // Validação prévia do payload batch — falha cedo se faltar algo (mesma validação
   // que a rota síncrona antiga fazia antes de abrir o stream).
-  if (isBatch) {
+  {
     const b = (body as any).batch;
     if (!b || !b.campaign || !b.adset || !Array.isArray(b.creatives) || b.creatives.length === 0) {
       return NextResponse.json(
         { error: 'batch.campaign, batch.adset e batch.creatives são obrigatórios.' },
-        { status: 400 }
-      );
-    }
-  } else {
-    const { campaign, adset, ads } = body as any;
-    if (!campaign || !adset || !Array.isArray(ads) || ads.length === 0) {
-      return NextResponse.json(
-        { error: 'campaign, adset, ads (não-vazio) são obrigatórios.' },
         { status: 400 }
       );
     }
@@ -120,8 +137,8 @@ export async function POST(req: Request) {
       // The frozen context merges any user-supplied context (account name, pixel,
       // estrutura, etc. — already passed by the builder) with the frozen date
       // parts. account_id defaults into conta_id like the orchestrator does.
-      const userContext =
-        (isBatch ? (body as any).batch?.context : (body as any).context) ?? {};
+      // Always batch-shaped past the guard above; user context lives in batch.context.
+      const userContext = (body as any).batch?.context ?? {};
       const frozen_context = {
         ...userContext,
         conta_id: userContext.conta_id ?? acctId,

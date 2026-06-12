@@ -23,9 +23,16 @@ import {
   clampListLimit,
   isTransientMediaError,
   normalizeBatchInput,
+  buildClaimSql,
+  buildCancelSql,
+  classifyCancelOutcome,
+  shouldContinueDraining,
+  decodeVidCheckpoint,
+  runEnqueueTransaction,
   type CampaignJobStatus,
   type JobCounts,
   type RunnableJobView,
+  type CancelOutcome,
 } from './campaign-jobs-core';
 
 // Re-export the pure helpers + their types so callers (and tests) can import
@@ -37,9 +44,16 @@ export {
   clampListLimit,
   isTransientMediaError,
   normalizeBatchInput,
+  buildClaimSql,
+  buildCancelSql,
+  classifyCancelOutcome,
+  shouldContinueDraining,
+  decodeVidCheckpoint,
+  runEnqueueTransaction,
   type CampaignJobStatus,
   type JobCounts,
   type RunnableJobView,
+  type CancelOutcome,
 };
 
 // Wave-1 integration: meta-campaigns.ts now exports createCampaignBatch with the
@@ -147,36 +161,17 @@ export async function enqueueCampaignJobs(
   const broadcast_group_id =
     opts?.broadcast_group_id ?? globalThis.crypto.randomUUID();
 
-  const ids: number[] = [];
+  // The BEGIN/INSERT×N/COMMIT (or ROLLBACK on failure) lives in
+  // runEnqueueTransaction in ./campaign-jobs-core, which takes the leased client as
+  // an injected dependency. That keeps the all-or-nothing transaction logic
+  // dependency-free and unit-testable with a fake client (review fix #3) — we only
+  // own the pool lease/release here. total/counts are seeded with zeros by the DDL
+  // default and filled in by onEvent; broadcast_group_id is stamped on every row
+  // (even single-account) so history groups consistently.
   const client = await pool.connect();
+  let ids: number[];
   try {
-    await client.query('BEGIN');
-    for (const j of jobs) {
-      // total is computed by the orchestrator once it expands the batch; we seed
-      // counts with zeros and let onEvent fill them in. We DO stamp broadcast_group_id
-      // even for single-account jobs so history can always group consistently.
-      const res = await client.query(
-        `INSERT INTO campaign_jobs
-           (status, profile_name, account_id, account_name, broadcast_group_id, payload)
-         VALUES ('pending', $1, $2, $3, $4, $5::jsonb)
-         RETURNING id`,
-        [
-          j.profile_name,
-          j.account_id,
-          j.account_name ?? null,
-          broadcast_group_id,
-          JSON.stringify(j.payload),
-        ]
-      );
-      ids.push(Number(res.rows[0].id));
-    }
-    await client.query('COMMIT');
-  } catch (err) {
-    // Roll back so NO partial subset of the broadcast survives. The caller gets the
-    // throw and returns an error; because nothing committed, a user retry re-enqueues
-    // the FULL broadcast exactly once (no double-spend on the already-inserted rows).
-    await client.query('ROLLBACK');
-    throw err;
+    ids = await runEnqueueTransaction(client, jobs, broadcast_group_id);
   } finally {
     client.release();
   }
@@ -227,41 +222,11 @@ export async function enqueueCampaignJobs(
  */
 export async function claimNextCampaignJob(): Promise<CampaignJob | null> {
   await ensureCampaignJobsTable();
-  const res = await pool.query(
-    `UPDATE campaign_jobs SET
-        status = 'running',
-        started_at = COALESCE(started_at, now()),
-        leased_until = now() + ($1 || ' minutes')::interval
-      WHERE id = (
-        SELECT j.id FROM campaign_jobs j
-         WHERE
-           (
-             (
-               j.status = 'pending'
-               AND NOT EXISTS (
-                 SELECT 1 FROM campaign_jobs r
-                  WHERE r.profile_name = j.profile_name
-                    AND r.status = 'running'
-                    AND r.leased_until IS NOT NULL
-                    AND r.leased_until > now()
-               )
-             )
-             OR (
-               j.status = 'running'
-               AND (j.leased_until IS NULL OR j.leased_until < now())
-             )
-           )
-           -- LAST conjunct on purpose: only acquired for rows that already passed
-           -- the predicates above. Held by this claim's tx until commit, making
-           -- the per-profile claim decision mutually exclusive (see doc above).
-           AND pg_try_advisory_xact_lock(hashtext(j.profile_name))
-         ORDER BY j.id ASC
-         LIMIT 1
-         FOR UPDATE SKIP LOCKED
-      )
-      RETURNING *`,
-    [String(LEASE_MINUTES)]
-  );
+  // SQL text lives in buildClaimSql() in ./campaign-jobs-core (dependency-free) so
+  // the race-safety guarantees (advisory lock + SKIP LOCKED + the `<= now()` resume
+  // boundary) are asserted by importing+running the real builder in vitest, not by
+  // string-matching this file's bytes (review fix #3).
+  const res = await pool.query(buildClaimSql(), [String(LEASE_MINUTES)]);
   return (res.rows[0] as CampaignJob) ?? null;
 }
 
@@ -373,31 +338,14 @@ export async function finishJob(
  * simultaneous cancels (double-click, two tabs) could both read status='pending'
  * from the CTE and both return 'cancelled'.
  */
-export async function requestCancel(
-  id: number
-): Promise<'cancelled' | 'cancel_requested' | 'not_cancellable' | 'not_found'> {
+export async function requestCancel(id: number): Promise<CancelOutcome> {
   await ensureCampaignJobsTable();
-  const res = await pool.query(
-    `WITH prev AS (
-       SELECT status FROM campaign_jobs WHERE id = $1 FOR UPDATE
-     )
-     UPDATE campaign_jobs SET
-         status         = CASE WHEN prev.status = 'pending' THEN 'cancelled' ELSE campaign_jobs.status END,
-         cancel_requested = CASE WHEN prev.status = 'running' THEN TRUE ELSE campaign_jobs.cancel_requested END,
-         finished_at    = CASE WHEN prev.status = 'pending' THEN now() ELSE campaign_jobs.finished_at END
-       FROM prev
-       WHERE campaign_jobs.id = $1
-       RETURNING prev.status AS old_status, campaign_jobs.cancel_requested`,
-    [id]
-  );
-  const row = res.rows[0];
-  if (!row) return 'not_found';
-  // Only report 'cancelled' when THIS call actually performed the pending→cancelled
-  // flip (old_status was 'pending'). An already-cancelled job returns 'not_cancellable'
-  // so the route correctly returns 409 instead of a false-success 200.
-  if (row.old_status === 'pending') return 'cancelled';
-  if (row.cancel_requested) return 'cancel_requested';
-  return 'not_cancellable';
+  // SQL text (buildCancelSql) and the RETURNING-row→outcome decision
+  // (classifyCancelOutcome) both live in ./campaign-jobs-core so the double-cancel
+  // correctness (already-cancelled must NOT report a false-success 'cancelled') is
+  // tested behaviorally against real rows, not by grepping this file (review fix #3).
+  const res = await pool.query(buildCancelSql(), [id]);
+  return classifyCancelOutcome(res.rows[0]);
 }
 
 export interface ListJobsFilters {
@@ -598,22 +546,18 @@ function applyMediaCheckpoint(
       filename: original.filename,
     };
   } else if (stored.startsWith('vid:')) {
-    // The checkpoint is written as `vid:${video_id}|${thumbnail_url}`. Split on the
-    // FIRST '|' only — NOT rest.split('|') which silently discards anything after the
-    // first delimiter (review fix). Meta CDN thumbnail URLs carry query strings and,
-    // while '|' is not RFC-valid unencoded, it is not guaranteed absent from a signed
-    // CDN URL; a '|' inside the URL (or any future change to the stored format) would
-    // otherwise corrupt the thumbnail on resume WITHOUT error. video_id is everything
-    // before the first '|'; the thumbnail is everything after it (which itself may
-    // contain further '|').
-    const rest = stored.slice(4);
-    const sep = rest.indexOf('|');
-    const video_id = sep === -1 ? rest : rest.slice(0, sep);
-    const thumb = sep === -1 ? '' : rest.slice(sep + 1);
+    // The checkpoint is written as `vid:${video_id}|${thumbnail_url}`. decodeVidCheckpoint
+    // (pure, unit-tested in ./campaign-jobs-core) splits on the FIRST '|' via indexOf —
+    // NOT rest.split('|') which silently discards anything after the first delimiter
+    // (review fix). Meta CDN thumbnail URLs carry query strings and, while '|' is not
+    // RFC-valid unencoded, it is not guaranteed absent from a signed CDN URL; a '|'
+    // inside the URL (or any future change to the stored format) would otherwise
+    // corrupt the thumbnail on resume WITHOUT error.
+    const { video_id, thumbnail_url } = decodeVidCheckpoint(stored);
     creative.media = {
       source: 'meta',
       video_id,
-      video_thumbnail_url: thumb || undefined,
+      video_thumbnail_url: thumbnail_url,
       filename: original.filename,
     };
   }
@@ -821,17 +765,17 @@ export async function runQueueTick(
     claimed++;
     const outcome = await processJob(job, startedAtMs, budgetMs);
     if (outcome === 'finished') finished++;
-    // 'yield' = a TRANSIENT throttle paused this job with budget still remaining.
-    // We MUST stop draining now: the job was just released (lease NULL) and is the
+    // shouldContinueDraining (pure, unit-tested in ./campaign-jobs-core) encodes the
+    // loop control: 'yield' = a TRANSIENT throttle paused this job with budget still
+    // remaining → STOP draining now. The job was just released (lease NULL) and is the
     // lowest-id runnable row for its profile, so the next claimNextCampaignJob would
     // immediately re-claim it and busy-retry the throttled endpoint until the budget
-    // expires — hammering the very Meta call that is rate-limiting us (review fix
-    // #1). The ~2-minute cron cadence is the backoff; the next tick resumes it.
-    if (outcome === 'yield') break;
-    // 'budget' = the TIME budget ran out for THIS job. The job stays 'running'
-    // (lease released) for the next tick. We keep looping: either the top-of-loop
-    // budget check fails and we exit, or budget remains and another profile has
-    // work we can still drain this tick.
+    // expires — hammering the very Meta call that is rate-limiting us (review fix #1).
+    // The ~2-minute cron cadence is the backoff; the next tick resumes it.
+    // 'finished'/'budget' keep looping: on 'budget' the job stays 'running' (lease
+    // released) for the next tick, but if budget remains another profile may still
+    // have drainable work; the top-of-loop budget check exits when time is up.
+    if (!shouldContinueDraining(outcome)) break;
   }
 
   return { claimed, finished };
