@@ -32,6 +32,15 @@ import type { CreativeMedia, SeparationLevel } from '@/lib/batch-contract';
 //   lib/creative-name.ts            (B1b / A-wave)
 // tsc passes because those files exist on disk; they must be committed by
 // their respective owners.
+//
+// FIX (spec-review B1a, commit fix(B1a)):
+// The original B1a+B1b combined commit left the submit path broken: it set
+// queuedJobIds/showQueueWidget/enqueueError but never rendered them in JSX,
+// while also leaving dead NDJSON-era state (events/doneInfo/errorInfo/
+// broadcastProgress/broadcastSummary) whose panels were permanently hidden.
+// This commit removes the dead state and wires QueueWidget + enqueueError into
+// the Publish section so the user sees progress and error feedback after
+// clicking "Publicar".
 // ────────────────────────────────────────────────────────────────────────────
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1974,18 +1983,6 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
   // ── Publish state ─────────────────────────────────────────────────────────
   const [running, setRunning] = useState(false);
-  const [events, setEvents] = useState<any[]>([]);
-  const [doneInfo, setDoneInfo] = useState<{ campaign_ids: string[]; adset_ids: string[]; ad_ids: string[] } | null>(null);
-  const [errorInfo, setErrorInfo] = useState<{ step?: string; error?: string } | null>(null);
-  // Broadcast: rastreia conta atual, progresso e resumo final. Em modo
-  // single-account, esses estados ficam vazios e a UI mantém o comportamento
-  // antigo (panel verde "✓ Criado com sucesso" via doneInfo).
-  const [broadcastProgress, setBroadcastProgress] = useState<{ current: number; total: number; account_id: string } | null>(null);
-  const [broadcastSummary, setBroadcastSummary] = useState<{
-    success: Array<{ account_id: string; campaign_ids: string[]; adset_ids: string[]; ad_ids: string[] }>;
-    failed: Array<{ account_id: string; error: string }>;
-    total: number;
-  } | null>(null);
 
   // ── Validação ────────────────────────────────────────────────────────────
   const totals = useMemo(() => {
@@ -2073,11 +2070,6 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   // ── Submit ───────────────────────────────────────────────────────────────
   const submit = async () => {
     setRunning(true);
-    setEvents([]);
-    setDoneInfo(null);
-    setErrorInfo(null);
-    setBroadcastProgress(null);
-    setBroadcastSummary(null);
 
     const status = publishPaused ? 'PAUSED' : 'ACTIVE';
     const selectedPages = pages.filter(p => pageIds.includes(p.id));
@@ -3523,128 +3515,25 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           </button>
         </div>
 
-        {(events.length > 0 || doneInfo || errorInfo) && (
-          <div className="mt-3 border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden">
-            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
-              Progresso
-            </div>
-            <div className="bg-gray-900 text-gray-100 font-mono text-[11px] leading-relaxed px-3 py-2 max-h-64 overflow-y-auto">
-              {events.map((e, i) => <EventLine key={i} e={e} />)}
-            </div>
+        {/* Enqueue error (e.g. HTTP error, missing jobs in response, partial token failures) */}
+        {enqueueError && (
+          <div className="mt-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg p-3">
+            <p className="text-xs font-bold text-rose-800 dark:text-rose-400">Erro ao enfileirar</p>
+            <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-1">{enqueueError}</p>
           </div>
         )}
 
-        {doneInfo && (
-          <div className="mt-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
-            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-400">✓ Criado com sucesso</p>
-            <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
-              {doneInfo.campaign_ids.length} campanha(s) · {doneInfo.adset_ids.length} conjunto(s) · {doneInfo.ad_ids.length} anúncio(s)
-            </p>
-            {doneInfo.campaign_ids[0] && (
-              <a
-                href={`https://business.facebook.com/adsmanager/manage/campaigns?act=${accountId.replace('act_', '')}&selected_campaign_ids=${doneInfo.campaign_ids.join(',')}`}
-                target="_blank" rel="noopener noreferrer"
-                className="inline-block mt-2 text-[11px] text-emerald-700 dark:text-emerald-400 underline font-semibold"
-              >
-                Abrir no Ads Manager →
-              </a>
-            )}
+        {/* Queue widget — shown after a successful enqueue; polls job progress */}
+        {showQueueWidget && queueRows.length > 0 && (
+          <div className="mt-3">
+            <QueueWidget
+              jobs={queueRows}
+              onClose={() => setShowQueueWidget(false)}
+            />
           </div>
         )}
 
-        {errorInfo && (
-          <div className="mt-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg p-4">
-            <p className="text-xs font-bold text-rose-800 dark:text-rose-400">✗ Erro {errorInfo.step ? `em ${errorInfo.step}` : ''}</p>
-            <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-1">{errorInfo.error}</p>
-          </div>
-        )}
 
-        {/* Broadcast: progresso em tempo real (conta atual / total) */}
-        {broadcastProgress && (
-          <div className="mt-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3">
-            <p className="text-[11px] font-bold text-indigo-800 dark:text-indigo-400">
-              Broadcast em andamento — conta {broadcastProgress.current}/{broadcastProgress.total}
-            </p>
-            <p className="text-[11px] text-indigo-700 dark:text-indigo-400 mt-0.5 font-mono">
-              {(() => { const a = accounts.find(x => x.account_id === broadcastProgress.account_id); return (a?.nickname || a?.account_name) ?? broadcastProgress.account_id; })()}
-              <span className="text-indigo-400 dark:text-indigo-500"> ({broadcastProgress.account_id})</span>
-            </p>
-          </div>
-        )}
-
-        {/* Broadcast: resumo final por conta */}
-        {broadcastSummary && (
-          <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-            <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
-                Resumo do broadcast
-              </span>
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">✓ {broadcastSummary.success.length}</span>
-                {' · '}
-                <span className="text-rose-700 dark:text-rose-400 font-semibold">✗ {broadcastSummary.failed.length}</span>
-                {' / '}
-                {broadcastSummary.total} contas
-              </span>
-            </div>
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {broadcastSummary.success.map(s => {
-                const acct = accounts.find(a => a.account_id === s.account_id);
-                return (
-                  <div key={`ok-${s.account_id}`} className="px-4 py-2 flex items-center gap-3 bg-white dark:bg-gray-900">
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">✓</span>
-                    <span className="text-[11px] flex-1 truncate text-gray-800 dark:text-gray-100">
-                      {(acct?.nickname || acct?.account_name) ?? s.account_id}
-                      <span className="text-gray-400 dark:text-gray-500 font-mono"> ({s.account_id})</span>
-                    </span>
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">
-                      {s.campaign_ids.length} camp · {s.ad_ids.length} ads
-                    </span>
-                    {s.campaign_ids[0] && (
-                      <a
-                        href={`https://business.facebook.com/adsmanager/manage/campaigns?act=${s.account_id.replace('act_', '')}&selected_campaign_ids=${s.campaign_ids.join(',')}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="text-[11px] text-emerald-700 dark:text-emerald-400 underline font-semibold shrink-0"
-                      >
-                        abrir →
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-              {broadcastSummary.failed.map(f => {
-                const acct = accounts.find(a => a.account_id === f.account_id);
-                return (
-                  <div key={`err-${f.account_id}`} className="px-4 py-2 bg-rose-50/40 dark:bg-rose-950/20">
-                    <div className="flex items-center gap-3">
-                      <span className="text-rose-600 dark:text-rose-400 font-bold text-[11px]">✗</span>
-                      <span className="text-[11px] flex-1 truncate text-gray-800 dark:text-gray-100">
-                        {(acct?.nickname || acct?.account_name) ?? f.account_id}
-                        <span className="text-gray-400 dark:text-gray-500 font-mono"> ({f.account_id})</span>
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-1 ml-6 break-words">{f.error}</p>
-                  </div>
-                );
-              })}
-            </div>
-            {broadcastSummary.failed.length > 0 && (
-              <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const failedIds = broadcastSummary.failed.map(f => f.account_id);
-                    setAccountIds(failedIds);
-                    setBroadcastSummary(null);
-                  }}
-                  className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 underline"
-                >
-                  Selecionar apenas as {broadcastSummary.failed.length} conta(s) que falharam para nova tentativa
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </MainSection>
 
       <CampaignNameModal
@@ -3945,21 +3834,4 @@ function CarouselCardEditor({
       </div>
     </div>
   );
-}
-
-function EventLine({ e }: { e: any }) {
-  let txt = '';
-  let color = 'text-gray-100';
-  switch (e.type) {
-    case 'start':            txt = `▶ Iniciando criação de ${e.total} anúncio(s)…`; break;
-    case 'campaign_created': txt = `✓ Campanha criada (${e.id})`; color = 'text-emerald-300'; break;
-    case 'adset_created':    txt = `  ✓ Conjunto criado (${e.id})`; color = 'text-emerald-300'; break;
-    case 'ad_progress':      txt = `    → Anúncio ${e.index}/${e.total}: ${e.message}`; color = 'text-indigo-300'; break;
-    case 'creative_created': txt = `      ✓ Creative ${e.index} criado (${e.id})`; color = 'text-emerald-300'; break;
-    case 'ad_created':       txt = `      ✓ Anúncio ${e.index} criado (${e.id})`; color = 'text-emerald-300'; break;
-    case 'done':             txt = `✓✓ Concluído. ${e.ad_ids?.length} ad(s) publicados.`; color = 'text-emerald-400'; break;
-    case 'error':            txt = `✗ Erro em ${e.step ?? '?'}: ${e.error}` + (e.fbCode ? ` (FB code ${e.fbCode})` : ''); color = 'text-rose-400'; break;
-    default:                 txt = JSON.stringify(e);
-  }
-  return <div className={color}>{txt}</div>;
 }
