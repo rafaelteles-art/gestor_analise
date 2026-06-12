@@ -58,6 +58,30 @@ export function filterOptions(options: SSOption[], query: string): SSOption[] {
   });
 }
 
+/**
+ * Groups a flat options array by the `group` field, preserving the order of
+ * first appearance of each group name. Options without a group are placed under
+ * the empty-string sentinel key ''.
+ *
+ * Returns an array of { group, items } in first-occurrence order so that
+ * callers (the component's useMemo and unit tests) share identical logic.
+ */
+export function groupOptions(
+  options: SSOption[],
+): { group: string; items: SSOption[] }[] {
+  const order: string[] = [];
+  const map = new Map<string, SSOption[]>();
+  for (const o of options) {
+    const g = o.group ?? '';
+    if (!map.has(g)) {
+      order.push(g);
+      map.set(g, []);
+    }
+    map.get(g)!.push(o);
+  }
+  return order.map(g => ({ group: g, items: map.get(g)! }));
+}
+
 // ─── Tailwind class helpers ──────────────────────────────────────────────────
 
 function cls(...parts: (string | false | null | undefined)[]): string {
@@ -103,20 +127,14 @@ export function SearchableSelect({
 
   const filtered = useMemo(() => filterOptions(options, query), [options, query]);
 
-  // Preserve group order: collect groups in their first-appearance order.
-  const groups = useMemo(() => {
-    const seen: string[] = [];
-    for (const o of filtered) {
-      const g = o.group ?? '';
-      if (!seen.includes(g)) seen.push(g);
-    }
-    return seen;
-  }, [filtered]);
+  // Preserve group order: use the shared groupOptions helper.
+  const groupedData = useMemo(() => groupOptions(filtered), [filtered]);
+  const groups = useMemo(() => groupedData.map(gd => gd.group), [groupedData]);
 
   // Flat ordered list for keyboard navigation (same order as rendered).
   const flatItems = useMemo(
-    () => groups.flatMap(g => filtered.filter(o => (o.group ?? '') === g)),
-    [groups, filtered],
+    () => groupedData.flatMap(gd => gd.items),
+    [groupedData],
   );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -291,10 +309,7 @@ export function SearchableSelect({
                   : `Nenhum resultado para "${query}"`}
               </p>
             ) : (
-              groups.map(group => {
-                const groupItems = filtered.filter(
-                  o => (o.group ?? '') === group,
-                );
+              groupedData.map(({ group, items: groupItems }) => {
                 return (
                   <div key={group}>
                     {/* Group header (only rendered when group name is non-empty) */}

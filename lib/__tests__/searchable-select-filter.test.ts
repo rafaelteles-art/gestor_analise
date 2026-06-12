@@ -1,16 +1,16 @@
 /**
- * Unit tests for the filterOptions pure function exported from
- * app/components/SearchableSelect.tsx.
+ * Unit tests for the filterOptions and groupOptions pure functions exported
+ * from app/components/SearchableSelect.tsx.
  *
  * Coverage:
  *  - accent-insensitive match  ('publico' matches 'Público 1%')
  *  - sublabel match            (account id substring)
- *  - group order preservation
+ *  - group order preservation  (via groupOptions, the actual grouping logic)
  *  - empty query returns all options unchanged
  */
 
 import { describe, it, expect } from 'vitest';
-import { filterOptions } from '../../app/components/SearchableSelect';
+import { filterOptions, groupOptions } from '../../app/components/SearchableSelect';
 import type { SSOption } from '../../app/components/SearchableSelect';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -22,7 +22,7 @@ const AUDIENCES: SSOption[] = [
   { value: 'a4', label: 'Remarketing 30d', sublabel: '222222222', group: 'Salvo' },
 ];
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+// ─── filterOptions tests ──────────────────────────────────────────────────────
 
 describe('filterOptions', () => {
   it('empty query returns all options unchanged (same reference order)', () => {
@@ -62,21 +62,6 @@ describe('filterOptions', () => {
     expect(result.map(o => o.value)).toEqual(['a2']);
   });
 
-  it('group order preservation: groups appear in first-occurrence order', () => {
-    // All options returned — verify the order is Salvo items first, then Lookalike
-    const result = filterOptions(AUDIENCES, '');
-    const groups = result.map(o => o.group);
-    // Salvo comes first (a1, a2, a4), then Lookalike (a3)
-    expect(groups).toEqual(['Salvo', 'Salvo', 'Lookalike', 'Salvo']);
-  });
-
-  it('group order preservation with a narrowing query: surviving groups preserve original order', () => {
-    // 'lookalike' only matches a3 (group Lookalike) and also 'Lookalike BR 1%' label
-    const result = filterOptions(AUDIENCES, 'lookalike');
-    expect(result.map(o => o.value)).toEqual(['a3']);
-    expect(result[0].group).toBe('Lookalike');
-  });
-
   it('no match returns empty array', () => {
     const result = filterOptions(AUDIENCES, 'xyzxyzxyz_nomatch');
     expect(result).toEqual([]);
@@ -103,5 +88,87 @@ describe('filterOptions', () => {
     ];
     const result = filterOptions(simple, 'sao paulo');
     expect(result.map(o => o.value)).toEqual(['x']);
+  });
+});
+
+// ─── groupOptions tests ───────────────────────────────────────────────────────
+//
+// These tests exercise the actual grouping logic (groupOptions), which the
+// React component's useMemos delegate to. A test that only called
+// filterOptions('') cannot reach this path because the empty-query early-return
+// skips all filtering and returns the original array unchanged.
+
+describe('groupOptions', () => {
+  it('groups appear in first-occurrence order (Salvo before Lookalike)', () => {
+    // AUDIENCES order: a1 Salvo, a2 Salvo, a3 Lookalike, a4 Salvo
+    // First occurrence: Salvo at index 0, Lookalike at index 2
+    const groups = groupOptions(AUDIENCES);
+    expect(groups.map(g => g.group)).toEqual(['Salvo', 'Lookalike']);
+  });
+
+  it('items within each group are in original array order', () => {
+    const groups = groupOptions(AUDIENCES);
+    const salvo = groups.find(g => g.group === 'Salvo')!;
+    const lookalike = groups.find(g => g.group === 'Lookalike')!;
+    expect(salvo.items.map(o => o.value)).toEqual(['a1', 'a2', 'a4']);
+    expect(lookalike.items.map(o => o.value)).toEqual(['a3']);
+  });
+
+  it('group order is determined by first occurrence, not alphabetical', () => {
+    // Explicitly construct an array where alphabetical order differs from first-occurrence order
+    const options: SSOption[] = [
+      { value: 'z1', label: 'Zebra', group: 'Zoo' },
+      { value: 'a1', label: 'Ant', group: 'Animals' },
+      { value: 'z2', label: 'Zebu', group: 'Zoo' },
+    ];
+    const groups = groupOptions(options);
+    // Zoo appears first in the array, so it must be first in the result
+    expect(groups.map(g => g.group)).toEqual(['Zoo', 'Animals']);
+  });
+
+  it('options without a group key are collected under the empty-string sentinel', () => {
+    const options: SSOption[] = [
+      { value: 'x', label: 'São Paulo' },
+      { value: 'y', label: 'Rio de Janeiro' },
+    ];
+    const groups = groupOptions(options);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].group).toBe('');
+    expect(groups[0].items.map(o => o.value)).toEqual(['x', 'y']);
+  });
+
+  it('mixed grouped and ungrouped options: ungrouped sentinel preserves first-occurrence position', () => {
+    const options: SSOption[] = [
+      { value: 'u1', label: 'Ungrouped first' },
+      { value: 'g1', label: 'Grouped', group: 'G' },
+      { value: 'u2', label: 'Ungrouped second' },
+    ];
+    const groups = groupOptions(options);
+    // '' appears at index 0, 'G' at index 1
+    expect(groups.map(gd => gd.group)).toEqual(['', 'G']);
+    expect(groups[0].items.map(o => o.value)).toEqual(['u1', 'u2']);
+    expect(groups[1].items.map(o => o.value)).toEqual(['g1']);
+  });
+
+  it('empty input returns empty array', () => {
+    expect(groupOptions([])).toEqual([]);
+  });
+
+  it('group order is preserved after filterOptions narrows the set', () => {
+    // After filtering by 'lookalike', only a3 (Lookalike group) survives.
+    // groupOptions should return a single group.
+    const filtered = filterOptions(AUDIENCES, 'lookalike');
+    const groups = groupOptions(filtered);
+    expect(groups.map(g => g.group)).toEqual(['Lookalike']);
+    expect(groups[0].items.map(o => o.value)).toEqual(['a3']);
+  });
+
+  it('combined filter+group: "1%" matches a1, a2, a3 — Salvo group precedes Lookalike', () => {
+    // a1 Salvo, a2 Salvo, a3 Lookalike all match "1%"; a4 (Remarketing 30d) does not
+    const filtered = filterOptions(AUDIENCES, '1%');
+    const groups = groupOptions(filtered);
+    expect(groups.map(g => g.group)).toEqual(['Salvo', 'Lookalike']);
+    expect(groups[0].items.map(o => o.value)).toEqual(['a1', 'a2']);
+    expect(groups[1].items.map(o => o.value)).toEqual(['a3']);
   });
 });
