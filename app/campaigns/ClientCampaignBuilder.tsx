@@ -1567,6 +1567,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   useEffect(() => {
     setCreatedCatalog(null);
     setCreateCatalogError(null);
+    // Clear any pending deferred product-set apply from a previous account's preset.
+    pendingProductSetRef.current = null;
   }, [accountId]);
 
   useEffect(() => {
@@ -1806,16 +1808,51 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         skipped.push('catálogo');
       }
     }
-    // Product set (só aplica se o catálogo bateu e o set existe nele)
+    // Product set — deferred: when the preset also sets a new catalog, the
+    // productSets array won't reflect that catalog until its fetch effect runs
+    // on the next render (after setCatalogId above). We store the desired id in
+    // a ref and a useEffect below applies it once productSets has reloaded.
     if (c.product_set?.id) {
-      if (productSets.some(x => x.id === c.product_set!.id)) setProductSetId(c.product_set.id);
-      else skipped.push('conjunto de produtos');
+      // If the catalog was already the same (or no catalog in preset), check now.
+      const catalogChanged = c.catalog?.id && c.catalog.id !== catalogId;
+      if (!catalogChanged) {
+        // Catalog unchanged — productSets is already current; check immediately.
+        if (productSets.some(x => x.id === c.product_set!.id)) setProductSetId(c.product_set.id);
+        else skipped.push('conjunto de produtos');
+      } else {
+        // Catalog changed — productSets will reload on the next render cycle.
+        // Store the desired id; the effect below will apply it.
+        pendingProductSetRef.current = c.product_set.id;
+      }
     }
     return skipped;
   };
 
   // Notice combinado de campos ignorados na última aplicação de preset.
   const [presetSkipNotice, setPresetSkipNotice] = useState<string | null>(null);
+
+  // Ref that holds a product-set id to apply once productSets reloads after a
+  // catalog change triggered by applyAccountScopedPreset. Cleared on apply or
+  // on account change.
+  const pendingProductSetRef = useRef<string | null>(null);
+
+  // When productSets reloads, check if there's a deferred product-set to apply.
+  useEffect(() => {
+    const pending = pendingProductSetRef.current;
+    if (!pending) return;
+    pendingProductSetRef.current = null;
+    if (productSets.some(x => x.id === pending)) {
+      setProductSetId(pending);
+    } else {
+      // It's not in the new catalog's sets — surface the skip notice.
+      setPresetSkipNotice(prev =>
+        prev
+          ? prev + ', conjunto de produtos'
+          : 'Template aplicado; ignorados (não existem nesta conta): conjunto de produtos'
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productSets]);
 
   const handleApplyPreset = (name: string) => {
     setActivePresetName(name);
@@ -2425,6 +2462,19 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               Excluir
             </button>
           </div>
+          {/* F6 — campos ignorados na aplicação do preset (apply-if-valid-else-skip) */}
+          {presetSkipNotice && (
+            <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
+              <span className="shrink-0 font-bold">Atenção:</span>
+              <span>{presetSkipNotice}</span>
+              <button
+                type="button"
+                onClick={() => setPresetSkipNotice(null)}
+                className="ml-auto shrink-0 text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 font-bold leading-none"
+                title="Fechar"
+              >×</button>
+            </div>
+          )}
         </SubBlock>
 
         {/* IDENTIFICAÇÃO */}
@@ -2952,6 +3002,33 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
             = <strong>{totals.camp}</strong> camp · <strong>{totals.sets}</strong> conj · <strong>{totals.ads}</strong> anúncios ({ads.length} criativo{ads.length === 1 ? '' : 's'} drafted)
           </p>
+          {/* F7 — separation level: how creatives are fanned out across campaigns */}
+          <div className="mt-3">
+            <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-2">Nível de separação de criativos</p>
+            <div className="grid grid-cols-3 gap-2">
+              <OptionCard<SeparationLevel>
+                value="campaign"
+                selected={separationLevel === 'campaign'}
+                onClick={setSeparationLevel}
+                title="Por campanha"
+                desc="Cada criativo gera campanhas independentes (padrão)"
+              />
+              <OptionCard<SeparationLevel>
+                value="adset"
+                selected={separationLevel === 'adset'}
+                onClick={setSeparationLevel}
+                title="Por conjunto"
+                desc="Criativos separados no nível de conjunto de anúncios"
+              />
+              <OptionCard<SeparationLevel>
+                value="ad"
+                selected={separationLevel === 'ad'}
+                onClick={setSeparationLevel}
+                title="Por anúncio"
+                desc="Todos os criativos no mesmo conjunto, separados por anúncio"
+              />
+            </div>
+          </div>
         </SubBlock>
 
         {/* ORÇAMENTO */}
@@ -3405,6 +3482,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 loadingProductSets={loadingProductSets}
                 catalogId={catalogId}
                 defaultPsid={productSetId}
+                openDrivePickerFn={GOOGLE_CLIENT_ID && GOOGLE_API_KEY ? openDrivePicker : undefined}
+                driveConnected={driveConnected}
               />
             ))}
             <button type="button" onClick={addAd}
@@ -3575,6 +3654,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 function AdEditor({
   index, ad, isDPA, canRemove, onChange, onRemove, uploadFor,
   productSets, loadingProductSets, catalogId, defaultPsid,
+  openDrivePickerFn, driveConnected,
 }: {
   index: number;
   ad: AdDraft;
@@ -3587,9 +3667,36 @@ function AdEditor({
   loadingProductSets: boolean;
   catalogId: string;
   defaultPsid: string;
+  /** F4 — Drive Picker opener, passed from the main builder. */
+  openDrivePickerFn?: () => Promise<{ file_id: string; filename: string; mime: string } | null>;
+  /** F4 — Whether the Drive OAuth connection is live (null = still probing). */
+  driveConnected?: boolean | null;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [driveImporting, setDriveImporting] = useState(false);
+
+  const handleDriveImport = async () => {
+    if (!openDrivePickerFn) return;
+    setDriveImporting(true);
+    try {
+      const result = await openDrivePickerFn();
+      if (!result) return; // user cancelled
+      // Importing from Drive: clear any direct-uploaded media and set drive_media.
+      onChange({
+        drive_media: result,
+        image_hash: '',
+        video_id: '',
+        video_thumbnail_url: '',
+        image_preview: undefined,
+        media_kind: result.mime.startsWith('video/') ? 'video' : 'image',
+      });
+    } catch (e: any) {
+      alert('Erro ao importar do Drive: ' + (e?.message ?? String(e)));
+    } finally {
+      setDriveImporting(false);
+    }
+  };
 
   const handleSingleUpload = async (file: File) => {
     setUploading(true);
@@ -3689,7 +3796,7 @@ function AdEditor({
           </div>
           <div className="mt-3">
             <Field label="Mídia (imagem ou vídeo) *" hint="Imagem: JPG/PNG, ideal 1200×628 (1.91:1) ou 1080×1080 (1:1). Vídeo: MP4/MOV, até ~1GB; miniatura é gerada pela Meta em ~5-30s.">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleSingleUpload(f); }} />
                 <button type="button" onClick={() => fileRef.current?.click()}
@@ -3699,6 +3806,28 @@ function AdEditor({
                     ? (ad.media_kind === 'video' ? 'Enviando vídeo…' : 'Enviando…')
                     : (ad.video_id || ad.image_hash ? 'Trocar mídia' : 'Fazer upload')}
                 </button>
+                {/* F4 — Drive import button (only shown when picker is configured) */}
+                {openDrivePickerFn && (
+                  <button
+                    type="button"
+                    onClick={handleDriveImport}
+                    disabled={driveImporting || uploading}
+                    title={driveConnected === false ? 'Drive não conectado — clique para autorizar' : 'Importar mídia do Google Drive'}
+                    className="text-xs px-3 py-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {driveImporting ? 'Importando…' : (
+                      <>
+                        <span className="font-bold text-[10px]">▲</span>
+                        {ad.drive_media ? 'Trocar Drive' : 'Importar do Drive'}
+                      </>
+                    )}
+                  </button>
+                )}
+                {ad.drive_media && !driveImporting && (
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono truncate max-w-[160px]" title={ad.drive_media.filename}>
+                    Drive: {ad.drive_media.filename}
+                  </span>
+                )}
                 {ad.media_kind === 'video' && ad.video_thumbnail_url ? (
                   <img src={ad.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" />
                 ) : ad.image_preview && (
