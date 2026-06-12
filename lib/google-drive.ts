@@ -33,17 +33,21 @@ async function ensureSettingsTable() {
 }
 
 export async function getGoogleDriveOAuth(): Promise<DriveOAuthRecord | null> {
-  try {
-    await ensureSettingsTable();
-    const res = await pool.query(
-      `SELECT value FROM app_settings WHERE key = $1`,
-      [SETTINGS_KEY]
-    );
-    if (res.rows.length === 0) return null;
-    return JSON.parse(res.rows[0].value) as DriveOAuthRecord;
-  } catch {
-    return null;
-  }
+  // NOTE: do NOT wrap in a blanket try/catch here.
+  // A genuine "not connected" case is a 0-row result → return null.
+  // DB connection failures (pool timeout/exhaustion) or corrupt-JSON must propagate
+  // so that isTransientMediaError() in campaign-jobs-core can classify them as
+  // transient (network/TypeError) instead of silently returning null → DriveAuthError
+  // (permanent), which would permanently kill a campaign job on a momentary DB blip.
+  await ensureSettingsTable();
+  const res = await pool.query(
+    `SELECT value FROM app_settings WHERE key = $1`,
+    [SETTINGS_KEY]
+  );
+  if (res.rows.length === 0) return null;
+  // JSON.parse errors (corrupt stored value) propagate intentionally — they should
+  // surface as a visible Error rather than silently masking data corruption.
+  return JSON.parse(res.rows[0].value) as DriveOAuthRecord;
 }
 
 export async function setGoogleDriveOAuth(record: DriveOAuthRecord): Promise<void> {
