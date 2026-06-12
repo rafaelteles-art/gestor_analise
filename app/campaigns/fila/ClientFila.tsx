@@ -697,28 +697,6 @@ export default function ClientFila() {
   // Keyset cursor: id of the oldest job in the currently-loaded set.
   const beforeIdRef = useRef<number | undefined>(undefined);
 
-  // ─── Race-condition guards ───────────────────────────────────────────────────
-  //
-  // fetchGenRef: monotonically-increasing "generation" counter.
-  //   - Incremented each time a NEW logical fetch sequence begins (reset=true, or
-  //     a fresh load-more that the caller is allowed to start).
-  //   - Every async step inside fetchJobs captures the generation at entry and
-  //     bails out if a newer fetch has since started. This prevents a slower
-  //     earlier request from overwriting the results of a faster newer request
-  //     (the out-of-order / stale-response race described in the quality review).
-  //
-  // inFlightRef: boolean re-entrancy gate.
-  //   - Set to true for the entire duration of a fetchJobs call.
-  //   - For append-mode calls (reset=false): if already in-flight, return
-  //     immediately. This prevents duplicate-row corruption when handleLoadMore
-  //     or the auto-refresh interval fires while a fetch is still running —
-  //     both would have read the same beforeIdRef.current and appended the same
-  //     rows (duplicate React keys + pagination corruption).
-  //   - For reset-mode calls (reset=true): always allowed to start; only the
-  //     generation is incremented so stale in-flight responses are discarded.
-  const fetchGenRef = useRef<number>(0);
-  const inFlightRef = useRef<boolean>(false);
-
   // ─── Fetch ──────────────────────────────────────────────────────────────────
 
   /**
@@ -734,29 +712,9 @@ export default function ClientFila() {
    * until it accumulates at least one visible row OR the API reports no more
    * pages. The "Carregar mais" button uses the raw API hasMore so users can
    * always continue paginating even if visible rows per page are sparse.
-   *
-   * Race-condition safety:
-   *   - reset=true: increments fetchGenRef so any slower in-flight request
-   *     (from a previous filter or Atualizar click) will detect the stale
-   *     generation after its next await and discard its response.
-   *   - reset=false (load-more): if another fetch is already in flight, returns
-   *     immediately to prevent re-entrancy and the resulting duplicate rows.
    */
   const fetchJobs = useCallback(
     async (reset: boolean) => {
-      if (!reset && inFlightRef.current) {
-        // Append-mode re-entrancy guard: drop silently. The caller (handleLoadMore
-        // or auto-refresh) fired while a prior fetch is still running with the
-        // same cursor — letting it proceed would duplicate rows.
-        return;
-      }
-
-      // Capture / bump the generation BEFORE any await so that any already-
-      // running (slower) fetch — which captured the previous generation — will
-      // detect that it is now stale and discard its response.
-      const myGen = reset ? ++fetchGenRef.current : fetchGenRef.current;
-
-      inFlightRef.current = true;
       setLoading(true);
       setError(null);
       try {
@@ -782,18 +740,8 @@ export default function ClientFila() {
           }
 
           const res = await fetch(`/api/campaigns/jobs?${params.toString()}`);
-
-          // Stale-response check: after every await, verify that this fetch
-          // is still the active generation. A newer reset (filter change /
-          // Atualizar) may have fired while we were awaiting the network.
-          if (fetchGenRef.current !== myGen) return;
-
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
-
-          // Second stale check after the JSON parse (another await).
-          if (fetchGenRef.current !== myGen) return;
-
           const fetched: CampaignJobListRow[] = data.jobs ?? [];
 
           rawHasMore = fetched.length === PAGE_SIZE;
@@ -819,11 +767,6 @@ export default function ClientFila() {
           if (!rawHasMore || visibleSoFar.length > 0) break;
         } while (autoPageCount < MAX_AUTO_PAGES);
 
-        // Final stale check before committing state mutations — the multi-page
-        // loop above can span several round-trips; another fetch may have started
-        // mid-loop.
-        if (fetchGenRef.current !== myGen) return;
-
         // Persist cursor for future load-more / refresh
         beforeIdRef.current = currentCursor;
 
@@ -834,16 +777,9 @@ export default function ClientFila() {
         // independent of the date filter so the button never disappears prematurely.
         setHasMore(rawHasMore);
       } catch (e: any) {
-        // Only surface the error if this fetch is still current.
-        if (fetchGenRef.current === myGen) {
-          setError(e.message);
-        }
+        setError(e.message);
       } finally {
-        inFlightRef.current = false;
-        // Only clear loading spinner if this is still the active generation.
-        if (fetchGenRef.current === myGen) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     },
     [filters]
