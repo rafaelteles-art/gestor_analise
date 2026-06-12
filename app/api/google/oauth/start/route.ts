@@ -8,6 +8,30 @@ export const runtime = 'nodejs';
 const STATE_COOKIE = 'google_oauth_state';
 
 /**
+ * Returns the public-facing base URL (no trailing slash).
+ *
+ * Priority order:
+ *  1. NEXT_PUBLIC_APP_URL env var — set this in production to the canonical
+ *     public URL (e.g. https://v2-media-lab--v2-media-lab.us-central1.hosted.app).
+ *  2. x-forwarded-proto + x-forwarded-host — Firebase App Hosting / Cloud Run
+ *     load-balancer headers; reliable when NEXT_PUBLIC_APP_URL is absent.
+ *  3. req.nextUrl.origin — accurate in local dev; may return the internal
+ *     Cloud Run host in production (see daily-sync/route.ts:18 for the same
+ *     warning), so it is intentionally the last resort.
+ */
+function getPublicBaseUrl(req: NextRequest): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
+  }
+  const proto = req.headers.get('x-forwarded-proto');
+  const host = req.headers.get('x-forwarded-host');
+  if (proto && host) {
+    return `${proto}://${host}`;
+  }
+  return req.nextUrl.origin;
+}
+
+/**
  * GET /api/google/oauth/start
  * Redirects the user to Google's OAuth consent screen.
  * Generates a random `state` token, stores it in a short-lived httpOnly
@@ -26,8 +50,8 @@ export async function GET(req: NextRequest) {
   // Generate a cryptographically random state token (16 bytes = 32 hex chars).
   const state = randomBytes(16).toString('hex');
 
-  const origin = req.nextUrl.origin;
-  const redirectUri = `${origin}/api/google/oauth/callback`;
+  const baseUrl = getPublicBaseUrl(req);
+  const redirectUri = `${baseUrl}/api/google/oauth/callback`;
 
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   authUrl.searchParams.set('client_id', clientId);

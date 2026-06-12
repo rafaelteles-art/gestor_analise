@@ -129,7 +129,13 @@ export async function getDriveFileMeta(
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
+      // Bust the cache — the access token is dead; next caller will refresh.
+      invalidateAccessTokenCache();
+      throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
+    }
+    if (res.status === 403) {
+      // Permission denied — not a token expiry; do NOT bust the cache.
       throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
     }
     throw new Error(`Drive API error ${res.status}: ${text}`);
@@ -156,7 +162,13 @@ export async function downloadDriveFile(fileId: string): Promise<Buffer> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
+      // Bust the cache — the access token is dead; next caller will refresh.
+      invalidateAccessTokenCache();
+      throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
+    }
+    if (res.status === 403) {
+      // Permission denied — not a token expiry; do NOT bust the cache.
       throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
     }
     throw new Error(`Drive download error ${res.status}: ${text}`);

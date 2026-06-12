@@ -8,6 +8,35 @@ export const runtime = 'nodejs';
 const STATE_COOKIE = 'google_oauth_state';
 
 /**
+ * Returns the public-facing base URL (no trailing slash).
+ *
+ * Priority order:
+ *  1. NEXT_PUBLIC_APP_URL env var — set this in production to the canonical
+ *     public URL (e.g. https://v2-media-lab--v2-media-lab.us-central1.hosted.app).
+ *  2. x-forwarded-proto + x-forwarded-host — Firebase App Hosting / Cloud Run
+ *     load-balancer headers; reliable when NEXT_PUBLIC_APP_URL is absent.
+ *  3. req.nextUrl.origin — accurate in local dev; may return the internal
+ *     Cloud Run host in production (see daily-sync/route.ts:18 for the same
+ *     warning), so it is intentionally the last resort.
+ *
+ * IMPORTANT: The redirect_uri sent to Google for the token exchange MUST
+ * exactly match the one used at authorization time (in /start/route.ts) and
+ * must match the URI registered in GCP (the public host). Using the internal
+ * Cloud Run URL here causes a redirect_uri_mismatch error from Google.
+ */
+function getPublicBaseUrl(req: NextRequest): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
+  }
+  const proto = req.headers.get('x-forwarded-proto');
+  const host = req.headers.get('x-forwarded-host');
+  if (proto && host) {
+    return `${proto}://${host}`;
+  }
+  return req.nextUrl.origin;
+}
+
+/**
  * GET /api/google/oauth/callback
  * Handles the OAuth callback from Google:
  *   0. Validates the `state` param against the httpOnly cookie set by /start
@@ -18,10 +47,13 @@ const STATE_COOKIE = 'google_oauth_state';
  *   4. Redirects back to the API config settings page.
  */
 export async function GET(req: NextRequest) {
-  const { searchParams, origin } = req.nextUrl;
+  const { searchParams } = req.nextUrl;
   const code = searchParams.get('code');
   const error = searchParams.get('error');
   const stateParam = searchParams.get('state');
+
+  // Derive the public base URL once; used for both redirect_uri and redirects.
+  const origin = getPublicBaseUrl(req);
 
   // --- CSRF state validation ---
   // The cookie was set by /api/google/oauth/start; if it's absent or doesn't
