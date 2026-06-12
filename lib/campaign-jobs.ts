@@ -9,7 +9,6 @@ import { pool } from './db';
 import type {
   BatchRunState,
   BatchEvent,
-  CreateCampaignBatchFn,
   CreativeMedia,
 } from './batch-contract';
 import { createCampaignBatch } from './meta-campaigns';
@@ -43,10 +42,16 @@ export {
   type RunnableJobView,
 };
 
-// Worker-side view of createCampaignBatch until wave-1 integration unifies the
-// signature in meta-campaigns.ts (A2 is editing that file in parallel).
-// TODO(wave1-integration): remove cast once meta-campaigns signature lands.
-const runBatch = createCampaignBatch as unknown as CreateCampaignBatchFn;
+// Wave-1 integration: meta-campaigns.ts now exports createCampaignBatch with the
+// shared-contract signature exactly — createCampaignBatch(input: BatchCreateInput,
+// opts: BatchRunOpts): Promise<BatchRunResult>, which is structurally the
+// CreateCampaignBatchFn from batch-contract.ts (BatchCreateInput is assignable to
+// the contract's `input: any`). The previous `as unknown as CreateCampaignBatchFn`
+// double-cast existed only because the signature had not landed yet; it is removed
+// so the worker now calls the real, type-checked orchestrator directly. The
+// normalized payload from buildBatchInput() is `any`, which assigns to
+// BatchCreateInput, so the call below stays type-safe.
+const runBatch = createCampaignBatch;
 
 export interface CampaignJob {
   id: number;
