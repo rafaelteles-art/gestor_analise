@@ -112,6 +112,24 @@ export function invalidateAccessTokenCache() {
   _cacheExpiresAt = 0;
 }
 
+// ── Typed HTTP error (transient classifier reads .httpStatus) ────────────────
+
+/**
+ * Thrown by getDriveFileMeta / downloadDriveFile when Drive returns a non-auth,
+ * non-permission HTTP error (e.g. 429 rate-limit, 500-5xx outage).
+ * Carries `httpStatus` so that campaign-jobs-core.isTransientMediaError can
+ * recognise 429 and 5xx as resumable transient errors rather than permanent
+ * failures.  401 / 403 continue to throw DriveAuthError (permanent).
+ */
+export class DriveHttpError extends Error {
+  httpStatus: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'DriveHttpError';
+    this.httpStatus = status;
+  }
+}
+
 // ── Public API — signatures are contract, keep stable ────────────────────────
 
 export async function getDriveFileMeta(
@@ -148,7 +166,7 @@ export async function getDriveFileMeta(
         // Permission denied — not a token expiry; do NOT retry.
         throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
       }
-      throw new Error(`Drive API error ${res.status}: ${text}`);
+      throw new DriveHttpError(res.status, `Drive API error ${res.status}: ${text}`);
     }
 
     const json = await res.json();
@@ -195,7 +213,7 @@ export async function downloadDriveFile(fileId: string): Promise<Buffer> {
         // Permission denied — not a token expiry; do NOT retry.
         throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
       }
-      throw new Error(`Drive download error ${res.status}: ${text}`);
+      throw new DriveHttpError(res.status, `Drive download error ${res.status}: ${text}`);
     }
 
     const arrayBuffer = await res.arrayBuffer();
