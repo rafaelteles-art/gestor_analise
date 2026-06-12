@@ -22,6 +22,7 @@ import {
   pickRunnableJobId,
   reduceCounts,
   clampListLimit,
+  isTransientMediaError,
   type CampaignJobStatus,
   type JobCounts,
   type RunnableJobView,
@@ -34,6 +35,7 @@ export {
   pickRunnableJobId,
   reduceCounts,
   clampListLimit,
+  isTransientMediaError,
   type CampaignJobStatus,
   type JobCounts,
   type RunnableJobView,
@@ -398,20 +400,46 @@ export async function getJob(id: number): Promise<CampaignJob | null> {
 // Worker loop
 // ────────────────────────────────────────────────────────────────────────────
 
+/** Outcome of the media-resolution phase. */
+type MediaResolveResult =
+  | { kind: 'done' }
+  // Budget ran out OR a transient download/upload error: leave the job
+  // 'running', lease released, resumable from the m:<idx> checkpoints already
+  // persisted. `reason` is for the event log / observability only.
+  | { kind: 'paused'; reason: string }
+  // Cancel was requested mid-media: stop and let the caller finish 'cancelled'.
+  | { kind: 'cancelled' }
+  // A PERMANENT failure (bad mime, invalid token, corrupt bytes, non-transient
+  // Meta error): the caller finishes the job 'error'.
+  | { kind: 'error'; message: string };
+
 /**
  * Resolve Drive-sourced creative media BEFORE running the batch: download from
  * Drive, upload to Meta, checkpoint the resulting image_hash/video_id in
  * run_state.created under key `m:<creativeIdx>` so a resumed run never
  * re-downloads. Rewrites the payload creatives in place to source 'meta'.
  *
- * Returns the (possibly) rewritten creatives array. Throws if a Drive download
- * or Meta upload fails permanently (the caller turns that into a job error).
+ * Budget/abort awareness (review fix #1): the media phase runs OUTSIDE runBatch
+ * and each item costs a Drive download + Meta upload + up to ~30s thumbnail poll.
+ * Several Drive videos can blow past the 270s tick budget AND the 300s Cloud Run
+ * wall before runBatch is ever reached. We therefore check shouldAbort()/cancel
+ * at the TOP of every iteration. On a budget/cancel pause we return WITHOUT
+ * writing a fresh lease — the caller releases the lease so the next 2-minute tick
+ * resumes immediately instead of waiting out a ~20-minute lease.
+ *
+ * Transient vs permanent (review fix #2): a network blip, Meta #4/#17 throttle,
+ * or 5xx on creative N is TRANSIENT — creatives 0..N-1 are already uploaded and
+ * checkpointed, so we PAUSE (resumable) instead of failing the whole job. Only a
+ * positively-permanent failure terminates the job. Mirrors how runBatch treats
+ * the BatchEvent `permanent` flag.
  */
 async function resolveDriveMedia(
   job: CampaignJob,
   runState: BatchRunState,
-  persist: () => Promise<void>
-): Promise<void> {
+  persist: () => Promise<void>,
+  shouldAbort: () => boolean,
+  isCancelRequested: () => Promise<boolean>
+): Promise<MediaResolveResult> {
   const creatives: any[] = Array.isArray(job.payload?.batch?.creatives)
     ? job.payload.batch.creatives
     : Array.isArray(job.payload?.creatives)
@@ -432,43 +460,65 @@ async function resolveDriveMedia(
       continue;
     }
 
-    const meta = await getDriveFileMeta(media.file_id);
-    const buf = await downloadDriveFile(media.file_id);
-    const bytes = new Uint8Array(buf);
-    const isVideo = (media.mime || meta.mimeType || '').startsWith('video/');
-
-    if (isVideo) {
-      const { video_id, thumbnail_url } = await uploadVideo(
-        job.account_id,
-        currentToken(job),
-        media.filename || meta.name,
-        bytes,
-        media.mime || meta.mimeType
-      );
-      runState.created[checkpointKey] = `vid:${video_id}${thumbnail_url ? `|${thumbnail_url}` : ''}`;
-      c.media = {
-        source: 'meta',
-        video_id,
-        video_thumbnail_url: thumbnail_url,
-        filename: media.filename || meta.name,
-      };
-    } else {
-      const { hash } = await uploadImage(
-        job.account_id,
-        currentToken(job),
-        media.filename || meta.name,
-        bytes,
-        media.mime || meta.mimeType
-      );
-      runState.created[checkpointKey] = `img:${hash}`;
-      c.media = {
-        source: 'meta',
-        image_hash: hash,
-        filename: media.filename || meta.name,
-      };
+    // Budget/cancel gate BEFORE starting this item's download+upload+thumbnail
+    // poll (each can take tens of seconds). Checked here, not mid-upload, so we
+    // never leave a half-uploaded item without a checkpoint.
+    if (await isCancelRequested()) return { kind: 'cancelled' };
+    if (shouldAbort()) {
+      return { kind: 'paused', reason: `Budget de tempo atingido na mídia ${idx}` };
     }
-    await persist();
+
+    try {
+      const meta = await getDriveFileMeta(media.file_id);
+      const buf = await downloadDriveFile(media.file_id);
+      const bytes = new Uint8Array(buf);
+      const isVideo = (media.mime || meta.mimeType || '').startsWith('video/');
+
+      if (isVideo) {
+        const { video_id, thumbnail_url } = await uploadVideo(
+          job.account_id,
+          currentToken(job),
+          media.filename || meta.name,
+          bytes,
+          media.mime || meta.mimeType
+        );
+        runState.created[checkpointKey] = `vid:${video_id}${thumbnail_url ? `|${thumbnail_url}` : ''}`;
+        c.media = {
+          source: 'meta',
+          video_id,
+          video_thumbnail_url: thumbnail_url,
+          filename: media.filename || meta.name,
+        };
+      } else {
+        const { hash } = await uploadImage(
+          job.account_id,
+          currentToken(job),
+          media.filename || meta.name,
+          bytes,
+          media.mime || meta.mimeType
+        );
+        runState.created[checkpointKey] = `img:${hash}`;
+        c.media = {
+          source: 'meta',
+          image_hash: hash,
+          filename: media.filename || meta.name,
+        };
+      }
+      // Checkpoint this item before moving on (also extends the lease).
+      await persist();
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message ?? String(e);
+      if (isTransientMediaError(e)) {
+        // Transient: creatives 0..idx-1 stay checkpointed. Pause (resumable) so a
+        // later tick retries ONLY this item. Do not extend the lease — caller
+        // releases it for an immediate resume.
+        return { kind: 'paused', reason: `Erro transitório na mídia ${idx}: ${msg}` };
+      }
+      // Permanent: terminate the job.
+      return { kind: 'error', message: `Falha ao preparar mídia ${idx}: ${msg}` };
+    }
   }
+  return { kind: 'done' };
 }
 
 function applyMediaCheckpoint(
@@ -535,22 +585,46 @@ async function processJob(
   let cancelRequested = job.cancel_requested;
   let eventsSinceCancelCheck = 0;
 
-  try {
-    // 1) Resolve Drive media up front (checkpointed so resume skips it).
-    await resolveDriveMedia(job, runState, () =>
-      saveJobProgress(job.id, runState, counts)
-    );
-  } catch (e: any) {
-    const msg = e?.message ?? String(e);
-    await finishJob(job.id, 'error', `Falha ao preparar mídia: ${msg}`);
-    return 'finished';
-  }
-
   const shouldAbort = (): boolean => {
     if (cancelRequested) return true;
     if (Date.now() - startedAtMs > budgetMs) return true;
     return false;
   };
+
+  // 1) Resolve Drive media up front (checkpointed so resume skips it). This phase
+  // runs OUTSIDE runBatch, so it must honor the SAME budget/cancel walls — a job
+  // with several Drive videos could otherwise exceed the 270s tick budget and the
+  // 300s Cloud Run wall before runBatch is even reached, leaving the job 'running'
+  // with a live 20-minute lease that stalls the queue (review fix #1). Transient
+  // download/upload failures pause-for-resume instead of failing terminally
+  // (review fix #2).
+  const media = await resolveDriveMedia(
+    job,
+    runState,
+    () => saveJobProgress(job.id, runState, counts),
+    shouldAbort,
+    async () => {
+      cancelRequested = cancelRequested || (await readCancelRequested(job.id));
+      return cancelRequested;
+    }
+  );
+  if (media.kind === 'cancelled') {
+    await finishJob(job.id, 'cancelled');
+    return 'finished';
+  }
+  if (media.kind === 'error') {
+    await finishJob(job.id, 'error', media.message);
+    return 'finished';
+  }
+  if (media.kind === 'paused') {
+    // Budget abort OR transient media error: persist the m:<idx> checkpoints and
+    // RELEASE the lease so the next 2-minute cron tick resumes immediately
+    // (without this, the last saveJobProgress' fresh 20-minute lease would make
+    // claimNextCampaignJob skip the job for ~18 minutes — the exact stall the
+    // review flagged). Status stays 'running'.
+    await releaseLeaseForResume(job.id, runState, counts);
+    return 'budget';
+  }
 
   const onEvent = async (e: BatchEvent): Promise<void> => {
     counts = reduceCounts(runState, counts, e);

@@ -9,6 +9,7 @@ import {
   pickRunnableJobId,
   reduceCounts,
   clampListLimit,
+  isTransientMediaError,
   type RunnableJobView,
   type JobCounts,
 } from '../campaign-jobs-core';
@@ -221,6 +222,52 @@ describe('clampListLimit — list page-size clamp (NaN-safe)', () => {
   it('treats Infinity as non-finite and falls back to the default', () => {
     expect(clampListLimit(Infinity)).toBe(50);
     expect(clampListLimit(-Infinity)).toBe(50);
+  });
+});
+
+describe('isTransientMediaError — media upload retry/resume classifier', () => {
+  // Shape of a MetaApiError thrown by uploadImage/uploadVideo (lib/meta-campaigns.ts):
+  // { name:'MetaApiError', fbCode?:number, httpStatus?:number, message:string }.
+  function metaErr(p: { fbCode?: number; httpStatus?: number }): unknown {
+    return { name: 'MetaApiError', message: 'boom', ...p };
+  }
+
+  it('treats Meta throttle codes (4 app, 17 user, 80004 ad-account) as transient', () => {
+    expect(isTransientMediaError(metaErr({ fbCode: 4 }))).toBe(true);
+    expect(isTransientMediaError(metaErr({ fbCode: 17 }))).toBe(true);
+    expect(isTransientMediaError(metaErr({ fbCode: 80004 }))).toBe(true);
+  });
+
+  it('treats temporary codes (1, 2, 341, 368) as transient', () => {
+    for (const fbCode of [1, 2, 341, 368]) {
+      expect(isTransientMediaError(metaErr({ fbCode }))).toBe(true);
+    }
+  });
+
+  it('treats HTTP 429 and 5xx as transient', () => {
+    expect(isTransientMediaError(metaErr({ httpStatus: 429 }))).toBe(true);
+    expect(isTransientMediaError(metaErr({ httpStatus: 500 }))).toBe(true);
+    expect(isTransientMediaError(metaErr({ httpStatus: 503 }))).toBe(true);
+  });
+
+  it('treats a PERMANENT Meta error (bad spec / invalid hash, e.g. code 100, HTTP 400) as NOT transient', () => {
+    expect(isTransientMediaError(metaErr({ fbCode: 100, httpStatus: 400 }))).toBe(false);
+    // A MetaApiError with no transient signal must terminate, not loop forever.
+    expect(isTransientMediaError(metaErr({}))).toBe(false);
+  });
+
+  it('treats bare network-layer failures (fetch TypeError, ECONNRESET, AbortError) as transient', () => {
+    expect(isTransientMediaError(new TypeError('fetch failed'))).toBe(true);
+    expect(isTransientMediaError({ name: 'Error', code: 'ECONNRESET', message: 'reset' })).toBe(true);
+    expect(isTransientMediaError({ name: 'AbortError', message: 'aborted' })).toBe(true);
+    expect(isTransientMediaError({ name: 'Error', code: 'ETIMEDOUT' })).toBe(true);
+  });
+
+  it('treats a plain non-network Error as NOT transient (fail fast)', () => {
+    expect(isTransientMediaError(new Error('Resposta sem hash'))).toBe(false);
+    expect(isTransientMediaError(null)).toBe(false);
+    expect(isTransientMediaError(undefined)).toBe(false);
+    expect(isTransientMediaError('string error')).toBe(false);
   });
 });
 

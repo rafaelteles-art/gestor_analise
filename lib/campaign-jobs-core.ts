@@ -104,6 +104,55 @@ export function clampListLimit(
   return Math.min(Math.max(1, n), max);
 }
 
+/**
+ * Meta error codes that are TRANSIENT for a media upload (retry/resume worthwhile),
+ * mirroring TRANSIENT_FB_CODES in lib/meta-campaigns.ts:
+ *   1 (unknown/temporary), 2 (service unavailable), 4 (app request limit),
+ *   17 (user request limit), 341 (temporary limit), 368 (temporary block),
+ *   80004 (too many calls to ad account). HTTP 429 and 5xx are transient too.
+ *
+ * We duplicate the set here (instead of importing) on purpose: this module is
+ * kept dependency-free so it stays unit-testable, and meta-campaigns.ts does NOT
+ * export MetaApiError / isTransientError. We therefore DUCK-TYPE the thrown error
+ * — a MetaApiError carries `name === 'MetaApiError'`, a numeric `fbCode` and a
+ * numeric `httpStatus` (see lib/meta-campaigns.ts). Anything we cannot positively
+ * classify as transient is treated as PERMANENT, so a genuinely broken upload
+ * (bad mime, corrupt bytes, invalid token) still fails the job fast rather than
+ * spinning forever.
+ */
+export const TRANSIENT_MEDIA_FB_CODES = new Set([1, 2, 4, 17, 341, 368, 80004]);
+
+/**
+ * True when a media download/upload error is worth resuming on a later tick
+ * (network blip, Meta #4/#17 throttle, transient 5xx) rather than failing the
+ * whole job terminally. Mirrors isTransientError() in lib/meta-campaigns.ts but
+ * works by structural duck-typing because MetaApiError is not exported.
+ */
+export function isTransientMediaError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as {
+    name?: unknown;
+    fbCode?: unknown;
+    httpStatus?: unknown;
+    code?: unknown;
+  };
+  const fbCode = typeof e.fbCode === 'number' ? e.fbCode : undefined;
+  if (fbCode !== undefined && TRANSIENT_MEDIA_FB_CODES.has(fbCode)) return true;
+  const http = typeof e.httpStatus === 'number' ? e.httpStatus : undefined;
+  if (http === 429) return true;
+  if (http !== undefined && http >= 500 && http <= 599) return true;
+  // Bare network-layer failures (fetch DNS/connection reset / abort) surface as
+  // a TypeError or an Error with a Node errno code, never a MetaApiError. Those
+  // are transient — the Drive download or the Meta POST never reached a verdict.
+  if (e.name === 'MetaApiError') return false; // had a verdict, not transient per above
+  const code = typeof e.code === 'string' ? e.code : undefined;
+  if (code && /ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|EPIPE|ECONNRESET|UND_ERR/i.test(code)) {
+    return true;
+  }
+  if (e.name === 'TypeError' || e.name === 'AbortError') return true; // fetch failed before a response
+  return false;
+}
+
 export function reduceCounts(
   runState: BatchRunState,
   prior: JobCounts,
