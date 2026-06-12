@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { expandBatch, createCampaignBatch, type BatchCreateInput } from '../meta-campaigns';
+import { reduceCounts } from '../campaign-jobs-core';
 import type { BatchRunState, BatchRunOpts, SeparationLevel } from '../batch-contract';
 
 /**
@@ -222,6 +223,11 @@ describe('createCampaignBatch — orphan-AdCreative leak on resume', () => {
     // The ad branch failed; its own key is NOT in created.
     expect(Object.keys(runState.failed).some((k) => k.startsWith('a:'))).toBe(true);
 
+    // Capture the failed ad key recorded in run 1 — it must be CLEARED on the
+    // successful resume below (otherwise it lingers in both created and failed).
+    const failedAdKey = Object.keys(runState.failed).find((k) => k.startsWith('a:'));
+    expect(failedAdKey).toBeDefined();
+
     // RUN 2 (resume): same runState. Now createAd succeeds. The creative MUST be
     // reused from the checkpoint — createAdCreative must NOT be called again.
     const calls2: Record<string, number> = {};
@@ -230,6 +236,21 @@ describe('createCampaignBatch — orphan-AdCreative leak on resume', () => {
 
     expect(calls2.adcreatives ?? 0).toBe(0); // ← no duplicate orphan creative
     expect(calls2.ads).toBe(1); // ad finally created
+
+    // ── Idempotency contract: a branch that FAILED in run 1 but SUCCEEDED on
+    // resume must be removed from runState.failed (no stale failed-key leak).
+    // The same key must NOT end up in BOTH created and failed.
+    expect(runState.failed[failedAdKey!]).toBeUndefined();
+    expect(Object.keys(runState.failed).some((k) => k.startsWith('a:'))).toBe(false);
+    expect(runState.created[failedAdKey!]).toBeDefined(); // now lives only in created
+
+    // ── reduceCounts must not double-count: 3 entities (campaign+adset+ad) all
+    // created, ZERO failed (the phantom failure is gone), total = 3. Before the
+    // fix this reported {created:3, failed:1, total:4} for this 3-entity batch.
+    const counts = reduceCounts(runState, { created: 0, failed: 0, skipped: 0, total: 0 });
+    expect(counts.failed).toBe(0);
+    expect(counts.created).toBe(3); // c:0:0 + s:0:0:0 + a:0:0:0:0
+    expect(counts.total).toBe(3); // no inflation from a phantom failed key
   });
 });
 

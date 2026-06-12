@@ -23,6 +23,7 @@ import type {
   BatchEvent,
   BatchRunOpts,
   BatchRunResult,
+  CreativeMedia,
 } from './batch-contract';
 
 // Re-export do contrato compartilhado entre agentes (lib/batch-contract.ts).
@@ -313,8 +314,15 @@ export interface BatchCreateInput {
   campaign: CampaignSpec;
   /** Template do conjunto (idem prefixo). */
   adset: AdSetSpec;
-  /** Um "criativo" por linha — o orquestrador aplica multiplicadores. */
-  creatives: { name: string; creative: CreativeSpec }[];
+  /**
+   * Um "criativo" por linha — o orquestrador aplica multiplicadores.
+   * `media` é o envelope opcional do contrato compartilhado (batch-contract.ts):
+   * quando `source:'meta'`, mergeMedia() aplica image_hash/video_id resolvidos no
+   * CreativeSpec antes do createAdCreative. Sem este campo tipado, o merge era um
+   * cast `as any` que silenciava o erro de tipo e DESCARTAVA a mídia em callers
+   * que a fornecem via o envelope (ad sem creative media). Agora é tipado e real.
+   */
+  creatives: { name: string; creative: CreativeSpec; media?: CreativeMedia }[];
   /**
    * Template de URL tags (utm/etc.). Variáveis DirectAds (`{{conta_nome}}`,
    * `{{criativo}}`, `{{sequencial:XX}}`, …) são substituídas aqui no servidor
@@ -543,7 +551,19 @@ export async function listPages(token: string, bmId?: string | null): Promise<Pa
         console.warn(`listPages network error: ${e}`);
         break;
       }
-      const data: any = await res.json();
+      // Espelha postGraph/getGraph: um 5xx/gateway da Meta pode devolver HTML/
+      // texto sem JSON. Sem este guard, res.json() lançaria um SyntaxError cru
+      // que ESCAPA do listPages (a branch `if (data?.error)` nunca é alcançada),
+      // quebrando o dropdown de Páginas em vez de degradar como o resto da fn já
+      // faz (erro de rede no try acima, erro Meta logo abaixo). Corpo não-JSON =
+      // trata como break — interrompe o walk e segue com o que já coletou.
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        console.warn('listPages: resposta nao-JSON (5xx/gateway?) — interrompendo walk');
+        break;
+      }
       if (data?.error) {
         // (#4) e (#1) caem aqui — interrompe o walk dessa URL, segue o que tiver
         console.warn(`listPages Meta error (${data.error.code}): ${data.error.message}`);
@@ -1734,8 +1754,11 @@ export async function createCampaignBatch(
     return `${replaced}${needsSuffix ? ` — ${creativeName}` : ''}${suffix}`;
   };
 
-  const mergeMedia = (creativeSpec: CreativeSpec, raw: any): CreativeSpec => {
-    const media = raw?.media;
+  // Aplica o envelope de mídia do contrato (CreativeMedia) ao CreativeSpec.
+  // Só `source:'meta'` carrega ids já resolvidos (image_hash/video_id) — `drive`
+  // ainda não foi feito upload neste ponto, então é no-op aqui (resolvido antes).
+  // Tipado de ponta a ponta: `media?: CreativeMedia` no input, sem `as any`.
+  const mergeMedia = (creativeSpec: CreativeSpec, media: CreativeMedia | undefined): CreativeSpec => {
     if (media && media.source === 'meta') {
       return {
         ...creativeSpec,
@@ -1763,6 +1786,13 @@ export async function createCampaignBatch(
 
     try {
       const camp = await graphMutationWithRetry(() => createCampaign(account_id, access_token, campSpec));
+      // Resume retry-then-skip: este branch pode ter falhado num run anterior
+      // (failed[pc.key] setado). Como NÃO há short-circuit em failed[key] (a
+      // retentativa é intencional), ao suceder precisamos limpar a marca de
+      // falha — senão a mesma chave fica em created E failed ao mesmo tempo e o
+      // reduceCounts() do campaign-jobs-core conta as duas, inflando total e
+      // reportando uma falha-fantasma. Limpar ANTES de setar created.
+      delete failed[pc.key];
       created[pc.key] = camp.id;
       counts.created += 1;
       await onEvent({ kind: 'created', key: pc.key, entity: 'campaign', name, id: camp.id });
@@ -1806,6 +1836,9 @@ export async function createCampaignBatch(
 
     try {
       const adset = await graphMutationWithRetry(() => createAdSet(account_id, access_token, campId, adsetSpec));
+      // Limpa marca de falha de um run anterior (ver nota no loop de campanhas):
+      // sem isso a chave fica em created E failed e reduceCounts() conta as duas.
+      delete failed[ps.key];
       created[ps.key] = adset.id;
       counts.created += 1;
       await onEvent({ kind: 'created', key: ps.key, entity: 'adset', name, id: adset.id });
@@ -1839,7 +1872,7 @@ export async function createCampaignBatch(
     }
 
     const crv = creatives[pa.creativeIdx];
-    const creativeSpec = mergeMedia(crv.creative, crv as any);
+    const creativeSpec = mergeMedia(crv.creative, crv.media);
     const adSuffix = nAd > 1 ? `_AD${pad2(pa.adSuffixNum)}` : '';
     const adName = `${crv.name}${adSuffix}`;
 
@@ -1907,6 +1940,10 @@ export async function createCampaignBatch(
       const ad = await graphMutationWithRetry(() =>
         createAd(account_id, access_token, adsetId, adName, creativeId!, 'ACTIVE')
       );
+      // Limpa marca de falha de um run anterior (ver nota no loop de campanhas):
+      // sem isso a chave fica em created E failed e reduceCounts() conta as duas
+      // — exatamente o duplo-count que faz um ad re-sucedido virar falha-fantasma.
+      delete failed[pa.key];
       created[pa.key] = ad.id;
       counts.created += 1;
       await onEvent({ kind: 'created', key: pa.key, entity: 'ad', name: adName, id: ad.id });
