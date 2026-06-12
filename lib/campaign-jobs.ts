@@ -333,23 +333,45 @@ export async function finishJob(
  *  - running → set cancel_requested = true; the worker stops at the next entity.
  *  - terminal (done/error/cancelled/done_with_errors) → no-op.
  * Returns the resulting outcome so the route can choose 200 vs 409.
+ *
+ * Implementation note: a plain UPDATE … RETURNING cannot distinguish "this call
+ * just flipped pending→cancelled" from "the job was ALREADY cancelled before this
+ * call" — both would show status='cancelled' in RETURNING. We use a CTE to capture
+ * the old status BEFORE the mutation so the classification is exact. Concretely:
+ *
+ *   WITH prev AS (SELECT status FROM campaign_jobs WHERE id=$1 FOR UPDATE)
+ *   UPDATE … FROM prev … RETURNING prev.status AS old_status, …new status…
+ *
+ * The FOR UPDATE inside the CTE serializes concurrent cancel calls on the same row:
+ * whichever call acquires the row lock first sees status='pending' (old_status) and
+ * returns 'cancelled'; the second call sees old_status='cancelled' (already flipped
+ * by the first) and correctly returns 'not_cancellable'. Without FOR UPDATE two
+ * simultaneous cancels (double-click, two tabs) could both read status='pending'
+ * from the CTE and both return 'cancelled'.
  */
 export async function requestCancel(
   id: number
 ): Promise<'cancelled' | 'cancel_requested' | 'not_cancellable' | 'not_found'> {
   await ensureCampaignJobsTable();
   const res = await pool.query(
-    `UPDATE campaign_jobs SET
-        status = CASE WHEN status = 'pending' THEN 'cancelled' ELSE status END,
-        cancel_requested = CASE WHEN status = 'running' THEN TRUE ELSE cancel_requested END,
-        finished_at = CASE WHEN status = 'pending' THEN now() ELSE finished_at END
-      WHERE id = $1
-      RETURNING status, cancel_requested`,
+    `WITH prev AS (
+       SELECT status FROM campaign_jobs WHERE id = $1 FOR UPDATE
+     )
+     UPDATE campaign_jobs SET
+         status         = CASE WHEN prev.status = 'pending' THEN 'cancelled' ELSE campaign_jobs.status END,
+         cancel_requested = CASE WHEN prev.status = 'running' THEN TRUE ELSE campaign_jobs.cancel_requested END,
+         finished_at    = CASE WHEN prev.status = 'pending' THEN now() ELSE campaign_jobs.finished_at END
+       FROM prev
+       WHERE campaign_jobs.id = $1
+       RETURNING prev.status AS old_status, campaign_jobs.cancel_requested`,
     [id]
   );
   const row = res.rows[0];
   if (!row) return 'not_found';
-  if (row.status === 'cancelled' && !row.cancel_requested) return 'cancelled';
+  // Only report 'cancelled' when THIS call actually performed the pending→cancelled
+  // flip (old_status was 'pending'). An already-cancelled job returns 'not_cancellable'
+  // so the route correctly returns 409 instead of a false-success 200.
+  if (row.old_status === 'pending') return 'cancelled';
   if (row.cancel_requested) return 'cancel_requested';
   return 'not_cancellable';
 }

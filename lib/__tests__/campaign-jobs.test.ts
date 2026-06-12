@@ -431,3 +431,41 @@ describe('claim SQL — race-safe per-Profile serialization guard', () => {
     expect(src).toContain('NOT EXISTS');
   });
 });
+
+describe('requestCancel SQL — already-cancelled job must NOT return a false-success', () => {
+  // requestCancel() cannot be unit-tested against the DB here (no pool in vitest),
+  // but the correctness guarantee lives in the SQL shape. We assert the structural
+  // properties as a REGRESSION GUARD: if someone reverts the CTE-based fix back to
+  // the plain UPDATE…RETURNING form (where both "just cancelled" and "already
+  // cancelled" look identical), these tests fail.
+  //
+  // The bug: the original UPDATE returned `status='cancelled'` for BOTH cases, so
+  // the function returned 'cancelled' for a double-cancel. The CTE captures
+  // old_status BEFORE the mutation, so we can return 'not_cancellable' for the
+  // second call.
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'campaign-jobs.ts'),
+    'utf8'
+  );
+
+  it('uses a CTE to capture old_status before the UPDATE', () => {
+    // The CTE name 'prev' is how we read the pre-mutation status.
+    expect(src).toContain('WITH prev AS (');
+    expect(src).toContain('old_status');
+  });
+
+  it('locks the cancel target row inside the CTE to serialize concurrent calls', () => {
+    // FOR UPDATE inside the CTE ensures two concurrent double-clicks serialize: the
+    // second call sees old_status='cancelled' (already flipped) and returns
+    // 'not_cancellable' instead of a false-success 'cancelled'.
+    expect(src).toContain('FOR UPDATE');
+  });
+
+  it('classifies the outcome based on old_status, not the post-update status', () => {
+    // The only way to return 'cancelled' is when old_status was 'pending'. A job
+    // that was ALREADY cancelled will have old_status='cancelled' and must fall
+    // through to 'not_cancellable'.
+    expect(src).toContain("row.old_status === 'pending'");
+    expect(src).not.toMatch(/row\.status\s*===\s*'cancelled'/);
+  });
+});
