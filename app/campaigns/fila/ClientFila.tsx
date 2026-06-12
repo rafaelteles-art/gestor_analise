@@ -11,13 +11,27 @@
  *           botão de cancelar (pending/running).
  *
  * Step 3 — Re-enfileirar: POST do payload armazenado para /api/campaigns/create
- *           com reenqueue_of=<jobId>. O servidor descarta frozen_context e recalcula.
+ *           com reenqueue_of=<jobId>. O servidor SEMPRE recalcula access_token (via
+ *           resolveAuth) e recomputa frozen_context — o payload enviado pelo cliente
+ *           é apenas o template; campos sensíveis/expiráveis são descartados
+ *           server-side. Ver app/api/campaigns/create/route.ts linhas 113-144.
  *
  * Step 4 — Link de nav adicionado em V2MediaLabLayout (ver notas_para_dependentes).
+ *
+ * Notas sobre filtro de data:
+ *   O endpoint GET /api/campaigns/jobs não tem cláusula WHERE para intervalo de
+ *   datas (lib/campaign-jobs.ts ListJobsFilters). Enquanto esse suporte não estiver
+ *   no servidor, o cliente faz filtragem local — mas, para evitar falsos "nenhum
+ *   resultado encontrado", o fetchJobs itera páginas automaticamente até encontrar
+ *   resultados dentro do intervalo ou esgotar o cursor. O botão "Carregar mais"
+ *   só aparece quando a última página retornou PAGE_SIZE linhas E os dados brutos
+ *   ainda existem para paginar, independente de quantas passaram pelo filtro.
+ *   TODO(server-date-filter): adicionar date_from/date_to em ListJobsFilters +
+ *   route.ts para eliminar a iteração local e suportar grandes históricos.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { fmtDateTime, fmtDate } from '@/lib/timezone';
+import { fmtDateTime } from '@/lib/timezone';
 import type { CampaignJobListRow, CampaignJob } from '@/lib/campaign-jobs';
 import type { BatchEvent } from '@/lib/batch-contract';
 
@@ -86,7 +100,7 @@ function isCancellable(status: string): boolean {
 // ─── Formatação de duração ────────────────────────────────────────────────────
 
 function durationStr(
-  createdAt: string,
+  _createdAt: string,
   startedAt: string | null,
   finishedAt: string | null
 ): string {
@@ -158,6 +172,23 @@ function EventLog({ events }: { events: BatchEvent[] }) {
         const kindLabel = EVENT_KIND_LABELS[ev.kind] ?? ev.kind;
         const kindColor =
           EVENT_KIND_COLORS[ev.kind] ?? 'text-gray-600 dark:text-gray-300';
+
+        // Use proper discriminated-union narrowing — no `as any` casts.
+        // BatchEvent is discriminated on `kind`; after each branch TypeScript
+        // knows the exact member type and all field accesses are type-safe.
+        let entitySlug = '—';
+        let description = '';
+        if (ev.kind === 'created') {
+          entitySlug = ev.entity.slice(0, 2);
+          description = ev.name;
+        } else if (ev.kind === 'failed') {
+          entitySlug = ev.entity.slice(0, 2);
+          description = `${ev.name} — ${ev.error}`;
+        } else {
+          // ev.kind === 'skipped'
+          description = ev.reason;
+        }
+
         return (
           <div
             key={i}
@@ -167,16 +198,10 @@ function EventLog({ events }: { events: BatchEvent[] }) {
               {kindLabel}
             </span>
             <span className="text-gray-500 dark:text-gray-400 shrink-0 w-8">
-              {ev.kind === 'created' || ev.kind === 'failed'
-                ? (ev as any).entity?.slice(0, 2) ?? ''
-                : '—'}
+              {entitySlug}
             </span>
             <span className="text-gray-700 dark:text-gray-300 break-all">
-              {ev.kind === 'created'
-                ? (ev as any).name
-                : ev.kind === 'failed'
-                ? `${(ev as any).name} — ${(ev as any).error}`
-                : (ev as any).reason}
+              {description}
             </span>
           </div>
         );
@@ -260,6 +285,12 @@ function JobDetailRow({
     setReenqueueing(true);
     setReenqueueMsg(null);
     try {
+      // Envia o payload original como template junto com reenqueue_of=<id>.
+      // O servidor (/api/campaigns/create) SEMPRE descarta o access_token e o
+      // frozen_context vindos do cliente e os recomputa — resolveAuth obtém um
+      // token fresco do DB e frozenDateParts captura o instante atual em GMT-3.
+      // Tokens expirados no payload armazenado são portanto inócuos.
+      // Ref: app/api/campaigns/create/route.ts linhas 113-144.
       const res = await fetch('/api/campaigns/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -567,6 +598,26 @@ function JobRow({
   );
 }
 
+// ─── Helpers de filtro de data (client-side) ──────────────────────────────────
+
+/**
+ * Filtra jobs pelo intervalo de datas em GMT-3.
+ * Usado enquanto o servidor não suporta date_from/date_to.
+ */
+function applyDateFilter(
+  jobs: CampaignJobListRow[],
+  dateFrom: string,
+  dateTo: string
+): CampaignJobListRow[] {
+  if (!dateFrom && !dateTo) return jobs;
+  return jobs.filter((j) => {
+    const jd = new Date(j.created_at);
+    if (dateFrom && jd < new Date(dateFrom + 'T00:00:00-03:00')) return false;
+    if (dateTo && jd > new Date(dateTo + 'T23:59:59-03:00')) return false;
+    return true;
+  });
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 const ALL_STATUSES: JobStatus[] = [
@@ -578,10 +629,13 @@ const ALL_STATUSES: JobStatus[] = [
   'cancelled',
 ];
 
+const PAGE_SIZE = 40;
+
 export default function ClientFila() {
   const [jobs, setJobs] = useState<CampaignJobListRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // hasMore tracks whether the raw API has more pages (independent of date filter).
   const [hasMore, setHasMore] = useState(false);
   const [expandedJobs, setExpandedJobs] = useState<Set<number>>(new Set());
   const [profiles, setProfiles] = useState<string[]>([]);
@@ -594,62 +648,88 @@ export default function ClientFila() {
     dateTo: '',
   });
 
-  // Controle de paginação: id do último job carregado
+  // Keyset cursor: id of the oldest job in the currently-loaded set.
   const beforeIdRef = useRef<number | undefined>(undefined);
-  const PAGE_SIZE = 40;
 
   // ─── Fetch ──────────────────────────────────────────────────────────────────
 
+  /**
+   * Fetches one page from the API (status/profile filters server-side) and
+   * applies the date filter client-side.
+   *
+   * When `reset=true`: replaces the current list (reset to page 1).
+   * When `reset=false`: appends to the current list (load-more).
+   *
+   * Because the API has no server-side date filter, a single 40-row page may be
+   * entirely outside the selected date window. To avoid a false empty-state on
+   * the first load, this function will keep fetching pages (following the cursor)
+   * until it accumulates at least one visible row OR the API reports no more
+   * pages. The "Carregar mais" button uses the raw API hasMore so users can
+   * always continue paginating even if visible rows per page are sparse.
+   */
   const fetchJobs = useCallback(
     async (reset: boolean) => {
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams();
-        if (filters.profile) params.set('profile', filters.profile);
-        if (filters.status) params.set('status', filters.status);
-        params.set('limit', String(PAGE_SIZE));
-        if (!reset && beforeIdRef.current !== undefined) {
-          params.set('before_id', String(beforeIdRef.current));
-        }
+        // When resetting, use a fresh cursor; otherwise continue from saved cursor.
+        let currentCursor: number | undefined = reset ? undefined : beforeIdRef.current;
+        let accumulated: CampaignJobListRow[] = [];
+        let rawHasMore = false;
 
-        const res = await fetch(`/api/campaigns/jobs?${params.toString()}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const fetched: CampaignJobListRow[] = data.jobs ?? [];
+        // Keep fetching until we have ≥1 visible row (after date filter) OR API
+        // has no more pages. This prevents a false "Nenhum job encontrado" when
+        // the date filter excludes all rows in the first page(s).
+        // Cap at 5 auto-pages to avoid runaway requests on very sparse histories.
+        const MAX_AUTO_PAGES = 5;
+        let autoPageCount = 0;
 
-        // Client-side date filter (the API doesn't support date range yet)
-        const filtered = fetched.filter((j) => {
-          if (filters.dateFrom) {
-            const jobDate = fmtDate(j.created_at, { year: 'numeric', month: '2-digit', day: '2-digit' });
-            // Compare YYYY-MM-DD after re-formatting
-            const fromDate = filters.dateFrom;
-            const jd = new Date(j.created_at);
-            if (jd < new Date(fromDate + 'T00:00:00-03:00')) return false;
+        do {
+          const params = new URLSearchParams();
+          if (filters.profile) params.set('profile', filters.profile);
+          if (filters.status) params.set('status', filters.status);
+          params.set('limit', String(PAGE_SIZE));
+          if (currentCursor !== undefined) {
+            params.set('before_id', String(currentCursor));
           }
-          if (filters.dateTo) {
-            const jd = new Date(j.created_at);
-            if (jd > new Date(filters.dateTo + 'T23:59:59-03:00')) return false;
+
+          const res = await fetch(`/api/campaigns/jobs?${params.toString()}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const fetched: CampaignJobListRow[] = data.jobs ?? [];
+
+          rawHasMore = fetched.length === PAGE_SIZE;
+
+          // Advance cursor for next iteration / next explicit load-more
+          if (fetched.length > 0) {
+            currentCursor = fetched[fetched.length - 1].id;
           }
-          return true;
-        });
 
-        setJobs((prev) => (reset ? filtered : [...prev, ...filtered]));
-        setHasMore(fetched.length === PAGE_SIZE);
-        if (fetched.length > 0) {
-          beforeIdRef.current = fetched[fetched.length - 1].id;
-        }
+          // Collect unique profiles for dropdown
+          const newProfiles = fetched
+            .map((j) => j.profile_name)
+            .filter((p): p is string => Boolean(p));
+          if (newProfiles.length > 0) {
+            setProfiles((prev) => Array.from(new Set([...prev, ...newProfiles])));
+          }
 
-        // Coletar perfis únicos para o dropdown
-        const allProfiles = Array.from(
-          new Set(fetched.map((j) => j.profile_name).filter(Boolean))
-        );
-        if (allProfiles.length > 0) {
-          setProfiles((prev) => {
-            const merged = Array.from(new Set([...prev, ...allProfiles]));
-            return merged;
-          });
-        }
+          accumulated = accumulated.concat(fetched);
+          autoPageCount++;
+
+          // Stop auto-paging if: API has no more data, or we have visible rows after filter
+          const visibleSoFar = applyDateFilter(accumulated, filters.dateFrom, filters.dateTo);
+          if (!rawHasMore || visibleSoFar.length > 0) break;
+        } while (autoPageCount < MAX_AUTO_PAGES);
+
+        // Persist cursor for future load-more / refresh
+        beforeIdRef.current = currentCursor;
+
+        const visible = applyDateFilter(accumulated, filters.dateFrom, filters.dateTo);
+
+        setJobs((prev) => (reset ? visible : [...prev, ...visible]));
+        // hasMore reflects whether the raw API has more data to page through —
+        // independent of the date filter so the button never disappears prematurely.
+        setHasMore(rawHasMore);
       } catch (e: any) {
         setError(e.message);
       } finally {
@@ -666,16 +746,54 @@ export default function ClientFila() {
     fetchJobs(true);
   }, [fetchJobs]);
 
-  // Auto-refresh a cada 5s se houver jobs ativos
+  // ─── Auto-refresh ────────────────────────────────────────────────────────────
+  //
+  // When jobs are active (pending/running), poll every 5s to reflect progress.
+  // To preserve pagination state, we do NOT reset the cursor. Instead we fetch
+  // only the set of ids that are currently visible (by re-fetching rows newer
+  // than or equal to the oldest loaded id), then merge updated rows in-place.
+  // This means a user who paged deep keeps their rows; only status/counts/etc.
+  // update on active jobs. New jobs that arrived after the initial load will
+  // appear on the next manual refresh or filter change.
   useEffect(() => {
     const hasActive = jobs.some((j) => isActive(j.status));
     if (!hasActive) return;
-    const id = setInterval(() => {
-      beforeIdRef.current = undefined;
-      fetchJobs(true);
+
+    const id = setInterval(async () => {
+      // Fetch a fresh view of jobs in the currently-visible id range.
+      // We use the oldest loaded id as a lower bound (jobs with id >= oldest).
+      if (jobs.length === 0) return;
+
+      // Build a cursor-less fetch to get the newest PAGE_SIZE rows (same params),
+      // apply the same date filter, then merge by id (replace matching, keep rest).
+      // For deep lists (>PAGE_SIZE rows loaded), rows older than the window won't
+      // be refreshed by auto-tick — that is acceptable because active jobs are
+      // always recent and will appear in the newest page.
+      try {
+        const params = new URLSearchParams();
+        if (filters.profile) params.set('profile', filters.profile);
+        if (filters.status) params.set('status', filters.status);
+        params.set('limit', String(PAGE_SIZE));
+
+        const res = await fetch(`/api/campaigns/jobs?${params.toString()}`);
+        if (!res.ok) return; // silent — next tick will retry
+        const data = await res.json();
+        const fetched: CampaignJobListRow[] = data.jobs ?? [];
+        const freshVisible = applyDateFilter(fetched, filters.dateFrom, filters.dateTo);
+
+        // Build a lookup map of refreshed rows
+        const freshById = new Map(freshVisible.map((j) => [j.id, j]));
+
+        // Merge: update in-place rows that appear in the fresh page; leave the
+        // rest unchanged so deeper pages are preserved.
+        setJobs((prev) => prev.map((j) => freshById.get(j.id) ?? j));
+      } catch {
+        // Ignore transient errors on background refresh — next tick will retry.
+      }
     }, 5000);
+
     return () => clearInterval(id);
-  }, [jobs, fetchJobs]);
+  }, [jobs, filters]);
 
   // ─── Ações ───────────────────────────────────────────────────────────────────
 
@@ -862,6 +980,14 @@ export default function ClientFila() {
             )
           )}
         </div>
+
+        {/* Aviso de filtro de data (client-side) */}
+        {(filters.dateFrom || filters.dateTo) && (
+          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+            Filtro de data aplicado localmente — use "Carregar mais" para
+            buscar registros mais antigos fora da janela visível.
+          </p>
+        )}
       </div>
 
       {/* Erro */}
@@ -917,6 +1043,12 @@ export default function ClientFila() {
                     className="px-4 py-12 text-center text-sm text-gray-400 dark:text-gray-500"
                   >
                     Nenhum job encontrado para os filtros selecionados.
+                    {(filters.dateFrom || filters.dateTo) && hasMore && (
+                      <span className="block mt-1 text-xs text-amber-600 dark:text-amber-400">
+                        Há mais registros — clique "Carregar mais" para
+                        continuar buscando no período selecionado.
+                      </span>
+                    )}
                   </td>
                 </tr>
               ) : (
