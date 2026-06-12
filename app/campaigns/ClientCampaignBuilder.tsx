@@ -2161,6 +2161,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     const attribution_spec: any[] = [];
     if (clickWindow > 0) attribution_spec.push({ event_type: 'CLICK_THROUGH', window_days: clickWindow });
     if (viewWindow > 0) attribution_spec.push({ event_type: 'VIEW_THROUGH', window_days: viewWindow });
+    if (engagedViewWindow > 0) attribution_spec.push({ event_type: 'ENGAGED_VIDEO_VIEW', window_days: engagedViewWindow });
 
     // Mapeia bid strategy + valor extra
     const cents = Math.round(dailyBudget * 100);
@@ -3637,9 +3638,11 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             ? (setName.trim() || ads[0]?.name || '')
             : (ads[0]?.name || ''),
           data: (() => {
-            const d = new Date(startTime);
-            if (isNaN(d.getTime())) return '';
-            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+            // startTime is 'YYYY-MM-DDTHH:mm' (GMT-3 wall clock from toDatetimeLocal).
+            // Slice directly — avoids new Date() parsing as browser-local time which
+            // can shift the day near midnight for browsers not in GMT-3.
+            if (!startTime || startTime.length < 10) return '';
+            return `${startTime.slice(8, 10)}/${startTime.slice(5, 7)}`;
           })(),
         }}
       />
