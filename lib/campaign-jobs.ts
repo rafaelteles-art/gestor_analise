@@ -127,6 +127,17 @@ export interface EnqueueJobInput {
 /**
  * Insert one or more pending jobs (one per ad account for a broadcast). All jobs
  * in the same call share a broadcast_group_id. Returns the new ids in input order.
+ *
+ * ALL-OR-NOTHING (review fix): a multi-account broadcast is inserted inside a
+ * single BEGIN/COMMIT on one pooled client. Previously the N rows were inserted as
+ * N independent pool.query() calls in a for-loop; if any INSERT threw mid-loop (DB
+ * blip, connection drop) the earlier accounts' jobs were ALREADY committed and
+ * would run, while the route returned 500. The user, seeing a failure, naturally
+ * retries the whole broadcast — and since there is no idempotency key on enqueue,
+ * the accounts that already enqueued got a DUPLICATE set of real campaigns
+ * (double-spend). Wrapping the per-account INSERTs in one transaction makes the
+ * broadcast atomic: either every account's job is committed or none is, so a
+ * retry-after-failure can never duplicate a partial broadcast.
  */
 export async function enqueueCampaignJobs(
   jobs: EnqueueJobInput[],
@@ -137,24 +148,37 @@ export async function enqueueCampaignJobs(
     opts?.broadcast_group_id ?? globalThis.crypto.randomUUID();
 
   const ids: number[] = [];
-  for (const j of jobs) {
-    // total is computed by the orchestrator once it expands the batch; we seed
-    // counts with zeros and let onEvent fill them in. We DO stamp broadcast_group_id
-    // even for single-account jobs so history can always group consistently.
-    const res = await pool.query(
-      `INSERT INTO campaign_jobs
-         (status, profile_name, account_id, account_name, broadcast_group_id, payload)
-       VALUES ('pending', $1, $2, $3, $4, $5::jsonb)
-       RETURNING id`,
-      [
-        j.profile_name,
-        j.account_id,
-        j.account_name ?? null,
-        broadcast_group_id,
-        JSON.stringify(j.payload),
-      ]
-    );
-    ids.push(Number(res.rows[0].id));
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const j of jobs) {
+      // total is computed by the orchestrator once it expands the batch; we seed
+      // counts with zeros and let onEvent fill them in. We DO stamp broadcast_group_id
+      // even for single-account jobs so history can always group consistently.
+      const res = await client.query(
+        `INSERT INTO campaign_jobs
+           (status, profile_name, account_id, account_name, broadcast_group_id, payload)
+         VALUES ('pending', $1, $2, $3, $4, $5::jsonb)
+         RETURNING id`,
+        [
+          j.profile_name,
+          j.account_id,
+          j.account_name ?? null,
+          broadcast_group_id,
+          JSON.stringify(j.payload),
+        ]
+      );
+      ids.push(Number(res.rows[0].id));
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    // Roll back so NO partial subset of the broadcast survives. The caller gets the
+    // throw and returns an error; because nothing committed, a user retry re-enqueues
+    // the FULL broadcast exactly once (no double-spend on the already-inserted rows).
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
   return { ids, broadcast_group_id };
 }
@@ -574,8 +598,18 @@ function applyMediaCheckpoint(
       filename: original.filename,
     };
   } else if (stored.startsWith('vid:')) {
+    // The checkpoint is written as `vid:${video_id}|${thumbnail_url}`. Split on the
+    // FIRST '|' only — NOT rest.split('|') which silently discards anything after the
+    // first delimiter (review fix). Meta CDN thumbnail URLs carry query strings and,
+    // while '|' is not RFC-valid unencoded, it is not guaranteed absent from a signed
+    // CDN URL; a '|' inside the URL (or any future change to the stored format) would
+    // otherwise corrupt the thumbnail on resume WITHOUT error. video_id is everything
+    // before the first '|'; the thumbnail is everything after it (which itself may
+    // contain further '|').
     const rest = stored.slice(4);
-    const [video_id, thumb] = rest.split('|');
+    const sep = rest.indexOf('|');
+    const video_id = sep === -1 ? rest : rest.slice(0, sep);
+    const thumb = sep === -1 ? '' : rest.slice(sep + 1);
     creative.media = {
       source: 'meta',
       video_id,

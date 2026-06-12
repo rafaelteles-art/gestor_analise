@@ -469,3 +469,66 @@ describe('requestCancel SQL — already-cancelled job must NOT return a false-su
     expect(src).not.toMatch(/row\.status\s*===\s*'cancelled'/);
   });
 });
+
+describe('enqueueCampaignJobs — multi-account broadcast must be all-or-nothing (review fix)', () => {
+  // The atomicity guarantee lives in the SQL transaction, not a pure function, and
+  // enqueueCampaignJobs() cannot be unit-tested against the DB here (no pool in
+  // vitest, and the module pulls in meta-campaigns.ts whose `@/` aliases vitest
+  // can't resolve). We assert the structural shape as a REGRESSION GUARD: if someone
+  // reverts the per-account INSERT loop back to N independent pool.query() calls
+  // (the original bug — a mid-loop failure commits a partial broadcast, then a user
+  // retry double-enqueues the already-inserted accounts → double-spend), these fail.
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'campaign-jobs.ts'),
+    'utf8'
+  );
+
+  it('acquires ONE pooled client and wraps the inserts in BEGIN/COMMIT', () => {
+    expect(src).toContain('const client = await pool.connect()');
+    expect(src).toContain("await client.query('BEGIN')");
+    expect(src).toContain("await client.query('COMMIT')");
+  });
+
+  it('rolls back on error so no partial subset of the broadcast survives', () => {
+    expect(src).toContain("await client.query('ROLLBACK')");
+  });
+
+  it('releases the client in finally (no pool leak on success or failure)', () => {
+    expect(src).toContain('client.release()');
+  });
+
+  it('inserts each job on the transactional client, NOT a fresh pool.query per row', () => {
+    // The for-loop body must INSERT via the leased client. A `pool.query(` INSERT
+    // inside enqueue would mean the row escapes the transaction (the original bug).
+    // Line-ending-agnostic (the file is CRLF on Windows): match across whitespace.
+    expect(src).toMatch(/await client\.query\(\s*`INSERT INTO campaign_jobs/);
+    // Guard against the regression: the INSERT must not run on the bare pool again.
+    expect(src).not.toMatch(/pool\.query\(\s*`INSERT INTO campaign_jobs/);
+  });
+});
+
+describe('applyMediaCheckpoint vid: decode — split on the FIRST delimiter only (review fix)', () => {
+  // applyMediaCheckpoint lives in campaign-jobs.ts (pulls in meta-campaigns.ts,
+  // unimportable in vitest), so this is a source-text REGRESSION GUARD. The bug:
+  // decoding `vid:${video_id}|${thumbnail_url}` with rest.split('|') and taking
+  // [video_id, thumb] silently DISCARDS anything after the first '|'. A Meta CDN
+  // thumbnail URL is not guaranteed free of '|' (signed query strings), so a '|' in
+  // the URL — or any future change to the stored format — would corrupt the thumb on
+  // resume WITHOUT error. The fix splits on indexOf('|')/slice so the thumbnail keeps
+  // everything after the first delimiter intact.
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'campaign-jobs.ts'),
+    'utf8'
+  );
+
+  it('does NOT decode the vid checkpoint with the lossy rest.split("|") destructure', () => {
+    expect(src).not.toMatch(/const\s*\[\s*video_id\s*,\s*thumb\s*\]\s*=\s*rest\.split\('\|'\)/);
+  });
+
+  it('splits on the FIRST delimiter via indexOf so the thumbnail keeps any later "|"', () => {
+    expect(src).toContain("const sep = rest.indexOf('|')");
+    // video_id = before the first '|'; thumb = everything after it (slice(sep + 1)).
+    expect(src).toContain('rest.slice(0, sep)');
+    expect(src).toContain('rest.slice(sep + 1)');
+  });
+});
