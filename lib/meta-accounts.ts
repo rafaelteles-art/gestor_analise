@@ -95,7 +95,8 @@ export async function fetchAndSyncMetaAccounts(onProgress?: (message: string) =>
     );
 
     // Apelido livre dado pelo usuário (A4). Não sobrescrito pelo sync — nickname
-    // preservado por nao constar no INSERT nem no DO UPDATE SET.
+    // é omitida da lista de colunas do INSERT e do DO UPDATE SET, portanto
+    // o valor existente é preservado automaticamente pelo Postgres.
     await pool.query(
       `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS nickname TEXT`
     );
