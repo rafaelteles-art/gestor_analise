@@ -1760,7 +1760,27 @@ export async function createCampaignBatch(
   // ── Plano determinista de entidades (chaves p/ resume idempotente). ─────────
   const plan = expandBatch(creatives.length, nCamp, nAdSet, nAd, level);
 
+  // `counts` rastreia apenas o que ESTE run fez — usado p/ skipped (que não tem
+  // mapa em runState e é por-run por design; processJob zera o baseline de skipped
+  // a cada tick). NÃO use counts.created/failed como contagem final: num resume
+  // após budget-abort as entidades já em runState.created são puladas ANTES de
+  // counts.created += 1 (linhas dos loops abaixo), então counts só conta o que
+  // este run criou — sub-contando o total real. Quem decide o número final é
+  // `tally()`, que reconta a partir dos MAPAS cumulativos de runState (mesma
+  // semântica de reduceCounts() em campaign-jobs-core), espelhando o que o worker
+  // já persiste como autoritativo (campaign-jobs.ts) — review finding A2.
   const counts = { created: 0, failed: 0, skipped: 0 };
+
+  // Contagem final cumulativa a partir dos mapas de runState (não do acumulador
+  // por-run). Exclui chaves `m:` (AdCreatives/uploads — não são entidades-ad
+  // rastreadas), idêntico a isEntityKey de reduceCounts. `skipped` permanece o
+  // valor por-run (não há mapa de skipped; processJob mantém o baseline por-run).
+  const isEntityKey = (k: string) => !k.startsWith('m:');
+  const tally = (): { created: number; failed: number; skipped: number } => ({
+    created: Object.keys(runState.created).filter(isEntityKey).length,
+    failed: Object.keys(runState.failed).filter(isEntityKey).length,
+    skipped: counts.skipped,
+  });
 
   // ── Sequencia pagina-por-ad: indexada pela ORDEM dos ads no plano. ──────────
   const totalAds = plan.ads.length;
@@ -1813,7 +1833,7 @@ export async function createCampaignBatch(
 
   // ── 1) CAMPANHAS ────────────────────────────────────────────────────────────
   for (const pc of plan.campaigns) {
-    if (shouldAbort()) return { aborted: true, counts };
+    if (shouldAbort()) return { aborted: true, counts: tally() };
     if (created[pc.key]) continue;
 
     const creativeName = pc.creativeIdx === null ? null : creatives[pc.creativeIdx].name;
@@ -1844,7 +1864,7 @@ export async function createCampaignBatch(
 
   // ── 2) ADSETS ────────────────────────────────────────────────────────────────
   for (const ps of plan.adsets) {
-    if (shouldAbort()) return { aborted: true, counts };
+    if (shouldAbort()) return { aborted: true, counts: tally() };
     if (created[ps.key]) continue;
     if (failed[ps.campKey]) {
       counts.skipped += 1;
@@ -1891,7 +1911,7 @@ export async function createCampaignBatch(
   // ── 3) ADS (creative + ad) ────────────────────────────────────────────────────
   for (let adOrdinal = 0; adOrdinal < plan.ads.length; adOrdinal++) {
     const pa = plan.ads[adOrdinal];
-    if (shouldAbort()) return { aborted: true, counts };
+    if (shouldAbort()) return { aborted: true, counts: tally() };
     if (created[pa.key]) continue;
 
     const adsetKey = pa.adsetKey;
@@ -1993,7 +2013,7 @@ export async function createCampaignBatch(
     }
   }
 
-  return { aborted: false, counts };
+  return { aborted: false, counts: tally() };
 }
 
 export async function createFullCampaign(

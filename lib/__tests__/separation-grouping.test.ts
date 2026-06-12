@@ -232,10 +232,20 @@ describe('createCampaignBatch — orphan-AdCreative leak on resume', () => {
     // reused from the checkpoint — createAdCreative must NOT be called again.
     const calls2: Record<string, number> = {};
     global.fetch = routedFetch({}, calls2); // all OK by default
-    await createCampaignBatch(makeInput(), noopOpts(runState));
+    const r2 = await createCampaignBatch(makeInput(), noopOpts(runState));
 
     expect(calls2.adcreatives ?? 0).toBe(0); // ← no duplicate orphan creative
     expect(calls2.ads).toBe(1); // ad finally created
+
+    // The VALUE the worker writes back as authoritative (campaign-jobs.ts persists
+    // result.counts and derives status from result.counts.failed). On this resume
+    // the campaign+adset were created in run 1 and SKIPPED here, so the per-run
+    // accumulator would say created=1 — but BatchRunResult.counts must be the
+    // CUMULATIVE 3 with ZERO failed (the run-1 phantom failure was cleared). This
+    // asserts the contract on the PRODUCTION path, not only via reduceCounts below.
+    expect(r2.aborted).toBe(false);
+    expect(r2.counts.created).toBe(3); // campaign + adset + ad, cumulative
+    expect(r2.counts.failed).toBe(0); // phantom failed key is gone → status 'done'
 
     // ── Idempotency contract: a branch that FAILED in run 1 but SUCCEEDED on
     // resume must be removed from runState.failed (no stale failed-key leak).
@@ -251,6 +261,89 @@ describe('createCampaignBatch — orphan-AdCreative leak on resume', () => {
     expect(counts.failed).toBe(0);
     expect(counts.created).toBe(3); // c:0:0 + s:0:0:0 + a:0:0:0:0
     expect(counts.total).toBe(3); // no inflation from a phantom failed key
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createCampaignBatch — BatchRunResult.counts must be CUMULATIVE across a
+// budget-abort resume (review finding A2). This drives the production path: the
+// worker (campaign-jobs.ts) writes result.counts back as the authoritative final
+// count and derives done/done_with_errors from result.counts.failed. The earlier
+// orphan-resume test only asserted via reduceCounts(runState,...), so a per-run
+// under-count of result.counts.created on resume slipped through. Here we assert
+// on the RETURNED counts directly — the exact value the worker persists and shows
+// the user — AND cross-check it agrees with reduceCounts (the map-based source).
+// ─────────────────────────────────────────────────────────────────────────────
+describe('createCampaignBatch — result.counts cumulative across budget-abort resume', () => {
+  const origFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = origFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('does NOT under-count created on resume: 3-entity batch returns counts.created=3, not 1', async () => {
+    const runState: BatchRunState = { created: {}, failed: {} };
+
+    // Single 1×1×1×1 batch → exactly 3 tracked entities: campaign (c:0:0),
+    // adset (s:0:0:0), ad (a:0:0:0:0). All Graph calls succeed; the ONLY thing we
+    // vary is shouldAbort, to force a budget-abort BETWEEN the adset and the ad.
+    global.fetch = routedFetch(
+      {
+        campaigns: () => metaOk('camp_1'),
+        adsets: () => metaOk('set_1'),
+        adcreatives: () => metaOk('cr_1'),
+        ads: () => metaOk('ad_1'),
+      },
+      {}
+    );
+
+    // ── TICK 1: shouldAbort() is checked at the top of each entity loop. Let the
+    // campaign and the adset through (false, false), then abort right before the
+    // ad (true). The orchestrator returns { aborted:true, counts } with the ad
+    // still uncreated — counts MUST already reflect the 2 entities created so far.
+    let abortCalls = 0;
+    const tick1Opts: BatchRunOpts = {
+      onEvent: async () => {},
+      runState,
+      shouldAbort: () => {
+        abortCalls += 1;
+        // calls 1 (campaign) and 2 (adset) → proceed; call 3 (ad) → abort.
+        return abortCalls >= 3;
+      },
+    };
+    const r1 = await createCampaignBatch(makeInput(), tick1Opts);
+
+    expect(r1.aborted).toBe(true);
+    expect(r1.counts.created).toBe(2); // campaign + adset created this tick
+    // run_state durably holds both so the resume can skip them.
+    expect(runState.created['c:0:0']).toBe('camp_1');
+    expect(runState.created['s:0:0:0']).toBe('set_1');
+    expect(runState.created['a:0:0:0:0']).toBeUndefined(); // ad not yet created
+
+    // ── TICK 2 (resume): same runState, no abort. The campaign and adset are
+    // already in runState.created so they are SKIPPED (no counts.created++ for
+    // them this run). Only the ad is created. The per-run accumulator would say
+    // created=1 — but BatchRunResult.counts must report the CUMULATIVE 3, because
+    // that is the value the worker persists as final and the user sees.
+    const r2 = await createCampaignBatch(makeInput(), noopOpts(runState));
+
+    expect(r2.aborted).toBe(false);
+    expect(runState.created['a:0:0:0:0']).toBe('ad_1'); // ad now created
+    // THE REGRESSION GUARD: the returned final count is cumulative (3), NOT the
+    // per-run 1. Before the fix this was 1 → the user saw "1 created" for a
+    // 3-entity batch after any resume, compared against a cumulative total.
+    expect(r2.counts.created).toBe(3); // campaign + adset + ad
+    expect(r2.counts.failed).toBe(0);
+
+    // The status decision in processJob uses result.counts.failed — must be 0 so
+    // a fully-successful resumed batch is 'done', never 'done_with_errors'.
+    expect(r2.counts.failed).toBe(0);
+
+    // Cross-check: the returned counts agree with the map-based reduceCounts source
+    // (the orphan test's assertion path). Production path and test path now match.
+    const viaReduce = reduceCounts(runState, { created: 0, failed: 0, skipped: 0, total: 0 });
+    expect(r2.counts.created).toBe(viaReduce.created); // 3 === 3
+    expect(r2.counts.failed).toBe(viaReduce.failed); // 0 === 0
   });
 });
 
