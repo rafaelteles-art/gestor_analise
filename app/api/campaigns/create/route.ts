@@ -96,78 +96,89 @@ export async function POST(req: Request) {
   };
 
   const broadcast_group_id = globalThis.crypto.randomUUID();
-  const jobsToInsert: {
-    profile_name: string;
-    account_id: string;
-    account_name: string | null;
-    payload: any;
-  }[] = [];
-  const authFailures: { account_id: string; error: string }[] = [];
 
-  for (const acctId of accountIds) {
-    const auth = await resolveAuth(acctId, profile_name);
-    if (!auth) {
-      authFailures.push({ account_id: acctId, error: 'Conta/perfil sem token válido.' });
-      continue;
+  // DB-touching work (resolveAuth queries meta_ad_accounts/getMetaProfiles;
+  // enqueueCampaignJobs runs ensureCampaignJobsTable DDL + INSERTs) is wrapped so
+  // transient DB errors return a structured { error } body + log, mirroring the
+  // sibling queue routes instead of leaking an opaque framework 500.
+  try {
+    const jobsToInsert: {
+      profile_name: string;
+      account_id: string;
+      account_name: string | null;
+      payload: any;
+    }[] = [];
+    const authFailures: { account_id: string; error: string }[] = [];
+
+    for (const acctId of accountIds) {
+      const auth = await resolveAuth(acctId, profile_name);
+      if (!auth) {
+        authFailures.push({ account_id: acctId, error: 'Conta/perfil sem token válido.' });
+        continue;
+      }
+
+      // The frozen context merges any user-supplied context (account name, pixel,
+      // estrutura, etc. — already passed by the builder) with the frozen date
+      // parts. account_id defaults into conta_id like the orchestrator does.
+      const userContext =
+        (isBatch ? (body as any).batch?.context : (body as any).context) ?? {};
+      const frozen_context = {
+        ...userContext,
+        conta_id: userContext.conta_id ?? acctId,
+        conta_nome: userContext.conta_nome ?? auth.account_name,
+        ...frozenDateParts,
+      };
+
+      // Build the per-account payload the worker will hand to createCampaignBatch.
+      // We keep the original request shape (batch vs legacy) and inject the frozen
+      // token + account_id + frozen_context + separation_level. We strip any
+      // client-provided frozen_context (esp. on re-enqueue) and recompute above.
+      const basePayload: any = {
+        ...body,
+        account_id: acctId,
+        access_token: auth.token,
+        profile_name: profile_name ?? null,
+        separation_level: separationLevel,
+        frozen_context,
+        reenqueue_of: reenqueueOf,
+      };
+      // Remove broadcast-only / stale fields so each job payload is self-contained.
+      delete basePayload.account_ids;
+
+      jobsToInsert.push({
+        profile_name: profile_name ?? 'Default',
+        account_id: acctId,
+        account_name: auth.account_name ?? null,
+        payload: basePayload,
+      });
     }
 
-    // The frozen context merges any user-supplied context (account name, pixel,
-    // estrutura, etc. — already passed by the builder) with the frozen date
-    // parts. account_id defaults into conta_id like the orchestrator does.
-    const userContext =
-      (isBatch ? (body as any).batch?.context : (body as any).context) ?? {};
-    const frozen_context = {
-      ...userContext,
-      conta_id: userContext.conta_id ?? acctId,
-      conta_nome: userContext.conta_nome ?? auth.account_name,
-      ...frozenDateParts,
-    };
+    if (jobsToInsert.length === 0) {
+      return NextResponse.json(
+        { error: 'Nenhuma conta com token válido.', failures: authFailures },
+        { status: 400 }
+      );
+    }
 
-    // Build the per-account payload the worker will hand to createCampaignBatch.
-    // We keep the original request shape (batch vs legacy) and inject the frozen
-    // token + account_id + frozen_context + separation_level. We strip any
-    // client-provided frozen_context (esp. on re-enqueue) and recompute above.
-    const basePayload: any = {
-      ...body,
-      account_id: acctId,
-      access_token: auth.token,
-      profile_name: profile_name ?? null,
-      separation_level: separationLevel,
-      frozen_context,
-      reenqueue_of: reenqueueOf,
-    };
-    // Remove broadcast-only / stale fields so each job payload is self-contained.
-    delete basePayload.account_ids;
+    const { ids } = await enqueueCampaignJobs(jobsToInsert, { broadcast_group_id });
 
-    jobsToInsert.push({
-      profile_name: profile_name ?? 'Default',
-      account_id: acctId,
-      account_name: auth.account_name ?? null,
-      payload: basePayload,
-    });
-  }
+    const jobs = ids.map((id, i) => ({
+      id,
+      account_id: jobsToInsert[i].account_id,
+      profile_name: jobsToInsert[i].profile_name,
+    }));
 
-  if (jobsToInsert.length === 0) {
     return NextResponse.json(
-      { error: 'Nenhuma conta com token válido.', failures: authFailures },
-      { status: 400 }
+      {
+        jobs,
+        broadcast_group_id,
+        ...(authFailures.length ? { failures: authFailures } : {}),
+      },
+      { status: 202 }
     );
+  } catch (err: any) {
+    const message = err?.message ?? String(err);
+    console.error('[campaigns/create] erro ao enfileirar jobs:', message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const { ids } = await enqueueCampaignJobs(jobsToInsert, { broadcast_group_id });
-
-  const jobs = ids.map((id, i) => ({
-    id,
-    account_id: jobsToInsert[i].account_id,
-    profile_name: jobsToInsert[i].profile_name,
-  }));
-
-  return NextResponse.json(
-    {
-      jobs,
-      broadcast_group_id,
-      ...(authFailures.length ? { failures: authFailures } : {}),
-    },
-    { status: 202 }
-  );
 }
