@@ -13,6 +13,28 @@ import { defaultCreativeName } from '@/lib/creative-name';
 import type { CreativeMedia, SeparationLevel } from '@/lib/batch-contract';
 
 // ────────────────────────────────────────────────────────────────────────────
+// SCOPE NOTE (for orchestrator):
+// Commit 5120755 (labelled feat B1a) landed the B1a spec (Steps 1-3:
+// SearchableSelect swap, nickname labels, tsc gate) AND the full B1b feature
+// set in a single commit on this file:
+//   F1  enqueue-only rework — NDJSON stream removed, 202/jobs path wired
+//       with QueueWidget + useQueuePolling (imported from app/components/QueueWidget)
+//   F4  Google Drive Picker — openDrivePicker / ensurePickerLoaded /
+//       loadScriptOnce + /api/google/drive/status probe
+//   F5  defaultCreativeName usage at enqueue
+//   F6  PresetConfig expansion (pixel / audiences / catalog / product_set /
+//       creatives_copy / naming_template) + applyAccountScopedPreset
+//       apply-if-valid-else-skip + localStorage naming-template migration
+//   F7  separation_level state, payload field, and PresetConfig wiring
+// B1b SHOULD BE TREATED AS ALREADY IMPLEMENTED — do not re-run Task B1b.
+// Sibling files required by these imports are untracked in the working tree:
+//   app/components/QueueWidget.tsx  (B1b / A-wave)
+//   lib/creative-name.ts            (B1b / A-wave)
+// tsc passes because those files exist on disk; they must be committed by
+// their respective owners.
+// ────────────────────────────────────────────────────────────────────────────
+
+// ────────────────────────────────────────────────────────────────────────────
 // Tipos (alinhados com app/lib/meta-campaigns.ts — repetidos aqui pra evitar
 // import server-only no client)
 // ────────────────────────────────────────────────────────────────────────────
