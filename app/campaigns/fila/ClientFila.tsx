@@ -212,21 +212,38 @@ function EventLog({ events }: { events: BatchEvent[] }) {
 
 // ─── Linha de detalhe (carrega full job ao expandir) ─────────────────────────
 
+// Outcome values returned by the cancel endpoint
+type CancelOutcome = 'cancelled' | 'cancel_requested' | 'not_cancellable' | 'not_found';
+
 function JobDetailRow({
   jobId,
   onCancelled,
   onReenqueued,
 }: {
   jobId: number;
-  onCancelled: (id: number) => void;
+  onCancelled: (id: number, outcome: CancelOutcome) => void;
   onReenqueued: () => void;
 }) {
   const [job, setJob] = useState<CampaignJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [cancelMsg, setCancelMsg] = useState<string | null>(null);
   const [reenqueueing, setReenqueueing] = useState(false);
   const [reenqueueMsg, setReenqueueMsg] = useState<string | null>(null);
+
+  // fetchJob re-loads the detail row from the server (used after 409 to show
+  // the real terminal status rather than a stale cancellable view).
+  const fetchJob = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/campaigns/jobs/${jobId}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      setJob(data.job);
+    } catch {
+      // Ignore — the user can collapse/expand to retry.
+    }
+  }, [jobId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -254,25 +271,48 @@ function JobDetailRow({
   const handleCancel = async () => {
     if (!job) return;
     setCancelling(true);
+    setCancelMsg(null);
     try {
       const res = await fetch(`/api/campaigns/jobs/${jobId}/cancel`, {
         method: 'POST',
       });
-      if (!res.ok && res.status !== 409) throw new Error(`HTTP ${res.status}`);
+
+      // HTTP 409 means the job is already terminal (done/error/cancelled/done_with_errors).
+      // Do NOT propagate to parent as a cancellation — instead refresh this detail
+      // row so both the expanded view and the parent list show the real status.
+      if (res.status === 409) {
+        const data = await res.json().catch(() => ({ outcome: 'not_cancellable' }));
+        const outcome: CancelOutcome = data?.outcome ?? 'not_cancellable';
+        setCancelMsg('Job já finalizado — atualizando status.');
+        // Refresh the detail row to reflect the real terminal status.
+        await fetchJob();
+        // Notify the parent so the list row also reflects the real outcome
+        // (the parent will re-fetch or leave the row as-is per outcome).
+        onCancelled(jobId, outcome);
+        return;
+      }
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
       const data = await res.json();
-      onCancelled(jobId);
+      const outcome: CancelOutcome = data?.outcome ?? 'cancelled';
+
+      // Update local detail state to match outcome:
+      // - 'cancelled': status flips immediately.
+      // - 'cancel_requested': status stays 'running', cancel_requested flag set.
       setJob((prev) =>
         prev
           ? {
               ...prev,
-              status:
-                data.outcome === 'cancelled'
-                  ? 'cancelled'
-                  : prev.status,
-              cancel_requested: data.outcome === 'cancel_requested' ? true : prev.cancel_requested,
+              status: outcome === 'cancelled' ? 'cancelled' : prev.status,
+              cancel_requested:
+                outcome === 'cancel_requested' ? true : prev.cancel_requested,
             }
           : prev
       );
+
+      // Propagate to parent with the actual outcome so the list row updates correctly.
+      onCancelled(jobId, outcome);
     } catch (e: any) {
       alert(`Erro ao cancelar: ${e.message}`);
     } finally {
@@ -374,6 +414,12 @@ function JobDetailRow({
           </button>
         )}
 
+        {cancelMsg && (
+          <span className="text-xs text-amber-600 dark:text-amber-400">
+            {cancelMsg}
+          </span>
+        )}
+
         <button
           onClick={handleReenqueue}
           disabled={reenqueueing}
@@ -408,7 +454,7 @@ function BroadcastGroupRow({
   jobs: CampaignJobListRow[];
   expandedJobs: Set<number>;
   toggleExpand: (id: number) => void;
-  onCancelled: (id: number) => void;
+  onCancelled: (id: number, outcome: CancelOutcome) => void;
   onReenqueued: () => void;
 }) {
   // Aggregate status: prefer worst status for group header
@@ -501,7 +547,7 @@ function JobRow({
   job: CampaignJobListRow;
   expanded: boolean;
   onToggle: () => void;
-  onCancelled: (id: number) => void;
+  onCancelled: (id: number, outcome: CancelOutcome) => void;
   onReenqueued: () => void;
   indent: boolean;
 }) {
@@ -806,11 +852,20 @@ export default function ClientFila() {
     });
   }, []);
 
-  const handleCancelled = useCallback((id: number) => {
+  const handleCancelled = useCallback((id: number, outcome: CancelOutcome) => {
     setJobs((prev) =>
-      prev.map((j) =>
-        j.id === id ? { ...j, status: 'cancelled' as const } : j
-      )
+      prev.map((j) => {
+        if (j.id !== id) return j;
+        // 'cancelled': job confirmed cancelled — flip status immediately.
+        if (outcome === 'cancelled') return { ...j, status: 'cancelled' as const };
+        // 'cancel_requested': worker will stop at the next entity; keep status
+        // 'running' so polling continues and the row updates to its real terminal
+        // status when the worker finishes.
+        if (outcome === 'cancel_requested') return { ...j, cancel_requested: true };
+        // 'not_cancellable' (409) or 'not_found': the server already has the real
+        // status; do NOT overwrite — the next auto-refresh tick will reconcile.
+        return j;
+      })
     );
   }, []);
 
