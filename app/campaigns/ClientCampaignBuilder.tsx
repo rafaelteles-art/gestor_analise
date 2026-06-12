@@ -8,6 +8,9 @@ import {
   filterOptions as ssFilterOptions,
   type SSOption,
 } from '@/app/components/SearchableSelect';
+import { QueueWidget, useQueuePolling } from '@/app/components/QueueWidget';
+import { defaultCreativeName } from '@/lib/creative-name';
+import type { CreativeMedia, SeparationLevel } from '@/lib/batch-contract';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Tipos (alinhados com app/lib/meta-campaigns.ts — repetidos aqui pra evitar
@@ -86,6 +89,27 @@ interface PresetConfig {
   autoRetryPage: boolean;
   adv: { all: boolean; site_extensions: boolean; relevant_comments: boolean; cta_optimization: boolean };
   multiAdvertiser: boolean;
+  // ── F7: separação de criativos ──────────────────────────────────────────
+  // 'campaign' | 'adset' | 'ad'. Default 'campaign' = comportamento legado.
+  separation_level?: SeparationLevel;
+  // ── F6: campos expandidos do template ───────────────────────────────────
+  // Guardados com IDs *e* nomes de exibição. Na aplicação usamos a regra
+  // "apply-if-valid-else-skip" — o ID só é aplicado se existir nas opções
+  // carregadas da conta selecionada; caso contrário é ignorado (com aviso).
+  pixel?: { id: string; name: string };
+  custom_audiences?: { id: string; name: string }[];
+  saved_audiences?: { id: string; name: string }[];
+  catalog?: { id: string; name: string };
+  product_set?: { id: string; name: string };
+  creatives_copy?: {
+    message: string;
+    headline: string;
+    description: string;
+    cta_type: string;
+    link: string;
+    url_tags: string;
+  }[];
+  naming_template?: { campaign: string; adset: string; ad: string };
 }
 
 type CTA =
@@ -143,6 +167,13 @@ interface AdDraft {
   media_kind: 'image' | 'video';
   /** Preview local (object URL) — funciona tanto pra imagem quanto vídeo. */
   image_preview?: string;
+  /**
+   * Mídia importada do Google Drive (F4). Quando presente, o worker baixa o
+   * arquivo na hora de executar e faz o upload pra Meta — não há image_hash /
+   * video_id ainda. Mutuamente exclusivo com um upload Meta direto: importar do
+   * Drive limpa image_hash/video_id e vice-versa.
+   */
+  drive_media?: { file_id: string; filename: string; mime: string };
   cta_type: CTA;
   cta_link: string;
   display_link: string;
@@ -732,6 +763,114 @@ async function readNdjson(res: Response, onLine: (l: any) => void) {
     buf = parts.pop() ?? '';
     for (const p of parts) if (p.trim()) try { onLine(JSON.parse(p)); } catch {}
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Google Drive Picker (F4) — lazy-loaded, browser-side OAuth (drive.readonly).
+// The server stores a refresh token for the WORKER to download the picked file
+// at execution time; this client-side picker is purely for the user to choose a
+// file id. Globals (gapi / google) are typed minimally to avoid a deps add.
+// ────────────────────────────────────────────────────────────────────────────
+
+declare const gapi: any;
+declare const google: any;
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY ?? '';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+
+function loadScriptOnce(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof document === 'undefined') return reject(new Error('no document'));
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === '1') return resolve();
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error(`failed to load ${src}`)));
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.defer = true;
+    s.dataset.loaded = '0';
+    s.addEventListener('load', () => { s.dataset.loaded = '1'; resolve(); });
+    s.addEventListener('error', () => reject(new Error(`failed to load ${src}`)));
+    document.head.appendChild(s);
+  });
+}
+
+let pickerApiLoaded = false;
+async function ensurePickerLoaded(): Promise<void> {
+  await loadScriptOnce('https://apis.google.com/js/api.js');
+  await loadScriptOnce('https://accounts.google.com/gsi/client');
+  if (!pickerApiLoaded) {
+    await new Promise<void>((resolve, reject) => {
+      try {
+        gapi.load('picker', { callback: () => { pickerApiLoaded = true; resolve(); } });
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+}
+
+/**
+ * Opens the Google Picker (images + videos) and resolves with the chosen file's
+ * metadata, or null if the user cancels. Throws on config/auth errors.
+ */
+async function openDrivePicker(): Promise<{ file_id: string; filename: string; mime: string } | null> {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_API_KEY) {
+    throw new Error('Google Picker não configurado (NEXT_PUBLIC_GOOGLE_CLIENT_ID / NEXT_PUBLIC_GOOGLE_API_KEY ausentes).');
+  }
+  await ensurePickerLoaded();
+
+  // 1) Get an OAuth access token via Google Identity Services (browser consent).
+  const accessToken: string = await new Promise((resolve, reject) => {
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: (resp: any) => {
+        if (resp?.error) return reject(new Error(resp.error));
+        resolve(resp.access_token);
+      },
+    });
+    tokenClient.requestAccessToken({ prompt: '' });
+  });
+
+  // 2) Build + show the picker, filtered to images and videos.
+  return new Promise((resolve, reject) => {
+    try {
+      const imagesView = new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES);
+      imagesView.setIncludeFolders(true);
+      const videosView = new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS);
+      videosView.setIncludeFolders(true);
+
+      const picker = new google.picker.PickerBuilder()
+        .setOAuthToken(accessToken)
+        .setDeveloperKey(GOOGLE_API_KEY)
+        .addView(imagesView)
+        .addView(videosView)
+        .setCallback((data: any) => {
+          const action = data[google.picker.Response.ACTION];
+          if (action === google.picker.Action.PICKED) {
+            const doc = data[google.picker.Response.DOCUMENTS]?.[0];
+            if (!doc) return resolve(null);
+            resolve({
+              file_id: doc[google.picker.Document.ID],
+              filename: doc[google.picker.Document.NAME] ?? 'drive-file',
+              mime: doc[google.picker.Document.MIME_TYPE] ?? 'application/octet-stream',
+            });
+          } else if (action === google.picker.Action.CANCEL) {
+            resolve(null);
+          }
+        })
+        .build();
+      picker.setVisible(true);
+    } catch (e) {
+      reject(e);
+    }
+  });
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1414,6 +1553,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [campaignsPerCreative, setCampaignsPerCreative] = useState(1);
   const [adsetsPerCampaign, setAdsetsPerCampaign] = useState(1);
   const [adsPerAdset, setAdsPerAdset] = useState(1);
+  // F7 — nível de separação de criativos. Default 'campaign' = legado.
+  const [separationLevel, setSeparationLevel] = useState<SeparationLevel>('campaign');
 
   // ── Conjunto ──────────────────────────────────────────────────────────────
   const [pixelId, setPixelId] = useState('');
@@ -1498,6 +1639,41 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     country, ageMin, ageMax, gender, locales, advantageAudience,
     advantagePositioning, platforms, devices, wifiOnly,
     urlTagsTpl, adNameTpl, autoRetryPage, adv, multiAdvertiser,
+    // ── F7 ──
+    separation_level: separationLevel,
+    // ── F6: account-scoped IDs (com nomes de exibição) ──
+    pixel: pixelId
+      ? { id: pixelId, name: pixels.find(p => p.id === pixelId)?.name ?? pixelId }
+      : undefined,
+    custom_audiences: includedAudiences.map(id => ({
+      id,
+      name: audiences.custom.find(a => a.id === id)?.name
+        ?? audiences.saved.find(a => a.id === id)?.name
+        ?? id,
+    })),
+    saved_audiences: excludedAudiences.map(id => ({
+      id,
+      name: audiences.saved.find(a => a.id === id)?.name
+        ?? audiences.custom.find(a => a.id === id)?.name
+        ?? id,
+    })),
+    catalog: catalogId
+      ? { id: catalogId, name: catalogs.find(c => c.id === catalogId)?.name ?? catalogId }
+      : undefined,
+    product_set: productSetId
+      ? { id: productSetId, name: productSets.find(s => s.id === productSetId)?.name ?? productSetId }
+      : undefined,
+    // ── F6: textos dos criativos ──
+    creatives_copy: ads.map(a => ({
+      message: a.message,
+      headline: a.headline,
+      description: a.description,
+      cta_type: a.cta_type,
+      link: a.link,
+      url_tags: urlTagsTpl,
+    })),
+    // ── F6: template de nomenclatura (sai do localStorage) ──
+    naming_template: { campaign: campaignName, adset: setName, ad: adNameTpl },
   });
 
   const applyPresetConfig = (c: PresetConfig) => {
@@ -1537,15 +1713,91 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     setAutoRetryPage(c.autoRetryPage);
     setAdv(c.adv);
     setMultiAdvertiser(c.multiAdvertiser);
+    // ── F7 — separação de criativos ──
+    if (c.separation_level) setSeparationLevel(c.separation_level);
+    // ── F6 — template de nomenclatura (preset é a fonte da verdade) ──
+    if (c.naming_template) {
+      if (typeof c.naming_template.campaign === 'string') setCampaignName(c.naming_template.campaign);
+      if (typeof c.naming_template.adset === 'string') setSetName(c.naming_template.adset);
+      if (typeof c.naming_template.ad === 'string') setAdNameTpl(c.naming_template.ad);
+    }
+    // ── F6 — textos dos criativos: aplica sobre os criativos existentes, na
+    // ordem; cria/remove slots para casar a contagem salva. url_tags é único
+    // pra campanha — adotamos o do primeiro criativo salvo (já vem de urlTagsTpl).
+    if (Array.isArray(c.creatives_copy) && c.creatives_copy.length > 0) {
+      setAds(prev => c.creatives_copy!.map((copy, i) => {
+        const base = prev[i] ?? { ...emptyAd(), name: `Criativo ${i + 1}` };
+        return {
+          ...base,
+          message: copy.message ?? base.message,
+          headline: copy.headline ?? base.headline,
+          description: copy.description ?? base.description,
+          cta_type: (copy.cta_type as CTA) ?? base.cta_type,
+          link: copy.link ?? base.link,
+        };
+      }));
+      if (typeof c.creatives_copy[0].url_tags === 'string') setUrlTagsTpl(c.creatives_copy[0].url_tags);
+    }
   };
+
+  /**
+   * Apply-if-valid-else-skip (F6) for account-scoped IDs. Each saved ID is only
+   * adopted if it exists in the options currently loaded for the selected
+   * account; otherwise it's left untouched. Returns the human labels of the
+   * fields that were skipped so the caller can surface one combined notice.
+   */
+  const applyAccountScopedPreset = (c: PresetConfig): string[] => {
+    const skipped: string[] = [];
+    // Pixel
+    if (c.pixel?.id) {
+      if (pixels.some(p => p.id === c.pixel!.id)) setPixelId(c.pixel.id);
+      else skipped.push('pixel');
+    }
+    // Custom audiences (incluídos)
+    if (Array.isArray(c.custom_audiences) && c.custom_audiences.length) {
+      const valid = c.custom_audiences.filter(a => audiences.custom.some(x => x.id === a.id));
+      if (valid.length) setIncludedAudiences(valid.map(a => a.id));
+      if (valid.length < c.custom_audiences.length) skipped.push('públicos personalizados');
+    }
+    // Saved audiences (excluídos)
+    if (Array.isArray(c.saved_audiences) && c.saved_audiences.length) {
+      const validIds = c.saved_audiences.filter(a =>
+        audiences.saved.some(x => x.id === a.id) || audiences.custom.some(x => x.id === a.id));
+      if (validIds.length) setExcludedAudiences(validIds.map(a => a.id));
+      if (validIds.length < c.saved_audiences.length) skipped.push('públicos salvos');
+    }
+    // Catalog
+    if (c.catalog?.id) {
+      if (catalogs.some(x => x.id === c.catalog!.id)) {
+        setCatalogId(c.catalog.id);
+        setProductSetId('');
+      } else {
+        skipped.push('catálogo');
+      }
+    }
+    // Product set (só aplica se o catálogo bateu e o set existe nele)
+    if (c.product_set?.id) {
+      if (productSets.some(x => x.id === c.product_set!.id)) setProductSetId(c.product_set.id);
+      else skipped.push('conjunto de produtos');
+    }
+    return skipped;
+  };
+
+  // Notice combinado de campos ignorados na última aplicação de preset.
+  const [presetSkipNotice, setPresetSkipNotice] = useState<string | null>(null);
 
   const handleApplyPreset = (name: string) => {
     setActivePresetName(name);
+    setPresetSkipNotice(null);
     if (!name) return;
     const p = presets.find(p => p.name === name);
     if (!p) return;
     try {
       applyPresetConfig(p.config);
+      const skipped = applyAccountScopedPreset(p.config);
+      if (skipped.length) {
+        setPresetSkipNotice(`Template aplicado; ignorados (não existem nesta conta): ${skipped.join(', ')}`);
+      }
     } catch (e) {
       alert('Preset inválido: ' + ((e as any)?.message ?? e));
     }
@@ -1668,6 +1920,35 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     }
     return { kind: 'image', hash: data.hash, preview };
   };
+
+  // ── Google Drive connection (F4) — probed once on mount ────────────────────
+  const [driveConnected, setDriveConnected] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch('/api/google/drive/status', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => setDriveConnected(!!d.connected))
+      .catch(() => setDriveConnected(false));
+  }, []);
+
+  // ── F6 back-compat: migrate the localStorage naming template into form state
+  // as the default campaign-name template, until the user saves a preset. We
+  // only adopt it if the user hasn't already typed a custom campaign name.
+  const migratedNameTplRef = useRef(false);
+  useEffect(() => {
+    if (migratedNameTplRef.current) return;
+    migratedNameTplRef.current = true;
+    try {
+      const saved = localStorage.getItem(CAMPAIGN_NAME_TPL_KEY);
+      if (saved && saved.includes('{{')) setCampaignName(saved);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Fila (F1) — job ids enfileirados nesta sessão + polling do widget ──────
+  const [queuedJobIds, setQueuedJobIds] = useState<number[]>([]);
+  const [enqueueError, setEnqueueError] = useState<string | null>(null);
+  const [showQueueWidget, setShowQueueWidget] = useState(false);
+  const queueRows = useQueuePolling(queuedJobIds);
 
   // ── Publish state ─────────────────────────────────────────────────────────
   const [running, setRunning] = useState(false);
@@ -1894,7 +2175,15 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
     // Monta a lista de "criativos drafted" para o orquestrador batch
     const creatives = ads.map((a) => {
-      const baseName = (adNameTpl && adNameTpl.trim()) || a.name;
+      // F5 — nome default client-side quando o input está vazio.
+      const resolvedAdName = a.name.trim() || defaultCreativeName({
+        dpa: isDPA,
+        productSetName: isDPA
+          ? (productSets.find(s => s.id === (a.product_set_id || productSetId))?.name)
+          : undefined,
+        fileName: a.drive_media?.filename || undefined,
+      });
+      const baseName = (adNameTpl && adNameTpl.trim()) || resolvedAdName;
       const firstPageId = selectedPages[0]?.id ?? '';
       // Sem IG Business Account, o server resolve via Page-Backed Instagram Account
       // (PBIA) na hora de criar o creative — não dá pra usar page_id direto aqui.
@@ -1924,9 +2213,14 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             message: a.message,
             headline: a.headline,
             description: a.description,
-            ...(a.media_kind === 'video'
-              ? { video_id: a.video_id, video_thumbnail_url: a.video_thumbnail_url }
-              : { image_hash: a.image_hash }),
+            // Mídia: importada do Drive (worker baixa+sobe na execução) OU já
+            // enviada à Meta (hash/video_id). `media` é o slot discriminado da
+            // Contract 2 (CreativeMedia); o worker resolve antes de criar o ad.
+            ...(a.drive_media
+              ? { media: { source: 'drive', file_id: a.drive_media.file_id, filename: a.drive_media.filename, mime: a.drive_media.mime } as CreativeMedia }
+              : a.media_kind === 'video'
+                ? { video_id: a.video_id, video_thumbnail_url: a.video_thumbnail_url }
+                : { image_hash: a.image_hash }),
             cta_type: a.cta_type,
             cta_link: a.cta_link || a.link,
           }
@@ -1954,6 +2248,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     const payload = {
       account_ids: accountIds,
       profile_name: profileName || undefined,
+      // F7 — top-level (a rota /api/campaigns/create lê body.separation_level e
+      // o injeta em cada job para o orquestrador A2 consumir).
+      separation_level: separationLevel,
       batch: {
         campaigns_per_creative: campaignsPerCreative,
         adsets_per_campaign: adsetsPerCampaign,
@@ -1986,45 +2283,41 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       },
     };
 
+    // ENQUEUE-ONLY (ADR-0005): a rota agora responde 202 com os jobs criados.
+    // Não há mais stream NDJSON — o worker cria as campanhas em segundo plano e
+    // o QueueWidget acompanha o progresso (kick + poll a cada 4s via
+    // useQueuePolling). Em broadcast, vem um job por conta (broadcast_group_id
+    // compartilhado).
+    setEnqueueError(null);
     try {
       const res = await fetch('/api/campaigns/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!res.ok && !res.body) {
-        const data = await res.json().catch(() => ({}));
-        setErrorInfo({ error: data?.error ?? res.statusText });
+      const data = await res.json().catch(() => ({}));
+      if (res.status !== 202) {
+        setEnqueueError(data?.error ?? `Falha ao enfileirar (HTTP ${res.status}).`);
         return;
       }
-      // Coleta os IDs criados ao longo do stream — orquestrador batch retorna múltiplos.
-      // Em broadcast, doneInfo agrega TODAS as contas (a aba "✓ Criado com sucesso" mostra
-      // o total combinado; o detalhamento por conta sai pelo broadcastSummary abaixo).
-      const collected = { campaign_ids: [] as string[], adset_ids: [] as string[], ad_ids: [] as string[] };
-      await readNdjson(res, (e) => {
-        setEvents(prev => [...prev, e]);
-        if (e.type === 'campaign_created') collected.campaign_ids.push(e.id);
-        if (e.type === 'adset_created')    collected.adset_ids.push(e.id);
-        if (e.type === 'ad_created')       collected.ad_ids.push(e.id);
-        if (e.type === 'done') setDoneInfo({ ...collected });
-        if (e.type === 'error') setErrorInfo({ step: e.step, error: e.error });
-        // Broadcast events
-        if (e.type === 'account_start') {
-          setBroadcastProgress({ current: (e.index ?? 0) + 1, total: e.total ?? 0, account_id: e.account_id });
-        }
-        if (e.type === 'broadcast_summary') {
-          setBroadcastSummary({
-            success: e.success ?? [],
-            failed: e.failed ?? [],
-            total: e.total ?? 0,
-          });
-          setBroadcastProgress(null);
-          // Em broadcast, doneInfo agrega o total — útil pro painel verde existente.
-          setDoneInfo({ ...collected });
-        }
-      });
+      const ids: number[] = Array.isArray(data?.jobs)
+        ? data.jobs.map((j: any) => Number(j.id)).filter((n: number) => Number.isFinite(n))
+        : [];
+      if (ids.length === 0) {
+        setEnqueueError('Resposta inesperada do servidor (sem jobs).');
+        return;
+      }
+      setQueuedJobIds(ids);
+      setShowQueueWidget(true);
+      // Falhas de autenticação parciais (contas sem token) voltam em failures.
+      if (Array.isArray(data?.failures) && data.failures.length) {
+        setEnqueueError(
+          `${data.failures.length} conta(s) ignorada(s) por falta de token: ` +
+          data.failures.map((f: any) => f.account_id).join(', ')
+        );
+      }
     } catch (e: any) {
-      setErrorInfo({ error: e?.message ?? String(e) });
+      setEnqueueError(e?.message ?? String(e));
     } finally {
       setRunning(false);
     }
