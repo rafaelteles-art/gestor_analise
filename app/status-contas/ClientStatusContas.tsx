@@ -665,17 +665,28 @@ export default function ClientStatusContas({
   const handleBatchUpdate = async () => {
     if (!batchEtapa || selectedAccounts.size === 0) return;
     const ids = Array.from(selectedAccounts);
+    // Capture previous etapa values for each affected account before optimistic update
+    const prevEtapas = new Map(
+      accounts
+        .filter(a => ids.includes(a.account_id))
+        .map(a => [a.account_id, a.etapa ?? 'Não Utilizada'])
+    );
     setIsUpdatingBatch(true);
     setAccounts(accs => accs.map(a => ids.includes(a.account_id) ? { ...a, etapa: batchEtapa } : a));
     try {
-      await fetch('/api/status-contas', {
+      const res = await fetch('/api/status-contas', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account_ids: ids, field: 'etapa', value: batchEtapa }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSelectedAccounts(new Set());
       setBatchEtapa('');
     } catch {
+      // Revert optimistic update for all affected accounts
+      setAccounts(accs => accs.map(a =>
+        prevEtapas.has(a.account_id) ? { ...a, etapa: prevEtapas.get(a.account_id)! } : a
+      ));
       alert('Erro ao atualizar etapas em lote.');
     } finally {
       setIsUpdatingBatch(false);
