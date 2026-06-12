@@ -66,8 +66,15 @@ function NicknameCell({
     const trimmed = draft.trim();
     const newNickname = trimmed === '' ? null : trimmed;
 
-    // Optimistic update
+    // Snapshot the pre-edit value as a true constant before any async work.
+    const previousNickname = nickname;
+
+    // Optimistic update — show new value immediately.
     onSaved(accountId, newNickname);
+    // Mark saving=true BEFORE the fetch so the pencil button is disabled and
+    // the user cannot start a second edit while this request is in-flight.
+    // This prevents overlapping commits that could cause the catch-block revert
+    // to clobber a concurrently-persisted value.
     setSaving(true);
     try {
       const res = await fetch('/api/accounts/nickname', {
@@ -77,8 +84,11 @@ function NicknameCell({
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
-      // Revert on error
-      onSaved(accountId, nickname);
+      // Revert to the value that was in place before this specific edit.
+      // Because the pencil button is disabled while saving===true, no second
+      // commit can run concurrently, so `previousNickname` is guaranteed to be
+      // the correct rollback target when we reach this catch.
+      onSaved(accountId, previousNickname);
     } finally {
       setSaving(false);
     }
@@ -97,8 +107,9 @@ function NicknameCell({
         </span>
         <button
           onClick={startEdit}
-          title="Editar apelido"
-          className={`text-gray-300 dark:text-gray-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors shrink-0 ${saving ? 'opacity-40' : ''}`}
+          disabled={saving}
+          title={saving ? 'Salvando…' : 'Editar apelido'}
+          className={`text-gray-300 dark:text-gray-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors shrink-0 ${saving ? 'opacity-40 cursor-not-allowed' : ''}`}
         >
           <Pencil className="w-3 h-3" />
         </button>
@@ -116,8 +127,8 @@ function NicknameCell({
         />
       ) : nickname ? (
         <span
-          onClick={startEdit}
-          className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium cursor-pointer hover:underline truncate max-w-[180px]"
+          onClick={saving ? undefined : startEdit}
+          className={`text-[11px] text-indigo-600 dark:text-indigo-400 font-medium truncate max-w-[180px] ${saving ? 'opacity-40' : 'cursor-pointer hover:underline'}`}
           title={nickname}
         >
           {nickname}
