@@ -42,7 +42,16 @@ async function fetchAllPages(url: string): Promise<any[]> {
       break;
     }
 
-    const data: any = await res.json();
+    // Guard against non-JSON bodies (502/503 HTML error pages, Meta #4 throttle
+    // pages). If the parse fails we treat it the same as a network error — log
+    // and return whatever we already collected rather than aborting the whole sync.
+    let data: any;
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      console.warn(`Meta API non-JSON response (status ${res.status}): ${parseErr}`);
+      break;
+    }
 
     if (data.error) {
       // Erro de permissão (código 200/10) é esperado para alguns BMs — não trava o loop
