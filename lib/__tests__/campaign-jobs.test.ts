@@ -10,6 +10,7 @@ import {
   reduceCounts,
   clampListLimit,
   isTransientMediaError,
+  normalizeBatchInput,
   type RunnableJobView,
   type JobCounts,
 } from '../campaign-jobs-core';
@@ -268,6 +269,138 @@ describe('isTransientMediaError — media upload retry/resume classifier', () =>
     expect(isTransientMediaError(null)).toBe(false);
     expect(isTransientMediaError(undefined)).toBe(false);
     expect(isTransientMediaError('string error')).toBe(false);
+  });
+});
+
+describe('normalizeBatchInput — payload→BatchCreateInput unwrap (review fix #2)', () => {
+  it('flattens a NESTED batch payload to the top level runBatch destructures', () => {
+    // Mirrors create/route.ts basePayload for a BATCH request: nested batch{},
+    // worker-injected account_id/access_token/frozen_context/separation_level.
+    const payload = {
+      account_id: 'act_999',
+      access_token: 'TOK',
+      profile_name: 'P1',
+      separation_level: 'adset',
+      frozen_context: { ano: '2026', mes: '06' },
+      batch: {
+        campaign: { name: 'C' },
+        adset: { name: 'S' },
+        creatives: [{ name: 'cr0', creative: {} }],
+        campaigns_per_creative: 2,
+        adsets_per_campaign: 1,
+        ads_per_adset: 1,
+        page_ids: ['pg1'],
+      },
+    };
+    const out = normalizeBatchInput(payload);
+    // The fields createCampaignBatch destructures must now be TOP-LEVEL.
+    expect(out.campaign).toEqual({ name: 'C' });
+    expect(out.adset).toEqual({ name: 'S' });
+    expect(out.creatives).toEqual([{ name: 'cr0', creative: {} }]);
+    expect(out.campaigns_per_creative).toBe(2);
+    expect(out.adsets_per_campaign).toBe(1);
+    expect(out.ads_per_adset).toBe(1);
+    expect(out.page_ids).toEqual(['pg1']);
+    // Worker-injected fields survive.
+    expect(out.account_id).toBe('act_999');
+    expect(out.access_token).toBe('TOK');
+    expect(out.frozen_context).toEqual({ ano: '2026', mes: '06' });
+    expect(out.separation_level).toBe('adset');
+    // The nested `batch` key is dropped after flattening.
+    expect(out.batch).toBeUndefined();
+  });
+
+  it('keeps worker-injected fields authoritative over stale duplicates inside batch', () => {
+    // If a stale token/account leaked INTO batch (e.g. from a re-enqueued history
+    // payload), the frozen worker-injected top-level values must still win.
+    const payload = {
+      account_id: 'act_top',
+      access_token: 'TOK_top',
+      separation_level: 'campaign',
+      batch: {
+        account_id: 'act_stale',
+        access_token: 'TOK_stale',
+        campaign: { name: 'C' },
+        adset: { name: 'S' },
+        creatives: [{ name: 'cr0', creative: {} }],
+        campaigns_per_creative: 1,
+      },
+    };
+    const out = normalizeBatchInput(payload);
+    expect(out.account_id).toBe('act_top');
+    expect(out.access_token).toBe('TOK_top');
+  });
+
+  it('falls back to a separation_level nested in batch when the top level lacks one', () => {
+    const payload = {
+      account_id: 'act_1',
+      access_token: 'TOK',
+      // no top-level separation_level
+      batch: {
+        separation_level: 'ad',
+        campaign: { name: 'C' },
+        adset: { name: 'S' },
+        creatives: [{ name: 'cr0', creative: {} }],
+        campaigns_per_creative: 1,
+      },
+    };
+    expect(normalizeBatchInput(payload).separation_level).toBe('ad');
+  });
+
+  it('passes a legacy/already-flat payload through unchanged (no batch key)', () => {
+    const payload = {
+      account_id: 'act_1',
+      access_token: 'TOK',
+      campaign: { name: 'C' },
+      adset: { name: 'S' },
+      ads: [{ name: 'a0' }],
+      campaigns_per_creative: 1,
+    };
+    const out = normalizeBatchInput(payload);
+    expect(out.campaign).toEqual({ name: 'C' });
+    expect(out.adset).toEqual({ name: 'S' });
+    expect(out.ads).toEqual([{ name: 'a0' }]);
+    expect(out.batch).toBeUndefined();
+  });
+
+  it('is null/undefined-safe (returns an object, never throws)', () => {
+    expect(normalizeBatchInput(undefined)).toEqual({});
+    expect(normalizeBatchInput(null)).toEqual({});
+    // A non-object batch value is ignored (treated as flat).
+    expect(normalizeBatchInput({ batch: 'oops', account_id: 'a' })).toEqual({
+      batch: 'oops',
+      account_id: 'a',
+    });
+  });
+});
+
+describe('worker tick — transient pause must YIELD, not busy-retry (review fix #1)', () => {
+  // The busy-retry loop lives in runQueueTick/processJob inside lib/campaign-jobs.ts,
+  // which pulls in meta-campaigns.ts (whose `@/` aliases vitest can't resolve), so
+  // we can't import and drive the loop here. We assert the structural guarantees on
+  // the source text instead — a REGRESSION GUARD: if someone collapses the transient
+  // pause back into the budget pause (the original bug), these fail.
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'campaign-jobs.ts'),
+    'utf8'
+  );
+
+  it('distinguishes a transient media pause from a budget pause', () => {
+    // A transient throttle yields a distinct outcome, not the same 'budget' the
+    // time-budget abort uses.
+    expect(src).toContain("kind: 'paused-transient'");
+    expect(src).toContain("kind: 'paused-budget'");
+  });
+
+  it('processJob returns a distinct yield outcome for the transient pause', () => {
+    expect(src).toContain("media.kind === 'paused-transient'");
+    expect(src).toContain("return 'yield'");
+  });
+
+  it('runQueueTick BREAKS the drain loop on yield so a later tick provides backoff', () => {
+    // The exact line that stops the tick from immediately re-claiming the just-
+    // released job and tight-looping on the throttled Meta endpoint.
+    expect(src).toContain("if (outcome === 'yield') break;");
   });
 });
 

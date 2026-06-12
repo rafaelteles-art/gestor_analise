@@ -23,6 +23,7 @@ import {
   reduceCounts,
   clampListLimit,
   isTransientMediaError,
+  normalizeBatchInput,
   type CampaignJobStatus,
   type JobCounts,
   type RunnableJobView,
@@ -36,6 +37,7 @@ export {
   reduceCounts,
   clampListLimit,
   isTransientMediaError,
+  normalizeBatchInput,
   type CampaignJobStatus,
   type JobCounts,
   type RunnableJobView,
@@ -402,11 +404,19 @@ export async function getJob(id: number): Promise<CampaignJob | null> {
 
 /** Outcome of the media-resolution phase. */
 type MediaResolveResult =
+  // All Drive media resolved (or none present): proceed to runBatch.
   | { kind: 'done' }
-  // Budget ran out OR a transient download/upload error: leave the job
+  // Time budget ran out (Date.now()-startedAtMs > budgetMs): leave the job
   // 'running', lease released, resumable from the m:<idx> checkpoints already
-  // persisted. `reason` is for the event log / observability only.
-  | { kind: 'paused'; reason: string }
+  // persisted. The tick may immediately re-drain if budget remains for OTHER
+  // profiles' jobs.
+  | { kind: 'paused-budget'; reason: string }
+  // A TRANSIENT download/upload error (Meta #4/#17 throttle, 429, 5xx, network
+  // blip) with budget still remaining. Leave the job 'running', lease released,
+  // resumable — but the caller must YIELD out of the tick so a LATER cron tick
+  // provides natural backoff. Re-claiming in the same tick would busy-retry the
+  // very endpoint that is throttling (review fix #1). `reason` is for the log.
+  | { kind: 'paused-transient'; reason: string }
   // Cancel was requested mid-media: stop and let the caller finish 'cancelled'.
   | { kind: 'cancelled' }
   // A PERMANENT failure (bad mime, invalid token, corrupt bytes, non-transient
@@ -465,7 +475,7 @@ async function resolveDriveMedia(
     // never leave a half-uploaded item without a checkpoint.
     if (await isCancelRequested()) return { kind: 'cancelled' };
     if (shouldAbort()) {
-      return { kind: 'paused', reason: `Budget de tempo atingido na mídia ${idx}` };
+      return { kind: 'paused-budget', reason: `Budget de tempo atingido na mídia ${idx}` };
     }
 
     try {
@@ -510,9 +520,13 @@ async function resolveDriveMedia(
       const msg = (e as { message?: string })?.message ?? String(e);
       if (isTransientMediaError(e)) {
         // Transient: creatives 0..idx-1 stay checkpointed. Pause (resumable) so a
-        // later tick retries ONLY this item. Do not extend the lease — caller
-        // releases it for an immediate resume.
-        return { kind: 'paused', reason: `Erro transitório na mídia ${idx}: ${msg}` };
+        // LATER cron tick retries ONLY this item — NOT this tick. Do not extend the
+        // lease (caller releases it), but signal 'paused-transient' so the caller
+        // yields out of the tick loop. Re-claiming this same job within the current
+        // tick (lease NULL → runnable, lowest id, no live run) would tight-loop on
+        // the exact endpoint that is throttling, worsening the throttle (review fix
+        // #1). The 2-minute cron cadence is the natural backoff.
+        return { kind: 'paused-transient', reason: `Erro transitório na mídia ${idx}: ${msg}` };
       }
       // Permanent: terminate the job.
       return { kind: 'error', message: `Falha ao preparar mídia ${idx}: ${msg}` };
@@ -554,15 +568,34 @@ function currentToken(job: CampaignJob): string {
 }
 
 /**
+ * Normalize a job's stored payload into the TOP-LEVEL shape createCampaignBatch
+ * (BatchCreateInput) destructures — review fix #2. Delegates to the pure,
+ * unit-tested normalizeBatchInput in ./campaign-jobs-core. For batch-shaped jobs
+ * it flattens payload.batch (campaign/adset/creatives/campaigns_per_creative/…)
+ * up to the top level so runBatch no longer sees undefined; legacy/flat payloads
+ * pass through. Called AFTER resolveDriveMedia so the in-place drive→meta media
+ * rewrites inside payload.batch.creatives are already applied when we flatten.
+ */
+function buildBatchInput(job: CampaignJob): any {
+  return normalizeBatchInput(job.payload);
+}
+
+/**
  * Process one claimed job to completion, abort, or finish-with-errors.
- * Returns 'finished' if the job reached a terminal state this call, or 'budget'
- * if it was left 'running' for the next tick to resume.
+ * Returns:
+ *  - 'finished' — the job reached a terminal state this call.
+ *  - 'budget'   — left 'running' (lease released) because the TIME budget ran out;
+ *                 the tick may keep draining OTHER profiles' jobs while budget lasts.
+ *  - 'yield'    — left 'running' (lease released) because of a TRANSIENT throttle
+ *                 with budget remaining; the caller MUST stop draining this tick so
+ *                 a later cron tick backs off (review fix #1). Re-claiming now would
+ *                 busy-retry the throttled endpoint.
  */
 async function processJob(
   job: CampaignJob,
   startedAtMs: number,
   budgetMs: number
-): Promise<'finished' | 'budget'> {
+): Promise<'finished' | 'budget' | 'yield'> {
   const runState: BatchRunState = job.run_state ?? { created: {}, failed: {} };
   if (!runState.created) runState.created = {};
   if (!runState.failed) runState.failed = {};
@@ -616,14 +649,26 @@ async function processJob(
     await finishJob(job.id, 'error', media.message);
     return 'finished';
   }
-  if (media.kind === 'paused') {
-    // Budget abort OR transient media error: persist the m:<idx> checkpoints and
-    // RELEASE the lease so the next 2-minute cron tick resumes immediately
-    // (without this, the last saveJobProgress' fresh 20-minute lease would make
-    // claimNextCampaignJob skip the job for ~18 minutes — the exact stall the
-    // review flagged). Status stays 'running'.
+  if (media.kind === 'paused-budget') {
+    // Time budget ran out mid-media: persist the m:<idx> checkpoints and RELEASE
+    // the lease so the next cron tick resumes immediately (without this, the last
+    // saveJobProgress' fresh 20-minute lease would make claimNextCampaignJob skip
+    // the job for ~18 minutes — the exact stall the review flagged). Status stays
+    // 'running'. 'budget' lets the tick keep draining other profiles' jobs.
     await releaseLeaseForResume(job.id, runState, counts);
     return 'budget';
+  }
+  if (media.kind === 'paused-transient') {
+    // Transient throttle/blip with budget still remaining: persist checkpoints and
+    // RELEASE the lease (resumable), but signal 'yield' so runQueueTick STOPS
+    // draining this tick. The job is now runnable (lease NULL, lowest id, no live
+    // run for its profile); if we kept looping we would immediately re-claim it and
+    // tight-loop on the throttled endpoint within this tick, hammering the very
+    // Meta call that is rate-limiting us (review fix #1). The ~2-minute cron cadence
+    // is the natural backoff; a later tick retries ONLY this item from its m:<idx>
+    // checkpoint.
+    await releaseLeaseForResume(job.id, runState, counts);
+    return 'yield';
   }
 
   const onEvent = async (e: BatchEvent): Promise<void> => {
@@ -637,9 +682,16 @@ async function processJob(
     }
   };
 
+  // Normalize the stored payload into the top-level shape runBatch destructures.
+  // For batch-shaped jobs this flattens payload.batch (campaign/adset/creatives/
+  // campaigns_per_creative/…) up to the top level; otherwise it passes through.
+  // Done AFTER resolveDriveMedia so the in-place media rewrites (drive→meta) inside
+  // payload.batch.creatives are already applied (review fix #2).
+  const batchInput = buildBatchInput(job);
+
   let result: { aborted: boolean; counts: { created: number; failed: number; skipped: number } };
   try {
-    result = await runBatch(job.payload, {
+    result = await runBatch(batchInput, {
       onEvent,
       runState,
       shouldAbort,
@@ -708,9 +760,17 @@ export async function runQueueTick(
     claimed++;
     const outcome = await processJob(job, startedAtMs, budgetMs);
     if (outcome === 'finished') finished++;
-    // If 'budget', the job stays 'running' and we stop looping next iteration
-    // because the budget check at the top will fail (or we keep going if there
-    // is still budget and another profile has work).
+    // 'yield' = a TRANSIENT throttle paused this job with budget still remaining.
+    // We MUST stop draining now: the job was just released (lease NULL) and is the
+    // lowest-id runnable row for its profile, so the next claimNextCampaignJob would
+    // immediately re-claim it and busy-retry the throttled endpoint until the budget
+    // expires — hammering the very Meta call that is rate-limiting us (review fix
+    // #1). The ~2-minute cron cadence is the backoff; the next tick resumes it.
+    if (outcome === 'yield') break;
+    // 'budget' = the TIME budget ran out for THIS job. The job stays 'running'
+    // (lease released) for the next tick. We keep looping: either the top-of-loop
+    // budget check fails and we exit, or budget remains and another profile has
+    // work we can still drain this tick.
   }
 
   return { claimed, finished };

@@ -153,6 +153,43 @@ export function isTransientMediaError(err: unknown): boolean {
   return false;
 }
 
+/**
+ * Normalize a job's stored payload into the TOP-LEVEL shape createCampaignBatch
+ * (BatchCreateInput) destructures — review fix #2.
+ *
+ * create/route.ts builds `payload = { ...body, account_id, access_token,
+ * profile_name, separation_level, frozen_context, ... }`. For a BATCH request,
+ * `body` carries a NESTED `batch:{ campaign, adset, creatives,
+ * campaigns_per_creative, page_ids, ... }` and NOT top-level campaign/adset/
+ * creatives, whereas createCampaignBatch reads input.campaign / input.adset /
+ * input.creatives / input.campaigns_per_creative at the TOP level. Passing the raw
+ * payload would leave all of those undefined, so a batch-mode job would create
+ * nothing / throw. We FLATTEN payload.batch onto the top level, keeping the
+ * worker-injected fields (account_id, access_token, frozen_context,
+ * separation_level) authoritative so the frozen token/clock are never shadowed by
+ * anything inside batch. The `batch` key itself is dropped.
+ *
+ * Legacy (non-batch) payloads carry campaign/adset at the top level and have no
+ * `batch` key, so they pass through unchanged.
+ *
+ * Kept here (dependency-free) so it is unit-testable; lib/campaign-jobs.ts uses it
+ * AFTER resolveDriveMedia, so the in-place drive→meta media rewrites inside
+ * payload.batch.creatives are already applied when we flatten.
+ */
+export function normalizeBatchInput(payload: any): any {
+  const p = payload ?? {};
+  const batch = p.batch;
+  if (!batch || typeof batch !== 'object') {
+    return p; // legacy / already-flat: nothing nested to unwrap
+  }
+  const { batch: _omit, ...top } = p;
+  return {
+    ...batch,
+    ...top, // worker-injected/top-level fields win over stale duplicates in batch
+    separation_level: top.separation_level ?? batch.separation_level,
+  };
+}
+
 export function reduceCounts(
   runState: BatchRunState,
   prior: JobCounts,
