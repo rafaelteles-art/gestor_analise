@@ -167,7 +167,18 @@ export async function getDriveFileMeta(
         throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
       }
       if (res.status === 403) {
-        // Permission denied — not a token expiry; do NOT retry.
+        // Google Drive v3 returns HTTP 403 — not 429 — for quota/rate-limit
+        // throttling (reason codes: 'userRateLimitExceeded', 'rateLimitExceeded').
+        // We must distinguish these transient 403s from a true permission-denied
+        // 403, otherwise isTransientMediaError() in campaign-jobs-core classifies
+        // quota throttling as a PERMANENT failure and terminates the campaign job.
+        const isRateLimit = /userRateLimitExceeded|rateLimitExceeded/.test(text);
+        if (isRateLimit) {
+          // Treat as transient: the worker will pause-and-resume on the next tick.
+          throw new DriveHttpError(429, `Drive quota exceeded (retry later): ${text}`);
+        }
+        // True permission-denied — not a token expiry and not a transient error;
+        // surface as permanent DriveAuthError so the job fails clearly.
         throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
       }
       throw new DriveHttpError(res.status, `Drive API error ${res.status}: ${text}`);
@@ -214,7 +225,18 @@ export async function downloadDriveFile(fileId: string): Promise<Buffer> {
         throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
       }
       if (res.status === 403) {
-        // Permission denied — not a token expiry; do NOT retry.
+        // Google Drive v3 returns HTTP 403 — not 429 — for quota/rate-limit
+        // throttling (reason codes: 'userRateLimitExceeded', 'rateLimitExceeded').
+        // We must distinguish these transient 403s from a true permission-denied
+        // 403, otherwise isTransientMediaError() in campaign-jobs-core classifies
+        // quota throttling as a PERMANENT failure and terminates the campaign job.
+        const isRateLimit = /userRateLimitExceeded|rateLimitExceeded/.test(text);
+        if (isRateLimit) {
+          // Treat as transient: the worker will pause-and-resume on the next tick.
+          throw new DriveHttpError(429, `Drive quota exceeded (retry later): ${text}`);
+        }
+        // True permission-denied — not a token expiry and not a transient error;
+        // surface as permanent DriveAuthError so the job fails clearly.
         throw new DriveAuthError(`Sem acesso ao arquivo do Google Drive: ${text}`);
       }
       throw new DriveHttpError(res.status, `Drive download error ${res.status}: ${text}`);
