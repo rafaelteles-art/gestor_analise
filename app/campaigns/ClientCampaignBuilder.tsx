@@ -2074,14 +2074,19 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   if (bidStrategy === 'COST_CAP' && costCap === '') errors.push('Meta de custo exige um valor.');
   if (bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS' && minRoas === '') errors.push('Meta de ROAS exige um valor.');
   ads.forEach((a, i) => {
-    if (!a.name.trim()) errors.push(`Criativo ${i + 1}: nome obrigatório.`);
+    // F5 — nome do criativo NÃO é mais obrigatório: quando vazio, o default é
+    // resolvido client-side no enqueue (defaultCreativeName). Não validar aqui.
     if (a.type === 'single' && !isDPA) {
       if (!a.link.trim())       errors.push(`Criativo ${i + 1}: link obrigatório.`);
-      if (a.media_kind === 'video') {
-        if (!a.video_id)              errors.push(`Criativo ${i + 1}: faça upload do vídeo.`);
-        if (a.video_id && !a.video_thumbnail_url) errors.push(`Criativo ${i + 1}: miniatura do vídeo ainda não disponível — aguarde o encoding terminar.`);
-      } else {
-        if (!a.image_hash)        errors.push(`Criativo ${i + 1}: faça upload da imagem.`);
+      // Mídia importada do Drive (F4) satisfaz o requisito — o worker baixa o
+      // arquivo e sobe pra Meta na execução, então não há hash/video_id ainda.
+      if (!a.drive_media) {
+        if (a.media_kind === 'video') {
+          if (!a.video_id)              errors.push(`Criativo ${i + 1}: faça upload do vídeo (ou importe do Drive).`);
+          if (a.video_id && !a.video_thumbnail_url) errors.push(`Criativo ${i + 1}: miniatura do vídeo ainda não disponível — aguarde o encoding terminar.`);
+        } else {
+          if (!a.image_hash)        errors.push(`Criativo ${i + 1}: faça upload da imagem (ou importe do Drive).`);
+        }
       }
       if (!a.message.trim())    errors.push(`Criativo ${i + 1}: texto principal obrigatório.`);
     } else if (a.type === 'carousel') {
@@ -3829,6 +3834,14 @@ function AdEditor({
                 {ad.drive_media && !driveImporting && (
                   <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono truncate max-w-[160px]" title={ad.drive_media.filename}>
                     Drive: {ad.drive_media.filename}
+                  </span>
+                )}
+                {/* F4 — server-side connection probe: the WORKER (not the browser
+                    picker) downloads the file at execution time, so it needs the
+                    refresh token saved in settings. Warn if that's missing. */}
+                {openDrivePickerFn && driveConnected === false && ad.drive_media && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 w-full basis-full">
+                    Conecte o Google Drive nas configurações para a fila conseguir baixar.
                   </span>
                 )}
                 {ad.media_kind === 'video' && ad.video_thumbnail_url ? (
