@@ -5,6 +5,7 @@ export interface AccountAuth {
   account_id: string;
   account_name: string;
   access_token: string;
+  nickname: string | null;
 }
 
 /**
@@ -13,7 +14,7 @@ export interface AccountAuth {
  */
 export async function loadAccountAuth(accountId: string): Promise<AccountAuth | null> {
   const res = await pool.query(
-    `SELECT account_id, account_name, access_token
+    `SELECT account_id, account_name, access_token, nickname
        FROM meta_ad_accounts
       WHERE account_id = $1
       LIMIT 1`,
@@ -34,17 +35,18 @@ export async function loadAccountAuth(accountId: string): Promise<AccountAuth | 
 export async function resolveAuth(
   accountId: string,
   profileName?: string | null
-): Promise<{ token: string; account_name: string } | null> {
+): Promise<{ token: string; account_name: string; nickname: string | null } | null> {
   const account = await loadAccountAuth(accountId);
   const accountName = account?.account_name ?? accountId;
+  const nickname = account?.nickname ?? null;
 
   if (profileName) {
     const profiles = await getMetaProfiles();
     const match = profiles.find((p) => p.name === profileName);
-    if (match?.token) return { token: match.token, account_name: accountName };
+    if (match?.token) return { token: match.token, account_name: accountName, nickname };
     return null;
   }
 
-  if (account?.access_token) return { token: account.access_token, account_name: accountName };
+  if (account?.access_token) return { token: account.access_token, account_name: accountName, nickname };
   return null;
 }

@@ -1462,6 +1462,39 @@ export function dropCriativoToken(tpl: string): string {
     .trim();
 }
 
+/**
+ * Valor do token {{conta}} em nomes de entidade: o apelido (nickname) tem
+ * precedencia sobre o nome da conta (F3). Vazio se nenhum existir.
+ */
+export function contaTokenValue(ctx: { conta_apelido?: string; conta_nome?: string }): string {
+  return ctx.conta_apelido || ctx.conta_nome || '';
+}
+
+/**
+ * Resolve o nome de uma campanha/conjunto a partir do template, POR JOB:
+ *  - {{conta}} -> apelido||nome da conta deste job. Resolvido no servidor (nao no
+ *    builder) para que um broadcast multi-conta nomeie cada conta com a SUA
+ *    identidade, em vez de clonar a da primeira conta selecionada.
+ *  - {{criativo}} -> nome do criativo; OU removido (entidade multi-criativo) via
+ *    dropCriativoToken. Quando ha varios criativos e o template nao traz o token,
+ *    anexa " \u2014 <criativo>" para manter os nomes unicos.
+ * `creativeName === null` sinaliza entidade compartilhada por varios criativos.
+ */
+export function resolveEntityName(
+  tplName: string,
+  creativeName: string | null,
+  suffix: string,
+  opts: { conta: string; multiCreative: boolean }
+): string {
+  const withConta = tplName.replace(/\{\{\s*conta\s*\}\}/gi, opts.conta);
+  if (creativeName === null) {
+    return `${dropCriativoToken(withConta)}${suffix}`;
+  }
+  const replaced = withConta.replace(/\{\{\s*criativo\s*\}\}/gi, creativeName);
+  const needsSuffix = opts.multiCreative && replaced === withConta;
+  return `${replaced}${needsSuffix ? ` \u2014 ${creativeName}` : ''}${suffix}`;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Separacao de criativos (F7) — expansao pura, testavel sem a Meta
 // ────────────────────────────────────────────────────────────────────────────
@@ -1802,15 +1835,13 @@ export async function createCampaignBatch(
     return seq.slice(0, totalAds);
   })();
 
-  const resolveName = (tplName: string, creativeName: string | null, suffix: string): string => {
-    if (creativeName === null) {
-      const dropped = dropCriativoToken(tplName);
-      return `${dropped}${suffix}`;
-    }
-    const replaced = tplName.replace(/\{\{\s*criativo\s*\}\}/gi, creativeName);
-    const needsSuffix = creatives.length > 1 && replaced === tplName;
-    return `${replaced}${needsSuffix ? ` — ${creativeName}` : ''}${suffix}`;
-  };
+  // {{conta}} resolve POR JOB (apelido||nome desta conta) — ver resolveEntityName.
+  const contaName = contaTokenValue(baseCtx);
+  const resolveName = (tplName: string, creativeName: string | null, suffix: string): string =>
+    resolveEntityName(tplName, creativeName, suffix, {
+      conta: contaName,
+      multiCreative: creatives.length > 1,
+    });
 
   // Aplica o envelope de mídia do contrato (CreativeMedia) ao CreativeSpec.
   // Só `source:'meta'` carrega ids já resolvidos (image_hash/video_id) — `drive`
@@ -1932,7 +1963,7 @@ export async function createCampaignBatch(
     const crv = creatives[pa.creativeIdx];
     const creativeSpec = mergeMedia(crv.creative, crv.media);
     const adSuffix = nAd > 1 ? `_AD${pad2(pa.adSuffixNum)}` : '';
-    const adName = `${crv.name}${adSuffix}`;
+    const adName = `${crv.name.replace(/\{\{\s*conta\s*\}\}/gi, contaName)}${adSuffix}`;
 
     const primaryPage = pageSequence[adOrdinal] ?? page_ids[0];
     const pagesToTry =

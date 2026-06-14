@@ -2122,16 +2122,17 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     const status = publishPaused ? 'PAUSED' : 'ACTIVE';
     const selectedPages = pages.filter(p => pageIds.includes(p.id));
 
-    // Substitui variáveis "estáticas" do nome da campanha agora (no submit) —
-    // {{conta}}, {{orcamento}}, {{estrutura}}, {{data}}. O token {{criativo}}
-    // permanece e é resolvido por criativo no orquestrador (meta-campaigns.ts).
+    // Resolve no submit apenas as variáveis INVARIANTES por conta —
+    // {{orcamento}}, {{estrutura}}, {{data}}. {{conta}} e {{criativo}} ficam como
+    // tokens e são resolvidos por job/criativo no orquestrador (meta-campaigns.ts):
+    // assim, num broadcast multi-conta, cada conta nomeia com a SUA identidade
+    // (nome/apelido) em vez de clonar a da primeira conta selecionada.
     const startDate = (() => {
       // startTime é 'YYYY-MM-DDTHH:mm' no fuso do app (GMT-3) — extrai DD/MM direto.
       if (!/^\d{4}-\d{2}-\d{2}/.test(startTime)) return '';
       return `${startTime.slice(8, 10)}/${startTime.slice(5, 7)}`;
     })();
     const resolvedCampaignName = campaignName
-      .replace(/\{\{\s*conta\s*\}\}/gi,     (account?.nickname || account?.account_name) ?? '')
       .replace(/\{\{\s*orcamento\s*\}\}/gi, campaignType)
       .replace(/\{\{\s*estrutura\s*\}\}/gi, `${campaignsPerCreative}-${adsetsPerCampaign}-${adsPerAdset}`)
       .replace(/\{\{\s*data\s*\}\}/gi,      startDate);

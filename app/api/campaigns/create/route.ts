@@ -139,12 +139,29 @@ export async function POST(req: Request) {
       // parts. account_id defaults into conta_id like the orchestrator does.
       // Always batch-shaped past the guard above; user context lives in batch.context.
       const userContext = (body as any).batch?.context ?? {};
+      // Account identity resolved PER account, so a multi-account broadcast names
+      // and UTM-tags each account with its OWN name/nickname instead of cloning
+      // the first account's (the builder only knows account #1 at submit time).
+      // conta_apelido (nickname) takes precedence in the {{conta}} name token (F3);
+      // it falls back to the account name when no nickname is set.
+      const acctIdentity = {
+        conta_id: acctId,
+        conta_nome: auth.account_name,
+        conta_apelido: auth.nickname || auth.account_name,
+      };
       const frozen_context = {
         ...userContext,
-        conta_id: userContext.conta_id ?? acctId,
-        conta_nome: userContext.conta_nome ?? auth.account_name,
+        ...acctIdentity,
         ...frozenDateParts,
       };
+
+      // Rewrite batch.context with THIS account's identity — the orchestrator reads
+      // conta_nome/conta_apelido/conta_id from input.context (= batch.context) for
+      // both entity names ({{conta}}) and url_tags ({{conta_nome}}/{{conta_apelido}}).
+      // Build a fresh object per account; never mutate the shared body.batch.
+      const perAccountBatch = (body as any).batch
+        ? { ...(body as any).batch, context: { ...userContext, ...acctIdentity } }
+        : (body as any).batch;
 
       // Build the per-account payload the worker will hand to createCampaignBatch.
       // We keep the original request shape (batch vs legacy) and inject the frozen
@@ -152,6 +169,7 @@ export async function POST(req: Request) {
       // client-provided frozen_context (esp. on re-enqueue) and recompute above.
       const basePayload: any = {
         ...body,
+        batch: perAccountBatch,
         account_id: acctId,
         access_token: auth.token,
         profile_name: profile_name ?? null,
