@@ -54,3 +54,35 @@ env:
     secret: cron-secret@3
     availability:
       - RUNTIME
+  # ── Google Drive (criativos de campanha via Picker + download no worker) ──────
+  # Reusa o MESMO OAuth client do login (decisão 2026-06-14). Antes do deploy, no
+  # Console: adicionar ao client 611439523851-… o redirect URI
+  # https://v2-media-lab--v2-media-lab.us-central1.hosted.app/api/google/oauth/callback
+  # e o escopo .../auth/drive.readonly na tela de consentimento.
+  - variable: GOOGLE_OAUTH_CLIENT_ID
+    value: 611439523851-si73k5u0ptla7fn2vu8cfbstrf0li71u.apps.googleusercontent.com
+    availability:
+      - RUNTIME
+  - variable: GOOGLE_OAUTH_CLIENT_SECRET
+    secret: google-client-secret
+    availability:
+      - RUNTIME
+  - variable: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    value: 611439523851-si73k5u0ptla7fn2vu8cfbstrf0li71u.apps.googleusercontent.com
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_APP_URL
+    value: https://v2-media-lab--v2-media-lab.us-central1.hosted.app
+    availability:
+      - BUILD
+      - RUNTIME
+  # TODO(deploy): SUBSTITUIR pelo valor real antes do merge. Console > APIs &
+  # Services > Credentials > Create API key, restrita à Picker API + referrer
+  # https://v2-media-lab--v2-media-lab.us-central1.hosted.app/*. É browser-public
+  # por design (NEXT_PUBLIC), então fica como value:, não secret.
+  - variable: NEXT_PUBLIC_GOOGLE_API_KEY
+    value: REPLACE_WITH_PICKER_API_KEY
+    availability:
+      - BUILD
+      - RUNTIME
