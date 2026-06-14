@@ -110,7 +110,15 @@ function NicknameCell({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') { e.preventDefault(); commit(); }
-    if (e.key === 'Escape') { setEditing(false); setDraft(nickname ?? ''); }
+    if (e.key === 'Escape') {
+      // Mark as committed BEFORE setEditing(false). Hiding the input unmounts
+      // it, which fires onBlur → commit(). Without this guard, commit() would
+      // run with committedRef===false and send the cancelled draft to the API
+      // (because setDraft is async and the closure captured the pre-reset value).
+      committedRef.current = true;
+      setEditing(false);
+      setDraft(nickname ?? '');
+    }
   };
 
   return (
