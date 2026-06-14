@@ -20,10 +20,10 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'account_id obrigatório' }, { status: 400 });
     }
 
-    // Ensure the column exists (safe for new deployments or first call after migration)
-    await pool.query(
-      `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS nickname TEXT`
-    );
+    // NOTE: Schema is ensured at page-load time via ensureColumns() in the server
+    // components (status-contas/page.tsx, campaigns/page.tsx). Running ALTER TABLE
+    // on the hot-path of every write would acquire ACCESS EXCLUSIVE locks on
+    // meta_ad_accounts and contend with the hourly account-sync cron transactions.
 
     // NULLIF(trim($2), '') → empty string becomes NULL (clears the nickname)
     await pool.query(

@@ -47,6 +47,14 @@ function NicknameCell({
   const [draft, setDraft] = useState(nickname ?? '');
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Guards against the Enter→commit() + onBlur→commit() double-fire.
+  // When the user presses Enter, commit() sets this ref to true and calls
+  // setEditing(false). The resulting re-render unmounts/blurs the input,
+  // which triggers a second onBlur→commit() call; the ref check short-circuits
+  // it synchronously before any state updates or network requests happen.
+  // The ref is reset to false after the async save completes (or on error),
+  // ready for the next edit cycle.
+  const committedRef = useRef(false);
 
   // Keep draft in sync when parent optimistically reverts
   useEffect(() => {
@@ -54,6 +62,7 @@ function NicknameCell({
   }, [nickname, editing]);
 
   const startEdit = () => {
+    committedRef.current = false;
     setDraft(nickname ?? '');
     setEditing(true);
     // Focus on next tick after render
@@ -62,6 +71,9 @@ function NicknameCell({
 
   const commit = async () => {
     if (!editing) return;
+    // Dedupe Enter+blur: the first caller sets the ref, the second bails out.
+    if (committedRef.current) return;
+    committedRef.current = true;
     setEditing(false);
     const trimmed = draft.trim();
     const newNickname = trimmed === '' ? null : trimmed;
@@ -91,6 +103,8 @@ function NicknameCell({
       onSaved(accountId, previousNickname);
     } finally {
       setSaving(false);
+      // Reset so the next edit cycle is not blocked by a stale true.
+      committedRef.current = false;
     }
   };
 
