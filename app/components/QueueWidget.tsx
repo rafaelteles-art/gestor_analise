@@ -243,8 +243,14 @@ export function useQueuePolling(pinnedIds: number[]): QueueJobRow[] {
   idsRef.current = pinnedIds;
 
   useEffect(() => {
+    // Clear any rows from a PREVIOUS pinned-id set the instant the set changes.
+    // Without this, a second enqueue (new ids) keeps batch A's rows on screen
+    // until batch B's first poll resolves (kick + fetch latency), so the widget
+    // briefly renders jobs that are no longer pinned. Resetting here — for both
+    // the empty and the switch-to-a-different-non-empty case — guarantees the
+    // widget never shows stale rows whose ids are not in the current pinned set.
+    setRows([]);
     if (pinnedIds.length === 0) {
-      setRows([]);
       return;
     }
     let cancelled = false;

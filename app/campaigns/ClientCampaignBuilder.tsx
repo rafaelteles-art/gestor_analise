@@ -2370,6 +2370,11 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         setEnqueueError('Resposta inesperada do servidor (sem jobs).');
         return;
       }
+      // Drop the previous batch's snapshot BEFORE pinning the new ids. Otherwise
+      // displayQueueRows (queueRows.length>0 ? queueRows : lastQueueRowsRef.current)
+      // would briefly fall back to batch A's rows — jobs no longer pinned — during
+      // the gap before batch B's first poll resolves (kick + fetch latency).
+      lastQueueRowsRef.current = [];
       setQueuedJobIds(ids);
       setShowQueueWidget(true);
       // Falhas de autenticação parciais (contas sem token) voltam em failures.
