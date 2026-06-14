@@ -21,21 +21,13 @@ APIs & Services → Credentials → OAuth 2.0 Client `611439523851-si73k5u0ptla7
 - OAuth consent screen → **Scopes** → add `https://www.googleapis.com/auth/drive.readonly`.
 - No new client secret needed — `GOOGLE_OAUTH_CLIENT_SECRET` reuses Secret Manager `google-client-secret` (already wired in apphosting.yaml).
 
-## 2. 🟡 Enable APIs (after step 0)
-```
-gcloud services enable drive.googleapis.com --project=v2-media-lab
-# Picker API service name — confirm first (auth was down when checked):
-gcloud services list --available --filter="displayName:Picker" --format="value(config.name)" --project=v2-media-lab
-gcloud services enable <picker-service-name> --project=v2-media-lab
-```
+## 2. 🟢 Enable APIs — DONE (2026-06-14)
+`drive.googleapis.com` + `picker.googleapis.com` enabled and verified on `v2-media-lab`.
 
-## 3. 🟡 Picker API key → fill apphosting.yaml
-Console → Credentials → Create API key. Restrict: **API restrictions** = Picker API (+ Drive API); **Application restrictions** = HTTP referrers = `https://v2-media-lab--v2-media-lab.us-central1.hosted.app/*`.
-Then replace the placeholder in `apphosting.yaml`:
-```
-NEXT_PUBLIC_GOOGLE_API_KEY: value: REPLACE_WITH_PICKER_API_KEY  →  the real key
-```
-(CLI alt: `gcloud services api-keys create --display-name="picker-report" --project=v2-media-lab`, then read the keyString.)
+## 3. 🟢 Picker API key — DONE (2026-06-14), filled into apphosting.yaml
+Created via gcloud, restricted to picker+drive APIs and referrer `…hosted.app/*`.
+- display name `picker-report`, key id `e6ebb62b-e89f-4db2-a1ef-5701ccb2aa1d`
+- `NEXT_PUBLIC_GOOGLE_API_KEY` now holds the real key (browser-public by design).
 
 ## 4. 🟢 apphosting.yaml env wiring — DONE on the feature branch
 Added (reuse decision): `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` (→ `google-client-secret`),

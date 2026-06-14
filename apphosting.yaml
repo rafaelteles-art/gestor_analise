@@ -77,12 +77,11 @@ env:
     availability:
       - BUILD
       - RUNTIME
-  # TODO(deploy): SUBSTITUIR pelo valor real antes do merge. Console > APIs &
-  # Services > Credentials > Create API key, restrita à Picker API + referrer
-  # https://v2-media-lab--v2-media-lab.us-central1.hosted.app/*. É browser-public
-  # por design (NEXT_PUBLIC), então fica como value:, não secret.
+  # API key do Picker — browser-public por design (como NEXT_PUBLIC_SUPABASE_ANON_KEY).
+  # Criada via gcloud, restrita às APIs picker+drive e ao referrer do hosted.app.
+  # Key id: e6ebb62b-e89f-4db2-a1ef-5701ccb2aa1d (display name: picker-report).
   - variable: NEXT_PUBLIC_GOOGLE_API_KEY
-    value: REPLACE_WITH_PICKER_API_KEY
+    value: AIzaSyDby7MHc92ttGi5w4bIn2YJ1HWaqkO6L7Q
     availability:
       - BUILD
       - RUNTIME
