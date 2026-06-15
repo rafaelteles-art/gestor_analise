@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { RefreshCw, PlusCircle, Search, ChevronDown, ChevronRight, X, Tag, User, Check } from 'lucide-react';
+import { RefreshCw, PlusCircle, Search, ChevronDown, ChevronRight, X, Tag, User, Check, Pencil } from 'lucide-react';
 import type { AccountSyncStatus } from '@/lib/account-sync';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -23,6 +23,141 @@ interface Account {
   perfil: string | null;
   account_status: string;
   timezone: string | null;
+  nickname: string | null;
+}
+
+// ─── Nickname Cell ────────────────────────────────────────────────────────────
+//
+// Exibe o apelido (se houver) abaixo do nome oficial, com um lápis para editar.
+// Ao clicar no lápis (ou no apelido), mostra um input; Enter/blur salva via PATCH.
+// String vazia limpa o apelido (o servidor armazena NULL).
+
+function NicknameCell({
+  accountId,
+  accountName,
+  nickname,
+  onSaved,
+}: {
+  accountId: string;
+  accountName: string;
+  nickname: string | null;
+  onSaved: (accountId: string, nickname: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(nickname ?? '');
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Guards against the Enter→commit() + onBlur→commit() double-fire.
+  // When the user presses Enter, commit() sets this ref to true and calls
+  // setEditing(false). The resulting re-render unmounts/blurs the input,
+  // which triggers a second onBlur→commit() call; the ref check short-circuits
+  // it synchronously before any state updates or network requests happen.
+  // The ref is reset to false after the async save completes (or on error),
+  // ready for the next edit cycle.
+  const committedRef = useRef(false);
+
+  // Keep draft in sync when parent optimistically reverts
+  useEffect(() => {
+    if (!editing) setDraft(nickname ?? '');
+  }, [nickname, editing]);
+
+  const startEdit = () => {
+    committedRef.current = false;
+    setDraft(nickname ?? '');
+    setEditing(true);
+    // Focus on next tick after render
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const commit = async () => {
+    if (!editing) return;
+    // Dedupe Enter+blur: the first caller sets the ref, the second bails out.
+    if (committedRef.current) return;
+    committedRef.current = true;
+    setEditing(false);
+    const trimmed = draft.trim();
+    const newNickname = trimmed === '' ? null : trimmed;
+
+    // Snapshot the pre-edit value as a true constant before any async work.
+    const previousNickname = nickname;
+
+    // Optimistic update — show new value immediately.
+    onSaved(accountId, newNickname);
+    // Mark saving=true BEFORE the fetch so the pencil button is disabled and
+    // the user cannot start a second edit while this request is in-flight.
+    // This prevents overlapping commits that could cause the catch-block revert
+    // to clobber a concurrently-persisted value.
+    setSaving(true);
+    try {
+      const res = await fetch('/api/accounts/nickname', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id: accountId, nickname: trimmed }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      // Revert to the value that was in place before this specific edit.
+      // Because the pencil button is disabled while saving===true, no second
+      // commit can run concurrently, so `previousNickname` is guaranteed to be
+      // the correct rollback target when we reach this catch.
+      onSaved(accountId, previousNickname);
+    } finally {
+      setSaving(false);
+      // Reset so the next edit cycle is not blocked by a stale true.
+      committedRef.current = false;
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') {
+      // Mark as committed BEFORE setEditing(false). Hiding the input unmounts
+      // it, which fires onBlur → commit(). Without this guard, commit() would
+      // run with committedRef===false and send the cancelled draft to the API
+      // (because setDraft is async and the closure captured the pre-reset value).
+      committedRef.current = true;
+      setEditing(false);
+      setDraft(nickname ?? '');
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-1.5">
+        <span className="font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">
+          {accountName}
+        </span>
+        <button
+          onClick={startEdit}
+          disabled={saving}
+          title={saving ? 'Salvando…' : 'Editar apelido'}
+          className={`text-gray-300 dark:text-gray-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors shrink-0 ${saving ? 'opacity-40 cursor-not-allowed' : ''}`}
+        >
+          <Pencil className="w-3 h-3" />
+        </button>
+      </div>
+
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          placeholder="Apelido (Enter para salvar)"
+          className="text-[11px] px-1.5 py-0.5 border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 outline-none focus:ring-1 focus:ring-indigo-400 w-36"
+        />
+      ) : nickname ? (
+        <span
+          onClick={saving ? undefined : startEdit}
+          className={`text-[11px] text-indigo-600 dark:text-indigo-400 font-medium truncate max-w-[180px] ${saving ? 'opacity-40' : 'cursor-pointer hover:underline'}`}
+          title={nickname}
+        >
+          {nickname}
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 // ─── Account Status Badge ─────────────────────────────────────────────────────
@@ -527,6 +662,11 @@ export default function ClientStatusContas({
     }
   }, [accounts]);
 
+  // ── Update Nickname (optimistic; NicknameCell handles the actual PATCH) ──
+  const updateNickname = useCallback((accountId: string, nickname: string | null) => {
+    setAccounts(accs => accs.map(a => a.account_id === accountId ? { ...a, nickname } : a));
+  }, []);
+
   // ── Update Field (gestor — arrays) ──
   const updateField = useCallback(async (accountId: string, field: string, value: string[]) => {
     const prev = (accounts.find(a => a.account_id === accountId)?.[field as keyof Account] ?? []) as string[];
@@ -547,17 +687,28 @@ export default function ClientStatusContas({
   const handleBatchUpdate = async () => {
     if (!batchEtapa || selectedAccounts.size === 0) return;
     const ids = Array.from(selectedAccounts);
+    // Capture previous etapa values for each affected account before optimistic update
+    const prevEtapas = new Map(
+      accounts
+        .filter(a => ids.includes(a.account_id))
+        .map(a => [a.account_id, a.etapa ?? 'Não Utilizada'])
+    );
     setIsUpdatingBatch(true);
     setAccounts(accs => accs.map(a => ids.includes(a.account_id) ? { ...a, etapa: batchEtapa } : a));
     try {
-      await fetch('/api/status-contas', {
+      const res = await fetch('/api/status-contas', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account_ids: ids, field: 'etapa', value: batchEtapa }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSelectedAccounts(new Set());
       setBatchEtapa('');
     } catch {
+      // Revert optimistic update for all affected accounts
+      setAccounts(accs => accs.map(a =>
+        prevEtapas.has(a.account_id) ? { ...a, etapa: prevEtapas.get(a.account_id)! } : a
+      ));
       alert('Erro ao atualizar etapas em lote.');
     } finally {
       setIsUpdatingBatch(false);
@@ -987,8 +1138,13 @@ export default function ClientStatusContas({
                               className="rounded border-gray-300 dark:border-gray-700 text-indigo-600 accent-indigo-600"
                             />
                           </td>
-                          <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                            {acc.account_name}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <NicknameCell
+                              accountId={acc.account_id}
+                              accountName={acc.account_name}
+                              nickname={acc.nickname}
+                              onSaved={updateNickname}
+                            />
                           </td>
                           <td className="px-4 py-3 font-mono text-gray-400 dark:text-gray-500 text-[11px]">
                             {acc.account_id}

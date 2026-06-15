@@ -89,6 +89,14 @@ const MAIN_NAV: NavItem[] = [
     ),
   },
   {
+    href: '/campaigns/fila',
+    label: 'Fila de campanhas',
+    pageKey: 'campaigns',
+    icon: (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10M4 18h10" /></svg>
+    ),
+  },
+  {
     href: '/settings',
     label: 'Configurações',
     pageKey: 'settings',

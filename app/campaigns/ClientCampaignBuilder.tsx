@@ -3,6 +3,45 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { todayStr, toDatetimeLocal, datetimeLocalToISO } from '@/lib/timezone';
+import {
+  SearchableSelect as SSSelect,
+  filterOptions as ssFilterOptions,
+  type SSOption,
+} from '@/app/components/SearchableSelect';
+import { QueueWidget, useQueuePolling } from '@/app/components/QueueWidget';
+import { defaultCreativeName } from '@/lib/creative-name';
+import type { CreativeMedia, SeparationLevel } from '@/lib/batch-contract';
+
+// ────────────────────────────────────────────────────────────────────────────
+// SCOPE NOTE (for orchestrator):
+// Commit 5120755 (labelled feat B1a) landed the B1a spec (Steps 1-3:
+// SearchableSelect swap, nickname labels, tsc gate) AND the full B1b feature
+// set in a single commit on this file:
+//   F1  enqueue-only rework — NDJSON stream removed, 202/jobs path wired
+//       with QueueWidget + useQueuePolling (imported from app/components/QueueWidget)
+//   F4  Google Drive Picker — openDrivePicker / ensurePickerLoaded /
+//       loadScriptOnce + /api/google/drive/status probe
+//   F5  defaultCreativeName usage at enqueue
+//   F6  PresetConfig expansion (pixel / audiences / catalog / product_set /
+//       creatives_copy / naming_template) + applyAccountScopedPreset
+//       apply-if-valid-else-skip + localStorage naming-template migration
+//   F7  separation_level state, payload field, and PresetConfig wiring
+// B1b SHOULD BE TREATED AS ALREADY IMPLEMENTED — do not re-run Task B1b.
+// Sibling files required by these imports are untracked in the working tree:
+//   app/components/QueueWidget.tsx  (B1b / A-wave)
+//   lib/creative-name.ts            (B1b / A-wave)
+// tsc passes because those files exist on disk; they must be committed by
+// their respective owners.
+//
+// FIX (spec-review B1a, commit fix(B1a)):
+// The original B1a+B1b combined commit left the submit path broken: it set
+// queuedJobIds/showQueueWidget/enqueueError but never rendered them in JSX,
+// while also leaving dead NDJSON-era state (events/doneInfo/errorInfo/
+// broadcastProgress/broadcastSummary) whose panels were permanently hidden.
+// This commit removes the dead state and wires QueueWidget + enqueueError into
+// the Publish section so the user sees progress and error feedback after
+// clicking "Publicar".
+// ────────────────────────────────────────────────────────────────────────────
 
 // ────────────────────────────────────────────────────────────────────────────
 // Tipos (alinhados com app/lib/meta-campaigns.ts — repetidos aqui pra evitar
@@ -12,6 +51,7 @@ import { todayStr, toDatetimeLocal, datetimeLocalToISO } from '@/lib/timezone';
 interface Account {
   account_id: string;
   account_name: string;
+  nickname?: string | null;
   bm_name: string;
   moeda: string | null;
   timezone: string | null;
@@ -80,6 +120,27 @@ interface PresetConfig {
   autoRetryPage: boolean;
   adv: { all: boolean; site_extensions: boolean; relevant_comments: boolean; cta_optimization: boolean };
   multiAdvertiser: boolean;
+  // ── F7: separação de criativos ──────────────────────────────────────────
+  // 'campaign' | 'adset' | 'ad'. Default 'campaign' = comportamento legado.
+  separation_level?: SeparationLevel;
+  // ── F6: campos expandidos do template ───────────────────────────────────
+  // Guardados com IDs *e* nomes de exibição. Na aplicação usamos a regra
+  // "apply-if-valid-else-skip" — o ID só é aplicado se existir nas opções
+  // carregadas da conta selecionada; caso contrário é ignorado (com aviso).
+  pixel?: { id: string; name: string };
+  custom_audiences?: { id: string; name: string }[];
+  saved_audiences?: { id: string; name: string }[];
+  catalog?: { id: string; name: string };
+  product_set?: { id: string; name: string };
+  creatives_copy?: {
+    message: string;
+    headline: string;
+    description: string;
+    cta_type: string;
+    link: string;
+    url_tags: string;
+  }[];
+  naming_template?: { campaign: string; adset: string; ad: string };
 }
 
 type CTA =
@@ -137,6 +198,13 @@ interface AdDraft {
   media_kind: 'image' | 'video';
   /** Preview local (object URL) — funciona tanto pra imagem quanto vídeo. */
   image_preview?: string;
+  /**
+   * Mídia importada do Google Drive (F4). Quando presente, o worker baixa o
+   * arquivo na hora de executar e faz o upload pra Meta — não há image_hash /
+   * video_id ainda. Mutuamente exclusivo com um upload Meta direto: importar do
+   * Drive limpa image_hash/video_id e vice-versa.
+   */
+  drive_media?: { file_id: string; filename: string; mime: string };
   cta_type: CTA;
   cta_link: string;
   display_link: string;
@@ -293,26 +361,51 @@ const inputBase = 'text-xs px-3 py-2 rounded-md border border-gray-200 dark:bord
 function AccountMultiSelect({
   accounts, selected, onChange,
 }: {
-  accounts: { account_id: string; account_name: string; bm_name: string; account_status: string | null }[];
+  accounts: { account_id: string; account_name: string; nickname?: string | null; bm_name: string; account_status: string | null }[];
   selected: string[];
   onChange: (ids: string[]) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [acctFilter, setAcctFilter] = useState('');
+
+  // Build SSOption list for filtering (label = nickname || account_name, sublabel = account_id)
+  const acctOptions: SSOption[] = useMemo(
+    () => accounts.map(a => ({
+      value: a.account_id,
+      label: a.nickname || a.account_name,
+      sublabel: a.account_id,
+      group: a.bm_name || '— sem BM —',
+    })),
+    [accounts],
+  );
+
+  const filteredAcctOptions = useMemo(
+    () => ssFilterOptions(acctOptions, acctFilter),
+    [acctOptions, acctFilter],
+  );
 
   const grouped = useMemo(() => {
+    // When filter active, group only filtered results; otherwise group all
+    const src = acctFilter.trim() ? filteredAcctOptions : acctOptions;
     const m = new Map<string, typeof accounts>();
-    for (const a of accounts) {
+    for (const o of src) {
+      const a = accounts.find(x => x.account_id === o.value);
+      if (!a) continue;
       const key = a.bm_name || '— sem BM —';
       const arr = m.get(key) ?? [];
       arr.push(a);
       m.set(key, arr);
     }
     return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [accounts]);
+  }, [accounts, acctOptions, filteredAcctOptions, acctFilter]);
 
   const selectedSet = new Set(selected);
   const primaryId = selected[0];
   const primary = accounts.find(a => a.account_id === primaryId);
+
+  /** Display label: nickname if set, otherwise account_name */
+  const acctLabel = (a: { account_name: string; nickname?: string | null }) =>
+    a.nickname || a.account_name;
 
   const toggle = (id: string) => {
     if (selectedSet.has(id)) {
@@ -341,8 +434,8 @@ function AccountMultiSelect({
   const summary = selected.length === 0
     ? '— nenhuma conta —'
     : selected.length === 1
-      ? `${primary?.bm_name ?? ''} — ${primary?.account_name ?? primaryId} (${primaryId})`
-      : `${primary?.account_name ?? primaryId} +${selected.length - 1} conta(s)`;
+      ? `${primary?.bm_name ?? ''} — ${primary ? acctLabel(primary) : primaryId} (${primaryId})`
+      : `${primary ? acctLabel(primary) : primaryId} +${selected.length - 1} conta(s)`;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -371,8 +464,22 @@ function AccountMultiSelect({
 
       {expanded && (
         <div className="border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 max-h-72 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+          {accounts.length > 0 && (
+            <div className="px-2 py-1.5 sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 z-10">
+              <input
+                type="text"
+                value={acctFilter}
+                onChange={e => setAcctFilter(e.target.value)}
+                placeholder="Filtrar contas…"
+                className="w-full text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-indigo-400"
+              />
+            </div>
+          )}
           {accounts.length === 0 && (
             <div className="px-3 py-3 text-[11px] text-gray-400 dark:text-gray-500">— nenhuma conta deste perfil —</div>
+          )}
+          {grouped.length === 0 && acctFilter.trim() && (
+            <div className="px-3 py-3 text-[11px] text-gray-400 dark:text-gray-500 italic">Nenhum resultado para "{acctFilter}"</div>
           )}
           {grouped.map(([bmName, list]) => {
             const ids = list.map(a => a.account_id);
@@ -406,7 +513,10 @@ function AccountMultiSelect({
                           className="w-3.5 h-3.5 accent-indigo-600"
                         />
                         <span className="text-[11px] text-gray-700 dark:text-gray-300 flex-1 truncate">
-                          {a.account_name}
+                          {acctLabel(a)}
+                          {a.nickname && (
+                            <span className="text-gray-400 dark:text-gray-500 ml-1 text-[10px]">({a.account_name})</span>
+                          )}
                           <span className="text-gray-400 dark:text-gray-500"> ({a.account_id})</span>
                           {a.account_status && a.account_status !== 'ACTIVE' && (
                             <span className="text-amber-600 dark:text-amber-400"> · {a.account_status}</span>
@@ -532,129 +642,7 @@ function OptionCard<T extends string>({
   );
 }
 
-/**
- * Combobox simples com busca. Substitui <select> nativo quando a lista pode
- * ter muitos itens (catálogos, product sets). Usa apenas estado local; o pai
- * controla apenas `value` e `onChange` — igual a um <select>.
- *
- * `emptyOption` opcional: quando fornecido, aparece como primeira linha
- * selecionável representando o valor "" (ex: "— todos os produtos —").
- */
-function SearchableSelect({
-  value,
-  onChange,
-  options,
-  placeholder,
-  emptyOption,
-  disabled,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string; secondary?: string }[];
-  placeholder: string;
-  emptyOption?: { label: string };
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const selected = options.find(o => o.value === value);
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return options;
-    const q = query.toLowerCase();
-    return options.filter(o =>
-      o.label.toLowerCase().includes(q)
-      || o.value.toLowerCase().includes(q)
-      || (o.secondary?.toLowerCase().includes(q) ?? false)
-    );
-  }, [options, query]);
-
-  // Fecha quando clica fora
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  const displayLabel = selected
-    ? selected.label
-    : (value === '' && emptyOption ? emptyOption.label : placeholder);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen(o => !o)}
-        className={cls(
-          inputBase,
-          'w-full text-left flex justify-between items-center gap-2',
-          disabled && 'cursor-not-allowed'
-        )}
-      >
-        <span className={cls('truncate', selected || (value === '' && emptyOption) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500')}>
-          {displayLabel}
-        </span>
-        <span className="text-gray-400 dark:text-gray-500 text-[10px] shrink-0">{open ? '▲' : '▼'}</span>
-      </button>
-      {open && !disabled && (
-        <div className="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg flex flex-col overflow-hidden">
-          <input
-            autoFocus
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Buscar…"
-            className="text-xs px-3 py-2 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-indigo-300"
-          />
-          <div className="overflow-y-auto max-h-56">
-            {emptyOption && (
-              <button
-                type="button"
-                onClick={() => { onChange(''); setOpen(false); setQuery(''); }}
-                className={cls(
-                  'block w-full text-left px-3 py-1.5 text-xs italic text-gray-500 dark:text-gray-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-400',
-                  value === '' && 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400'
-                )}
-              >
-                {emptyOption.label}
-              </button>
-            )}
-            {filtered.length === 0 ? (
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 px-3 py-2 italic">
-                {options.length === 0 ? 'Nenhuma opção disponível' : `Nenhum resultado para "${query}"`}
-              </p>
-            ) : (
-              filtered.map(o => (
-                <button
-                  type="button"
-                  key={o.value}
-                  onClick={() => { onChange(o.value); setOpen(false); setQuery(''); }}
-                  className={cls(
-                    'block w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-400',
-                    o.value === value && 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 font-semibold'
-                  )}
-                >
-                  <span className="truncate">{o.label}</span>
-                  {o.secondary && (
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">({o.secondary})</span>
-                  )}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// Local SearchableSelect removed — all usages now use SSSelect from @/app/components/SearchableSelect.
 
 function EmBreve() {
   return (
@@ -714,17 +702,18 @@ function AudiencePicker({
           );
         })}
       </div>
-      <select
-        className={inputBase}
-        value=""
-        onChange={e => { add(e.target.value); e.currentTarget.value = ''; }}
+      <SSSelect
+        options={available.map(a => ({
+          value: a.id,
+          label: a.subtype ? `[${a.subtype}] ${a.name}` : a.name,
+          sublabel: a.id,
+        }))}
+        value={null}
+        onChange={v => { if (v) add(v); }}
+        placeholder={available.length === 0 ? '— todos já adicionados —' : '+ adicionar público…'}
         disabled={available.length === 0}
-      >
-        <option value="">{available.length === 0 ? '— todos já adicionados —' : '+ adicionar público...'}</option>
-        {available.map(a => (
-          <option key={a.id} value={a.id}>{a.subtype ? `[${a.subtype}] ` : ''}{a.name}</option>
-        ))}
-      </select>
+        clearable={false}
+      />
     </div>
   );
 }
@@ -772,15 +761,18 @@ function ChipPicker<T extends string | number>({
           );
         })}
       </div>
-      <select className={inputBase} value="" onChange={e => {
-        const raw = e.target.value; if (!raw) return;
-        const opt = options.find(o => String(o.value) === raw);
-        if (opt) add(opt.value);
-        e.currentTarget.value = '';
-      }} disabled={available.length === 0 || loading}>
-        <option value="">{dropdownLabel}</option>
-        {available.map(o => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
-      </select>
+      <SSSelect
+        options={available.map(o => ({ value: String(o.value), label: o.label }))}
+        value={null}
+        onChange={v => {
+          if (!v) return;
+          const opt = options.find(o => String(o.value) === v);
+          if (opt) add(opt.value);
+        }}
+        placeholder={dropdownLabel}
+        disabled={available.length === 0 || loading}
+        clearable={false}
+      />
     </div>
   );
 }
@@ -802,6 +794,114 @@ async function readNdjson(res: Response, onLine: (l: any) => void) {
     buf = parts.pop() ?? '';
     for (const p of parts) if (p.trim()) try { onLine(JSON.parse(p)); } catch {}
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Google Drive Picker (F4) — lazy-loaded, browser-side OAuth (drive.readonly).
+// The server stores a refresh token for the WORKER to download the picked file
+// at execution time; this client-side picker is purely for the user to choose a
+// file id. Globals (gapi / google) are typed minimally to avoid a deps add.
+// ────────────────────────────────────────────────────────────────────────────
+
+declare const gapi: any;
+declare const google: any;
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY ?? '';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+
+function loadScriptOnce(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof document === 'undefined') return reject(new Error('no document'));
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === '1') return resolve();
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error(`failed to load ${src}`)));
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.defer = true;
+    s.dataset.loaded = '0';
+    s.addEventListener('load', () => { s.dataset.loaded = '1'; resolve(); });
+    s.addEventListener('error', () => reject(new Error(`failed to load ${src}`)));
+    document.head.appendChild(s);
+  });
+}
+
+let pickerApiLoaded = false;
+async function ensurePickerLoaded(): Promise<void> {
+  await loadScriptOnce('https://apis.google.com/js/api.js');
+  await loadScriptOnce('https://accounts.google.com/gsi/client');
+  if (!pickerApiLoaded) {
+    await new Promise<void>((resolve, reject) => {
+      try {
+        gapi.load('picker', { callback: () => { pickerApiLoaded = true; resolve(); } });
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+}
+
+/**
+ * Opens the Google Picker (images + videos) and resolves with the chosen file's
+ * metadata, or null if the user cancels. Throws on config/auth errors.
+ */
+async function openDrivePicker(): Promise<{ file_id: string; filename: string; mime: string } | null> {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_API_KEY) {
+    throw new Error('Google Picker não configurado (NEXT_PUBLIC_GOOGLE_CLIENT_ID / NEXT_PUBLIC_GOOGLE_API_KEY ausentes).');
+  }
+  await ensurePickerLoaded();
+
+  // 1) Get an OAuth access token via Google Identity Services (browser consent).
+  const accessToken: string = await new Promise((resolve, reject) => {
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: (resp: any) => {
+        if (resp?.error) return reject(new Error(resp.error));
+        resolve(resp.access_token);
+      },
+    });
+    tokenClient.requestAccessToken({ prompt: '' });
+  });
+
+  // 2) Build + show the picker, filtered to images and videos.
+  return new Promise((resolve, reject) => {
+    try {
+      const imagesView = new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES);
+      imagesView.setIncludeFolders(true);
+      const videosView = new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS);
+      videosView.setIncludeFolders(true);
+
+      const picker = new google.picker.PickerBuilder()
+        .setOAuthToken(accessToken)
+        .setDeveloperKey(GOOGLE_API_KEY)
+        .addView(imagesView)
+        .addView(videosView)
+        .setCallback((data: any) => {
+          const action = data[google.picker.Response.ACTION];
+          if (action === google.picker.Action.PICKED) {
+            const doc = data[google.picker.Response.DOCUMENTS]?.[0];
+            if (!doc) return resolve(null);
+            resolve({
+              file_id: doc[google.picker.Document.ID],
+              filename: doc[google.picker.Document.NAME] ?? 'drive-file',
+              mime: doc[google.picker.Document.MIME_TYPE] ?? 'application/octet-stream',
+            });
+          } else if (action === google.picker.Action.CANCEL) {
+            resolve(null);
+          }
+        })
+        .build();
+      picker.setVisible(true);
+    } catch (e) {
+      reject(e);
+    }
+  });
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -863,12 +963,13 @@ function LookalikeBuilder({
           <input className={inputBase} value={name} onChange={e => setName(e.target.value)} placeholder="LAL 1% BR — Compradores 90d" />
         </Field>
         <Field label="Público de origem">
-          <select className={inputBase} value={seed} onChange={e => setSeed(e.target.value)}>
-            <option value="">— escolha —</option>
-            {customAudiences.map(a => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
+          <SSSelect
+            options={customAudiences.map(a => ({ value: a.id, label: a.name, sublabel: a.id }))}
+            value={seed || null}
+            onChange={v => setSeed(v ?? '')}
+            placeholder="— escolha —"
+            clearable={false}
+          />
         </Field>
         <Field label="Tamanho (% top)" hint="1% = mais semelhante, 20% = mais alcance">
           <input type="number" min={1} max={20} step={1}
@@ -878,9 +979,12 @@ function LookalikeBuilder({
           />
         </Field>
         <Field label="País">
-          <select className={inputBase} value={country} onChange={e => setCountry(e.target.value)}>
-            {COUNTRIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-          </select>
+          <SSSelect
+            options={COUNTRIES.map(c => ({ value: c.key, label: c.label }))}
+            value={country}
+            onChange={v => setCountry(v ?? 'BR')}
+            clearable={false}
+          />
         </Field>
       </div>
       {err && <p className="text-[11px] text-rose-600 dark:text-rose-400">{err}</p>}
@@ -1463,6 +1567,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   useEffect(() => {
     setCreatedCatalog(null);
     setCreateCatalogError(null);
+    // Clear any pending deferred product-set apply from a previous account's preset.
+    pendingProductSetRef.current = null;
   }, [accountId]);
 
   useEffect(() => {
@@ -1480,6 +1586,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [campaignsPerCreative, setCampaignsPerCreative] = useState(1);
   const [adsetsPerCampaign, setAdsetsPerCampaign] = useState(1);
   const [adsPerAdset, setAdsPerAdset] = useState(1);
+  // F7 — nível de separação de criativos. Default 'campaign' = legado.
+  const [separationLevel, setSeparationLevel] = useState<SeparationLevel>('campaign');
 
   // ── Conjunto ──────────────────────────────────────────────────────────────
   const [pixelId, setPixelId] = useState('');
@@ -1564,6 +1672,41 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     country, ageMin, ageMax, gender, locales, advantageAudience,
     advantagePositioning, platforms, devices, wifiOnly,
     urlTagsTpl, adNameTpl, autoRetryPage, adv, multiAdvertiser,
+    // ── F7 ──
+    separation_level: separationLevel,
+    // ── F6: account-scoped IDs (com nomes de exibição) ──
+    pixel: pixelId
+      ? { id: pixelId, name: pixels.find(p => p.id === pixelId)?.name ?? pixelId }
+      : undefined,
+    custom_audiences: includedAudiences.map(id => ({
+      id,
+      name: audiences.custom.find(a => a.id === id)?.name
+        ?? audiences.saved.find(a => a.id === id)?.name
+        ?? id,
+    })),
+    saved_audiences: excludedAudiences.map(id => ({
+      id,
+      name: audiences.saved.find(a => a.id === id)?.name
+        ?? audiences.custom.find(a => a.id === id)?.name
+        ?? id,
+    })),
+    catalog: catalogId
+      ? { id: catalogId, name: catalogs.find(c => c.id === catalogId)?.name ?? catalogId }
+      : undefined,
+    product_set: productSetId
+      ? { id: productSetId, name: productSets.find(s => s.id === productSetId)?.name ?? productSetId }
+      : undefined,
+    // ── F6: textos dos criativos ──
+    creatives_copy: ads.map(a => ({
+      message: a.message,
+      headline: a.headline,
+      description: a.description,
+      cta_type: a.cta_type,
+      link: a.link,
+      url_tags: urlTagsTpl,
+    })),
+    // ── F6: template de nomenclatura (sai do localStorage) ──
+    naming_template: { campaign: campaignName, adset: setName, ad: adNameTpl },
   });
 
   const applyPresetConfig = (c: PresetConfig) => {
@@ -1603,15 +1746,126 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     setAutoRetryPage(c.autoRetryPage);
     setAdv(c.adv);
     setMultiAdvertiser(c.multiAdvertiser);
+    // ── F7 — separação de criativos ──
+    if (c.separation_level) setSeparationLevel(c.separation_level);
+    // ── F6 — template de nomenclatura (preset é a fonte da verdade) ──
+    if (c.naming_template) {
+      if (typeof c.naming_template.campaign === 'string') setCampaignName(c.naming_template.campaign);
+      if (typeof c.naming_template.adset === 'string') setSetName(c.naming_template.adset);
+      if (typeof c.naming_template.ad === 'string') setAdNameTpl(c.naming_template.ad);
+    }
+    // ── F6 — textos dos criativos: aplica sobre os criativos existentes, na
+    // ordem; cria/remove slots para casar a contagem salva. url_tags é único
+    // pra campanha — adotamos o do primeiro criativo salvo (já vem de urlTagsTpl).
+    if (Array.isArray(c.creatives_copy) && c.creatives_copy.length > 0) {
+      setAds(prev => c.creatives_copy!.map((copy, i) => {
+        const base = prev[i] ?? { ...emptyAd(), name: `Criativo ${i + 1}` };
+        return {
+          ...base,
+          message: copy.message ?? base.message,
+          headline: copy.headline ?? base.headline,
+          description: copy.description ?? base.description,
+          cta_type: (copy.cta_type as CTA) ?? base.cta_type,
+          link: copy.link ?? base.link,
+        };
+      }));
+      if (typeof c.creatives_copy[0].url_tags === 'string') setUrlTagsTpl(c.creatives_copy[0].url_tags);
+    }
   };
+
+  /**
+   * Apply-if-valid-else-skip (F6) for account-scoped IDs. Each saved ID is only
+   * adopted if it exists in the options currently loaded for the selected
+   * account; otherwise it's left untouched. Returns the human labels of the
+   * fields that were skipped so the caller can surface one combined notice.
+   */
+  const applyAccountScopedPreset = (c: PresetConfig): string[] => {
+    const skipped: string[] = [];
+    // Pixel
+    if (c.pixel?.id) {
+      if (pixels.some(p => p.id === c.pixel!.id)) setPixelId(c.pixel.id);
+      else skipped.push('pixel');
+    }
+    // Custom audiences (incluídos)
+    if (Array.isArray(c.custom_audiences) && c.custom_audiences.length) {
+      const valid = c.custom_audiences.filter(a => audiences.custom.some(x => x.id === a.id));
+      if (valid.length) setIncludedAudiences(valid.map(a => a.id));
+      if (valid.length < c.custom_audiences.length) skipped.push('públicos personalizados');
+    }
+    // Saved audiences (excluídos)
+    if (Array.isArray(c.saved_audiences) && c.saved_audiences.length) {
+      const validIds = c.saved_audiences.filter(a =>
+        audiences.saved.some(x => x.id === a.id) || audiences.custom.some(x => x.id === a.id));
+      if (validIds.length) setExcludedAudiences(validIds.map(a => a.id));
+      if (validIds.length < c.saved_audiences.length) skipped.push('públicos salvos');
+    }
+    // Catalog
+    if (c.catalog?.id) {
+      if (catalogs.some(x => x.id === c.catalog!.id)) {
+        setCatalogId(c.catalog.id);
+        setProductSetId('');
+      } else {
+        skipped.push('catálogo');
+      }
+    }
+    // Product set — deferred: when the preset also sets a new catalog, the
+    // productSets array won't reflect that catalog until its fetch effect runs
+    // on the next render (after setCatalogId above). We store the desired id in
+    // a ref and a useEffect below applies it once productSets has reloaded.
+    if (c.product_set?.id) {
+      // If the catalog was already the same (or no catalog in preset), check now.
+      const catalogChanged = c.catalog?.id && c.catalog.id !== catalogId;
+      if (!catalogChanged) {
+        // Catalog unchanged — productSets is already current; check immediately.
+        if (productSets.some(x => x.id === c.product_set!.id)) setProductSetId(c.product_set.id);
+        else skipped.push('conjunto de produtos');
+      } else {
+        // Catalog changed — productSets will reload on the next render cycle.
+        // Store the desired id; the effect below will apply it.
+        pendingProductSetRef.current = c.product_set.id;
+      }
+    }
+    return skipped;
+  };
+
+  // Notice combinado de campos ignorados na última aplicação de preset.
+  const [presetSkipNotice, setPresetSkipNotice] = useState<string | null>(null);
+
+  // Ref that holds a product-set id to apply once productSets reloads after a
+  // catalog change triggered by applyAccountScopedPreset. Cleared on apply or
+  // on account change.
+  const pendingProductSetRef = useRef<string | null>(null);
+
+  // When productSets reloads, check if there's a deferred product-set to apply.
+  useEffect(() => {
+    const pending = pendingProductSetRef.current;
+    if (!pending) return;
+    pendingProductSetRef.current = null;
+    if (productSets.some(x => x.id === pending)) {
+      setProductSetId(pending);
+    } else {
+      // It's not in the new catalog's sets — surface the skip notice.
+      setPresetSkipNotice(prev =>
+        prev
+          ? prev + ', conjunto de produtos'
+          : 'Template aplicado; ignorados (não existem nesta conta): conjunto de produtos'
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productSets]);
 
   const handleApplyPreset = (name: string) => {
     setActivePresetName(name);
+    setPresetSkipNotice(null);
     if (!name) return;
     const p = presets.find(p => p.name === name);
     if (!p) return;
     try {
       applyPresetConfig(p.config);
+      const skipped = applyAccountScopedPreset(p.config);
+      if (skipped.length) {
+        setPresetSkipNotice(`Template aplicado; ignorados (não existem nesta conta): ${skipped.join(', ')}`);
+      }
     } catch (e) {
       alert('Preset inválido: ' + ((e as any)?.message ?? e));
     }
@@ -1735,20 +1989,43 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     return { kind: 'image', hash: data.hash, preview };
   };
 
+  // ── Google Drive connection (F4) — probed once on mount ────────────────────
+  const [driveConnected, setDriveConnected] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch('/api/google/drive/status', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => setDriveConnected(!!d.connected))
+      .catch(() => setDriveConnected(false));
+  }, []);
+
+  // ── F6 back-compat: migrate the localStorage naming template into form state
+  // as the default campaign-name template, until the user saves a preset. We
+  // only adopt it if the user hasn't already typed a custom campaign name.
+  const migratedNameTplRef = useRef(false);
+  useEffect(() => {
+    if (migratedNameTplRef.current) return;
+    migratedNameTplRef.current = true;
+    try {
+      const saved = localStorage.getItem(CAMPAIGN_NAME_TPL_KEY);
+      if (saved && saved.includes('{{')) setCampaignName(saved);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Fila (F1) — job ids enfileirados nesta sessão + polling do widget ──────
+  const [queuedJobIds, setQueuedJobIds] = useState<number[]>([]);
+  const [enqueueError, setEnqueueError] = useState<string | null>(null);
+  const [showQueueWidget, setShowQueueWidget] = useState(false);
+  const queueRows = useQueuePolling(queuedJobIds);
+  // Keep the last non-empty snapshot so the widget stays visible after polling
+  // stops (the active=1 endpoint drops finished jobs, so queueRows becomes []
+  // right when the user most wants to see the done/done_with_errors summary).
+  const lastQueueRowsRef = useRef(queueRows);
+  if (queueRows.length > 0) lastQueueRowsRef.current = queueRows;
+  const displayQueueRows = queueRows.length > 0 ? queueRows : lastQueueRowsRef.current;
+
   // ── Publish state ─────────────────────────────────────────────────────────
   const [running, setRunning] = useState(false);
-  const [events, setEvents] = useState<any[]>([]);
-  const [doneInfo, setDoneInfo] = useState<{ campaign_ids: string[]; adset_ids: string[]; ad_ids: string[] } | null>(null);
-  const [errorInfo, setErrorInfo] = useState<{ step?: string; error?: string } | null>(null);
-  // Broadcast: rastreia conta atual, progresso e resumo final. Em modo
-  // single-account, esses estados ficam vazios e a UI mantém o comportamento
-  // antigo (panel verde "✓ Criado com sucesso" via doneInfo).
-  const [broadcastProgress, setBroadcastProgress] = useState<{ current: number; total: number; account_id: string } | null>(null);
-  const [broadcastSummary, setBroadcastSummary] = useState<{
-    success: Array<{ account_id: string; campaign_ids: string[]; adset_ids: string[]; ad_ids: string[] }>;
-    failed: Array<{ account_id: string; error: string }>;
-    total: number;
-  } | null>(null);
 
   // ── Validação ────────────────────────────────────────────────────────────
   const totals = useMemo(() => {
@@ -1797,14 +2074,19 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   if (bidStrategy === 'COST_CAP' && costCap === '') errors.push('Meta de custo exige um valor.');
   if (bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS' && minRoas === '') errors.push('Meta de ROAS exige um valor.');
   ads.forEach((a, i) => {
-    if (!a.name.trim()) errors.push(`Criativo ${i + 1}: nome obrigatório.`);
+    // F5 — nome do criativo NÃO é mais obrigatório: quando vazio, o default é
+    // resolvido client-side no enqueue (defaultCreativeName). Não validar aqui.
     if (a.type === 'single' && !isDPA) {
       if (!a.link.trim())       errors.push(`Criativo ${i + 1}: link obrigatório.`);
-      if (a.media_kind === 'video') {
-        if (!a.video_id)              errors.push(`Criativo ${i + 1}: faça upload do vídeo.`);
-        if (a.video_id && !a.video_thumbnail_url) errors.push(`Criativo ${i + 1}: miniatura do vídeo ainda não disponível — aguarde o encoding terminar.`);
-      } else {
-        if (!a.image_hash)        errors.push(`Criativo ${i + 1}: faça upload da imagem.`);
+      // Mídia importada do Drive (F4) satisfaz o requisito — o worker baixa o
+      // arquivo e sobe pra Meta na execução, então não há hash/video_id ainda.
+      if (!a.drive_media) {
+        if (a.media_kind === 'video') {
+          if (!a.video_id)              errors.push(`Criativo ${i + 1}: faça upload do vídeo (ou importe do Drive).`);
+          if (a.video_id && !a.video_thumbnail_url) errors.push(`Criativo ${i + 1}: miniatura do vídeo ainda não disponível — aguarde o encoding terminar.`);
+        } else {
+          if (!a.image_hash)        errors.push(`Criativo ${i + 1}: faça upload da imagem (ou importe do Drive).`);
+        }
       }
       if (!a.message.trim())    errors.push(`Criativo ${i + 1}: texto principal obrigatório.`);
     } else if (a.type === 'carousel') {
@@ -1836,25 +2118,21 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   // ── Submit ───────────────────────────────────────────────────────────────
   const submit = async () => {
     setRunning(true);
-    setEvents([]);
-    setDoneInfo(null);
-    setErrorInfo(null);
-    setBroadcastProgress(null);
-    setBroadcastSummary(null);
 
     const status = publishPaused ? 'PAUSED' : 'ACTIVE';
     const selectedPages = pages.filter(p => pageIds.includes(p.id));
 
-    // Substitui variáveis "estáticas" do nome da campanha agora (no submit) —
-    // {{conta}}, {{orcamento}}, {{estrutura}}, {{data}}. O token {{criativo}}
-    // permanece e é resolvido por criativo no orquestrador (meta-campaigns.ts).
+    // Resolve no submit apenas as variáveis INVARIANTES por conta —
+    // {{orcamento}}, {{estrutura}}, {{data}}. {{conta}} e {{criativo}} ficam como
+    // tokens e são resolvidos por job/criativo no orquestrador (meta-campaigns.ts):
+    // assim, num broadcast multi-conta, cada conta nomeia com a SUA identidade
+    // (nome/apelido) em vez de clonar a da primeira conta selecionada.
     const startDate = (() => {
       // startTime é 'YYYY-MM-DDTHH:mm' no fuso do app (GMT-3) — extrai DD/MM direto.
       if (!/^\d{4}-\d{2}-\d{2}/.test(startTime)) return '';
       return `${startTime.slice(8, 10)}/${startTime.slice(5, 7)}`;
     })();
     const resolvedCampaignName = campaignName
-      .replace(/\{\{\s*conta\s*\}\}/gi,     account?.account_name ?? '')
       .replace(/\{\{\s*orcamento\s*\}\}/gi, campaignType)
       .replace(/\{\{\s*estrutura\s*\}\}/gi, `${campaignsPerCreative}-${adsetsPerCampaign}-${adsPerAdset}`)
       .replace(/\{\{\s*data\s*\}\}/gi,      startDate);
@@ -1889,6 +2167,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     const attribution_spec: any[] = [];
     if (clickWindow > 0) attribution_spec.push({ event_type: 'CLICK_THROUGH', window_days: clickWindow });
     if (viewWindow > 0) attribution_spec.push({ event_type: 'VIEW_THROUGH', window_days: viewWindow });
+    if (engagedViewWindow > 0) attribution_spec.push({ event_type: 'ENGAGED_VIDEO_VIEW', window_days: engagedViewWindow });
 
     // Mapeia bid strategy + valor extra
     const cents = Math.round(dailyBudget * 100);
@@ -1960,7 +2239,15 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
     // Monta a lista de "criativos drafted" para o orquestrador batch
     const creatives = ads.map((a) => {
-      const baseName = (adNameTpl && adNameTpl.trim()) || a.name;
+      // F5 — nome default client-side quando o input está vazio.
+      const resolvedAdName = a.name.trim() || defaultCreativeName({
+        dpa: isDPA,
+        productSetName: isDPA
+          ? (productSets.find(s => s.id === (a.product_set_id || productSetId))?.name)
+          : undefined,
+        fileName: a.drive_media?.filename || undefined,
+      });
+      const baseName = (adNameTpl && adNameTpl.trim()) || resolvedAdName;
       const firstPageId = selectedPages[0]?.id ?? '';
       // Sem IG Business Account, o server resolve via Page-Backed Instagram Account
       // (PBIA) na hora de criar o creative — não dá pra usar page_id direto aqui.
@@ -1990,9 +2277,14 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             message: a.message,
             headline: a.headline,
             description: a.description,
-            ...(a.media_kind === 'video'
-              ? { video_id: a.video_id, video_thumbnail_url: a.video_thumbnail_url }
-              : { image_hash: a.image_hash }),
+            // Mídia: importada do Drive (worker baixa+sobe na execução) OU já
+            // enviada à Meta (hash/video_id). `media` é o slot discriminado da
+            // Contract 2 (CreativeMedia); o worker resolve antes de criar o ad.
+            ...(a.drive_media
+              ? { media: { source: 'drive', file_id: a.drive_media.file_id, filename: a.drive_media.filename, mime: a.drive_media.mime } as CreativeMedia }
+              : a.media_kind === 'video'
+                ? { video_id: a.video_id, video_thumbnail_url: a.video_thumbnail_url }
+                : { image_hash: a.image_hash }),
             cta_type: a.cta_type,
             cta_link: a.cta_link || a.link,
           }
@@ -2020,6 +2312,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     const payload = {
       account_ids: accountIds,
       profile_name: profileName || undefined,
+      // F7 — top-level (a rota /api/campaigns/create lê body.separation_level e
+      // o injeta em cada job para o orquestrador A2 consumir).
+      separation_level: separationLevel,
       batch: {
         campaigns_per_creative: campaignsPerCreative,
         adsets_per_campaign: adsetsPerCampaign,
@@ -2039,6 +2334,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         url_tags_template: urlTagsTpl?.trim() || undefined,
         context: {
           conta_nome: account?.account_name,
+          conta_apelido: account?.nickname || account?.account_name,
           conta_id: accountId,
           pixel: pixels.find(p => p.id === pixelId)?.name,
           objetivo: isDPA ? 'DPA' : 'SALES',
@@ -2051,45 +2347,46 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       },
     };
 
+    // ENQUEUE-ONLY (ADR-0005): a rota agora responde 202 com os jobs criados.
+    // Não há mais stream NDJSON — o worker cria as campanhas em segundo plano e
+    // o QueueWidget acompanha o progresso (kick + poll a cada 4s via
+    // useQueuePolling). Em broadcast, vem um job por conta (broadcast_group_id
+    // compartilhado).
+    setEnqueueError(null);
     try {
       const res = await fetch('/api/campaigns/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!res.ok && !res.body) {
-        const data = await res.json().catch(() => ({}));
-        setErrorInfo({ error: data?.error ?? res.statusText });
+      const data = await res.json().catch(() => ({}));
+      if (res.status !== 202) {
+        setEnqueueError(data?.error ?? `Falha ao enfileirar (HTTP ${res.status}).`);
         return;
       }
-      // Coleta os IDs criados ao longo do stream — orquestrador batch retorna múltiplos.
-      // Em broadcast, doneInfo agrega TODAS as contas (a aba "✓ Criado com sucesso" mostra
-      // o total combinado; o detalhamento por conta sai pelo broadcastSummary abaixo).
-      const collected = { campaign_ids: [] as string[], adset_ids: [] as string[], ad_ids: [] as string[] };
-      await readNdjson(res, (e) => {
-        setEvents(prev => [...prev, e]);
-        if (e.type === 'campaign_created') collected.campaign_ids.push(e.id);
-        if (e.type === 'adset_created')    collected.adset_ids.push(e.id);
-        if (e.type === 'ad_created')       collected.ad_ids.push(e.id);
-        if (e.type === 'done') setDoneInfo({ ...collected });
-        if (e.type === 'error') setErrorInfo({ step: e.step, error: e.error });
-        // Broadcast events
-        if (e.type === 'account_start') {
-          setBroadcastProgress({ current: (e.index ?? 0) + 1, total: e.total ?? 0, account_id: e.account_id });
-        }
-        if (e.type === 'broadcast_summary') {
-          setBroadcastSummary({
-            success: e.success ?? [],
-            failed: e.failed ?? [],
-            total: e.total ?? 0,
-          });
-          setBroadcastProgress(null);
-          // Em broadcast, doneInfo agrega o total — útil pro painel verde existente.
-          setDoneInfo({ ...collected });
-        }
-      });
+      const ids: number[] = Array.isArray(data?.jobs)
+        ? data.jobs.map((j: any) => Number(j.id)).filter((n: number) => Number.isFinite(n))
+        : [];
+      if (ids.length === 0) {
+        setEnqueueError('Resposta inesperada do servidor (sem jobs).');
+        return;
+      }
+      // Drop the previous batch's snapshot BEFORE pinning the new ids. Otherwise
+      // displayQueueRows (queueRows.length>0 ? queueRows : lastQueueRowsRef.current)
+      // would briefly fall back to batch A's rows — jobs no longer pinned — during
+      // the gap before batch B's first poll resolves (kick + fetch latency).
+      lastQueueRowsRef.current = [];
+      setQueuedJobIds(ids);
+      setShowQueueWidget(true);
+      // Falhas de autenticação parciais (contas sem token) voltam em failures.
+      if (Array.isArray(data?.failures) && data.failures.length) {
+        setEnqueueError(
+          `${data.failures.length} conta(s) ignorada(s) por falta de token: ` +
+          data.failures.map((f: any) => f.account_id).join(', ')
+        );
+      }
     } catch (e: any) {
-      setErrorInfo({ error: e?.message ?? String(e) });
+      setEnqueueError(e?.message ?? String(e));
     } finally {
       setRunning(false);
     }
@@ -2177,6 +2474,19 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               Excluir
             </button>
           </div>
+          {/* F6 — campos ignorados na aplicação do preset (apply-if-valid-else-skip) */}
+          {presetSkipNotice && (
+            <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
+              <span className="shrink-0 font-bold">Atenção:</span>
+              <span>{presetSkipNotice}</span>
+              <button
+                type="button"
+                onClick={() => setPresetSkipNotice(null)}
+                className="ml-auto shrink-0 text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 font-bold leading-none"
+                title="Fechar"
+              >×</button>
+            </div>
+          )}
         </SubBlock>
 
         {/* IDENTIFICAÇÃO */}
@@ -2191,7 +2501,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               {isBroadcast && (
                 <div className="mt-2 text-[11px] leading-relaxed bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 text-amber-800 dark:text-amber-400">
                   <strong>Atenção — IDs account-scoped:</strong> pixels, públicos, catálogos e product sets exibidos são da conta primária
-                  <span className="font-mono"> ({account?.account_name ?? accountId})</span>. Em broadcast, esses IDs serão enviados <em>tal qual</em> para as demais contas — se não existirem
+                  <span className="font-mono"> ({(account?.nickname || account?.account_name) ?? accountId})</span>. Em broadcast, esses IDs serão enviados <em>tal qual</em> para as demais contas — se não existirem
                   na conta destino, a chamada à Meta falha (erro #100). A criação segue nas demais contas e o resumo final mostra sucessos/falhas.
                   <br />
                   <strong>Alocação de páginas:</strong> cada conta respeita o cap localmente, então a mesma página pode receber até
@@ -2436,26 +2746,27 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 return (
                   <div className="grid grid-cols-3 gap-3 mt-2">
                     <Field label="Business Manager" hint={catalogBmFilter ? `filtrando ${filteredCatalogs.length}/${catalogs.length}` : `${bmOptions.length} BM(s) com catálogo`}>
-                      <SearchableSelect
-                        value={catalogBmFilter}
-                        onChange={(v) => { setCatalogBmFilter(v); if (catalogId && v) {
-                          // Se o catálogo atualmente selecionado não pertence ao novo BM, limpa
-                          const cur = catalogs.find(c => c.id === catalogId);
-                          if (cur && cur.bm_id !== v) { setCatalogId(''); setProductSetId(''); }
-                        } }}
+                      <SSSelect
                         options={bmOptions.map(b => ({
                           value: b.id,
                           label: b.name,
-                          secondary: `${b.count} catálogos · ${b.id}`,
+                          sublabel: `${b.count} catálogos · ${b.id}`,
                         }))}
+                        value={catalogBmFilter || null}
+                        onChange={v => {
+                          const nv = v ?? '';
+                          setCatalogBmFilter(nv);
+                          if (catalogId && nv) {
+                            const cur = catalogs.find(c => c.id === catalogId);
+                            if (cur && cur.bm_id !== nv) { setCatalogId(''); setProductSetId(''); }
+                          }
+                        }}
                         placeholder="— todos os BMs —"
-                        emptyOption={{ label: '— todos os BMs —' }}
+                        clearable={true}
                       />
                     </Field>
                     <Field label="Catálogo">
-                      <SearchableSelect
-                        value={catalogId}
-                        onChange={(v) => { setCatalogId(v); setProductSetId(''); }}
+                      <SSSelect
                         options={filteredCatalogs.map(c => {
                           const bits: string[] = [];
                           if (c.bm_name && !catalogBmFilter) bits.push(c.bm_name);
@@ -2463,24 +2774,26 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                           return {
                             value: c.id,
                             label: c.name,
-                            secondary: bits.length ? bits.join(' · ') : c.id,
+                            sublabel: bits.length ? bits.join(' · ') : c.id,
                           };
                         })}
+                        value={catalogId || null}
+                        onChange={v => { setCatalogId(v ?? ''); setProductSetId(''); }}
                         placeholder="— selecione —"
                       />
                     </Field>
                     <Field label="Conjunto de Produtos (fallback)" hint="Usado quando o criativo não define o próprio set.">
-                      <SearchableSelect
-                        value={productSetId}
-                        onChange={setProductSetId}
+                      <SSSelect
                         options={productSets.map(s => ({
                           value: s.id,
                           label: s.name,
-                          secondary: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
+                          sublabel: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
                         }))}
+                        value={productSetId || null}
+                        onChange={v => setProductSetId(v ?? '')}
                         placeholder={loadingProductSets ? 'Carregando…' : '— opcional, defina por criativo abaixo —'}
-                        emptyOption={{ label: '— sem fallback (definir por criativo) —' }}
                         disabled={!catalogId || loadingProductSets}
+                        clearable={true}
                       />
                     </Field>
                   </div>
@@ -2701,6 +3014,33 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
             = <strong>{totals.camp}</strong> camp · <strong>{totals.sets}</strong> conj · <strong>{totals.ads}</strong> anúncios ({ads.length} criativo{ads.length === 1 ? '' : 's'} drafted)
           </p>
+          {/* F7 — separation level: how creatives are fanned out across campaigns */}
+          <div className="mt-3">
+            <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-2">Nível de separação de criativos</p>
+            <div className="grid grid-cols-3 gap-2">
+              <OptionCard<SeparationLevel>
+                value="campaign"
+                selected={separationLevel === 'campaign'}
+                onClick={setSeparationLevel}
+                title="Por campanha"
+                desc="Cada criativo gera campanhas independentes (padrão)"
+              />
+              <OptionCard<SeparationLevel>
+                value="adset"
+                selected={separationLevel === 'adset'}
+                onClick={setSeparationLevel}
+                title="Por conjunto"
+                desc="Criativos separados no nível de conjunto de anúncios"
+              />
+              <OptionCard<SeparationLevel>
+                value="ad"
+                selected={separationLevel === 'ad'}
+                onClick={setSeparationLevel}
+                title="Por anúncio"
+                desc="Todos os criativos no mesmo conjunto, separados por anúncio"
+              />
+            </div>
+          </div>
         </SubBlock>
 
         {/* ORÇAMENTO */}
@@ -2738,15 +3078,17 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         >
           <div className="grid grid-cols-2 gap-3">
             <Field label="Pixel">
-              <select className={inputBase} value={pixelId} onChange={e => setPixelId(e.target.value)} disabled={pixels.length === 0}>
-                {pixels.length === 0 && <option value="">— sem pixels nessa conta —</option>}
-                {pixels.length > 0 && !pixelId && <option value="">— selecione um pixel —</option>}
-                {pixels.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.id}){p.last_fired_time ? '' : ' · sem disparos recentes'}
-                  </option>
-                ))}
-              </select>
+              <SSSelect
+                options={pixels.map(p => ({
+                  value: p.id,
+                  label: p.name + (p.last_fired_time ? '' : ' · sem disparos recentes'),
+                  sublabel: p.id,
+                }))}
+                value={pixelId || null}
+                onChange={v => setPixelId(v ?? '')}
+                placeholder={pixels.length === 0 ? '— sem pixels nessa conta —' : '— selecione um pixel —'}
+                disabled={pixels.length === 0}
+              />
             </Field>
             <Field label="Evento de conversão">
               <select className={inputBase} value={customEvent} onChange={e => setCustomEvent(e.target.value as CustomEvent)}>
@@ -2803,23 +3145,32 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             </div>
 
             <Field label="Usar um público salvo">
-              <select className={inputBase} value="" onChange={e => {
-                const id = e.target.value;
-                if (id && !includedAudiences.includes(id)) setIncludedAudiences([...includedAudiences, id]);
-                e.currentTarget.value = '';
-              }}>
-                <option value="">— selecione —</option>
-                {audiences.saved.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <SSSelect
+                options={audiences.saved.map(a => ({
+                  value: a.id,
+                  label: a.name,
+                  sublabel: a.id,
+                }))}
+                value={null}
+                onChange={id => {
+                  if (id && !includedAudiences.includes(id))
+                    setIncludedAudiences([...includedAudiences, id]);
+                }}
+                placeholder="— selecione —"
+                clearable={false}
+              />
             </Field>
 
             {/* Controles */}
             <SubBlock label="Controles">
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Localizações">
-                  <select className={inputBase} value={country} onChange={e => setCountry(e.target.value)}>
-                    {COUNTRIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-                  </select>
+                  <SSSelect
+                    options={COUNTRIES.map(c => ({ value: c.key, label: c.label }))}
+                    value={country}
+                    onChange={v => setCountry(v ?? 'BR')}
+                    clearable={false}
+                  />
                 </Field>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Idade Mínima">
@@ -3143,6 +3494,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 loadingProductSets={loadingProductSets}
                 catalogId={catalogId}
                 defaultPsid={productSetId}
+                openDrivePickerFn={GOOGLE_CLIENT_ID && GOOGLE_API_KEY ? openDrivePicker : undefined}
+                driveConnected={driveConnected}
               />
             ))}
             <button type="button" onClick={addAd}
@@ -3259,128 +3612,29 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           </button>
         </div>
 
-        {(events.length > 0 || doneInfo || errorInfo) && (
-          <div className="mt-3 border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden">
-            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
-              Progresso
-            </div>
-            <div className="bg-gray-900 text-gray-100 font-mono text-[11px] leading-relaxed px-3 py-2 max-h-64 overflow-y-auto">
-              {events.map((e, i) => <EventLine key={i} e={e} />)}
-            </div>
+        {/* Enqueue error (e.g. HTTP error, missing jobs in response, partial token failures) */}
+        {enqueueError && (
+          <div className="mt-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg p-3">
+            <p className="text-xs font-bold text-rose-800 dark:text-rose-400">Erro ao enfileirar</p>
+            <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-1">{enqueueError}</p>
           </div>
         )}
 
-        {doneInfo && (
-          <div className="mt-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
-            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-400">✓ Criado com sucesso</p>
-            <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
-              {doneInfo.campaign_ids.length} campanha(s) · {doneInfo.adset_ids.length} conjunto(s) · {doneInfo.ad_ids.length} anúncio(s)
-            </p>
-            {doneInfo.campaign_ids[0] && (
-              <a
-                href={`https://business.facebook.com/adsmanager/manage/campaigns?act=${accountId.replace('act_', '')}&selected_campaign_ids=${doneInfo.campaign_ids.join(',')}`}
-                target="_blank" rel="noopener noreferrer"
-                className="inline-block mt-2 text-[11px] text-emerald-700 dark:text-emerald-400 underline font-semibold"
-              >
-                Abrir no Ads Manager →
-              </a>
-            )}
+        {/* Queue widget — shown after a successful enqueue; polls job progress.
+            Uses displayQueueRows (last non-empty snapshot) so the final
+            done/done_with_errors state stays visible after polling stops —
+            the active=1 endpoint only returns pending|running jobs, so the
+            last real-time poll yields an empty set for our finished jobs. */}
+        {showQueueWidget && displayQueueRows.length > 0 && (
+          <div className="mt-3">
+            <QueueWidget
+              jobs={displayQueueRows}
+              onClose={() => setShowQueueWidget(false)}
+            />
           </div>
         )}
 
-        {errorInfo && (
-          <div className="mt-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg p-4">
-            <p className="text-xs font-bold text-rose-800 dark:text-rose-400">✗ Erro {errorInfo.step ? `em ${errorInfo.step}` : ''}</p>
-            <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-1">{errorInfo.error}</p>
-          </div>
-        )}
 
-        {/* Broadcast: progresso em tempo real (conta atual / total) */}
-        {broadcastProgress && (
-          <div className="mt-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3">
-            <p className="text-[11px] font-bold text-indigo-800 dark:text-indigo-400">
-              Broadcast em andamento — conta {broadcastProgress.current}/{broadcastProgress.total}
-            </p>
-            <p className="text-[11px] text-indigo-700 dark:text-indigo-400 mt-0.5 font-mono">
-              {accounts.find(a => a.account_id === broadcastProgress.account_id)?.account_name ?? broadcastProgress.account_id}
-              <span className="text-indigo-400 dark:text-indigo-500"> ({broadcastProgress.account_id})</span>
-            </p>
-          </div>
-        )}
-
-        {/* Broadcast: resumo final por conta */}
-        {broadcastSummary && (
-          <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-            <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
-                Resumo do broadcast
-              </span>
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">✓ {broadcastSummary.success.length}</span>
-                {' · '}
-                <span className="text-rose-700 dark:text-rose-400 font-semibold">✗ {broadcastSummary.failed.length}</span>
-                {' / '}
-                {broadcastSummary.total} contas
-              </span>
-            </div>
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {broadcastSummary.success.map(s => {
-                const acct = accounts.find(a => a.account_id === s.account_id);
-                return (
-                  <div key={`ok-${s.account_id}`} className="px-4 py-2 flex items-center gap-3 bg-white dark:bg-gray-900">
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">✓</span>
-                    <span className="text-[11px] flex-1 truncate text-gray-800 dark:text-gray-100">
-                      {acct?.account_name ?? s.account_id}
-                      <span className="text-gray-400 dark:text-gray-500 font-mono"> ({s.account_id})</span>
-                    </span>
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">
-                      {s.campaign_ids.length} camp · {s.ad_ids.length} ads
-                    </span>
-                    {s.campaign_ids[0] && (
-                      <a
-                        href={`https://business.facebook.com/adsmanager/manage/campaigns?act=${s.account_id.replace('act_', '')}&selected_campaign_ids=${s.campaign_ids.join(',')}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="text-[11px] text-emerald-700 dark:text-emerald-400 underline font-semibold shrink-0"
-                      >
-                        abrir →
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-              {broadcastSummary.failed.map(f => {
-                const acct = accounts.find(a => a.account_id === f.account_id);
-                return (
-                  <div key={`err-${f.account_id}`} className="px-4 py-2 bg-rose-50/40 dark:bg-rose-950/20">
-                    <div className="flex items-center gap-3">
-                      <span className="text-rose-600 dark:text-rose-400 font-bold text-[11px]">✗</span>
-                      <span className="text-[11px] flex-1 truncate text-gray-800 dark:text-gray-100">
-                        {acct?.account_name ?? f.account_id}
-                        <span className="text-gray-400 dark:text-gray-500 font-mono"> ({f.account_id})</span>
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-1 ml-6 break-words">{f.error}</p>
-                  </div>
-                );
-              })}
-            </div>
-            {broadcastSummary.failed.length > 0 && (
-              <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const failedIds = broadcastSummary.failed.map(f => f.account_id);
-                    setAccountIds(failedIds);
-                    setBroadcastSummary(null);
-                  }}
-                  className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 underline"
-                >
-                  Selecionar apenas as {broadcastSummary.failed.length} conta(s) que falharam para nova tentativa
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </MainSection>
 
       <CampaignNameModal
@@ -3388,16 +3642,18 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         onClose={() => setShowNameModal(false)}
         onApply={(n) => setCampaignName(n)}
         vars={{
-          conta: accounts.find(a => a.account_id === accountId)?.account_name ?? '',
+          conta: (() => { const a = accounts.find(x => x.account_id === accountId); return (a?.nickname || a?.account_name) ?? ''; })(),
           orcamento: campaignType,
           estrutura: `${campaignsPerCreative}-${adsetsPerCampaign}-${adsPerAdset}`,
           criativo: useCatalog
             ? (setName.trim() || ads[0]?.name || '')
             : (ads[0]?.name || ''),
           data: (() => {
-            const d = new Date(startTime);
-            if (isNaN(d.getTime())) return '';
-            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+            // startTime is 'YYYY-MM-DDTHH:mm' (GMT-3 wall clock from toDatetimeLocal).
+            // Slice directly — avoids new Date() parsing as browser-local time which
+            // can shift the day near midnight for browsers not in GMT-3.
+            if (!startTime || startTime.length < 10) return '';
+            return `${startTime.slice(8, 10)}/${startTime.slice(5, 7)}`;
           })(),
         }}
       />
@@ -3412,6 +3668,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 function AdEditor({
   index, ad, isDPA, canRemove, onChange, onRemove, uploadFor,
   productSets, loadingProductSets, catalogId, defaultPsid,
+  openDrivePickerFn, driveConnected,
 }: {
   index: number;
   ad: AdDraft;
@@ -3424,9 +3681,36 @@ function AdEditor({
   loadingProductSets: boolean;
   catalogId: string;
   defaultPsid: string;
+  /** F4 — Drive Picker opener, passed from the main builder. */
+  openDrivePickerFn?: () => Promise<{ file_id: string; filename: string; mime: string } | null>;
+  /** F4 — Whether the Drive OAuth connection is live (null = still probing). */
+  driveConnected?: boolean | null;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [driveImporting, setDriveImporting] = useState(false);
+
+  const handleDriveImport = async () => {
+    if (!openDrivePickerFn) return;
+    setDriveImporting(true);
+    try {
+      const result = await openDrivePickerFn();
+      if (!result) return; // user cancelled
+      // Importing from Drive: clear any direct-uploaded media and set drive_media.
+      onChange({
+        drive_media: result,
+        image_hash: '',
+        video_id: '',
+        video_thumbnail_url: '',
+        image_preview: undefined,
+        media_kind: result.mime.startsWith('video/') ? 'video' : 'image',
+      });
+    } catch (e: any) {
+      alert('Erro ao importar do Drive: ' + (e?.message ?? String(e)));
+    } finally {
+      setDriveImporting(false);
+    }
+  };
 
   const handleSingleUpload = async (file: File) => {
     setUploading(true);
@@ -3526,7 +3810,7 @@ function AdEditor({
           </div>
           <div className="mt-3">
             <Field label="Mídia (imagem ou vídeo) *" hint="Imagem: JPG/PNG, ideal 1200×628 (1.91:1) ou 1080×1080 (1:1). Vídeo: MP4/MOV, até ~1GB; miniatura é gerada pela Meta em ~5-30s.">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleSingleUpload(f); }} />
                 <button type="button" onClick={() => fileRef.current?.click()}
@@ -3536,6 +3820,36 @@ function AdEditor({
                     ? (ad.media_kind === 'video' ? 'Enviando vídeo…' : 'Enviando…')
                     : (ad.video_id || ad.image_hash ? 'Trocar mídia' : 'Fazer upload')}
                 </button>
+                {/* F4 — Drive import button (only shown when picker is configured) */}
+                {openDrivePickerFn && (
+                  <button
+                    type="button"
+                    onClick={handleDriveImport}
+                    disabled={driveImporting || uploading}
+                    title={driveConnected === false ? 'Drive não conectado — clique para autorizar' : 'Importar mídia do Google Drive'}
+                    className="text-xs px-3 py-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {driveImporting ? 'Importando…' : (
+                      <>
+                        <span className="font-bold text-[10px]">▲</span>
+                        {ad.drive_media ? 'Trocar Drive' : 'Importar do Drive'}
+                      </>
+                    )}
+                  </button>
+                )}
+                {ad.drive_media && !driveImporting && (
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono truncate max-w-[160px]" title={ad.drive_media.filename}>
+                    Drive: {ad.drive_media.filename}
+                  </span>
+                )}
+                {/* F4 — server-side connection probe: the WORKER (not the browser
+                    picker) downloads the file at execution time, so it needs the
+                    refresh token saved in settings. Warn if that's missing. */}
+                {openDrivePickerFn && driveConnected === false && ad.drive_media && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 w-full basis-full">
+                    Conecte o Google Drive nas configurações para a fila conseguir baixar.
+                  </span>
+                )}
                 {ad.media_kind === 'video' && ad.video_thumbnail_url ? (
                   <img src={ad.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" />
                 ) : ad.image_preview && (
@@ -3612,17 +3926,17 @@ function AdEditor({
                   : 'Cada criativo precisa do seu (sem fallback definido).'
               }
             >
-              <SearchableSelect
-                value={ad.product_set_id}
-                onChange={(v) => onChange({ product_set_id: v })}
+              <SSSelect
                 options={productSets.map(s => ({
                   value: s.id,
                   label: s.name,
-                  secondary: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
+                  sublabel: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
                 }))}
-                placeholder={loadingProductSets ? 'Carregando…' : '— selecione um conjunto —'}
-                emptyOption={defaultPsid ? { label: '— usar fallback global —' } : undefined}
+                value={ad.product_set_id || null}
+                onChange={v => onChange({ product_set_id: v ?? '' })}
+                placeholder={loadingProductSets ? 'Carregando…' : (defaultPsid ? '— usar fallback global —' : '— selecione um conjunto —')}
                 disabled={!catalogId || loadingProductSets}
+                clearable={!!defaultPsid}
               />
             </Field>
           </div>
@@ -3681,21 +3995,4 @@ function CarouselCardEditor({
       </div>
     </div>
   );
-}
-
-function EventLine({ e }: { e: any }) {
-  let txt = '';
-  let color = 'text-gray-100';
-  switch (e.type) {
-    case 'start':            txt = `▶ Iniciando criação de ${e.total} anúncio(s)…`; break;
-    case 'campaign_created': txt = `✓ Campanha criada (${e.id})`; color = 'text-emerald-300'; break;
-    case 'adset_created':    txt = `  ✓ Conjunto criado (${e.id})`; color = 'text-emerald-300'; break;
-    case 'ad_progress':      txt = `    → Anúncio ${e.index}/${e.total}: ${e.message}`; color = 'text-indigo-300'; break;
-    case 'creative_created': txt = `      ✓ Creative ${e.index} criado (${e.id})`; color = 'text-emerald-300'; break;
-    case 'ad_created':       txt = `      ✓ Anúncio ${e.index} criado (${e.id})`; color = 'text-emerald-300'; break;
-    case 'done':             txt = `✓✓ Concluído. ${e.ad_ids?.length} ad(s) publicados.`; color = 'text-emerald-400'; break;
-    case 'error':            txt = `✗ Erro em ${e.step ?? '?'}: ${e.error}` + (e.fbCode ? ` (FB code ${e.fbCode})` : ''); color = 'text-rose-400'; break;
-    default:                 txt = JSON.stringify(e);
-  }
-  return <div className={color}>{txt}</div>;
 }
