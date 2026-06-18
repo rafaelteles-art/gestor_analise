@@ -775,23 +775,143 @@ async function pollBatchHandle(
 }
 
 /**
- * Atualiza a URL de vídeo do produto na Meta via items_batch + tenta múltiplos
+ * BULK video write for the spreadsheet importer.
+ *
+ * Deliberately uses a DIFFERENT write-and-verify shape than updateProductVideo
+ * (see docs/adr/0006): one chunked `items_batch` POST per ~50 products using only
+ * the proven `video` field, then a SINGLE full-catalog re-read to confirm — O(reads)
+ * instead of ~25s × N per-product polling. This is what keeps a hundreds-product
+ * import under the 300s wall. DO NOT "simplify" this into a updateProductVideo loop.
+ *
+ * Idempotent: a re-run only retouches products still missing the video, so a
+ * partial failure (or a Meta silent-drop) is safely repeatable.
+ */
+export interface BulkVideoItem {
+  product_id: string;
+  retailer_id: string;
+  video_url: string;
+}
+
+export interface BulkVideoResult {
+  filled: Array<{ product_id: string; retailer_id: string }>;
+  failed: Array<{ product_id: string; retailer_id: string; reason: string }>;
+  chunk_count: number;
+  verify_rounds: number;
+}
+
+const BULK_CHUNK_SIZE = 50;
+
+export async function bulkUpdateProductVideos(
+  catalogId: string,
+  items: BulkVideoItem[],
+): Promise<BulkVideoResult> {
+  const filled: BulkVideoResult['filled'] = [];
+  const failed: BulkVideoResult['failed'] = [];
+
+  // Validate URLs up front; invalid ones never reach Meta.
+  const valid: BulkVideoItem[] = [];
+  for (const it of items) {
+    const url = (it.video_url ?? '').trim();
+    if (!url) { failed.push({ product_id: it.product_id, retailer_id: it.retailer_id, reason: 'link vazio' }); continue; }
+    try { new URL(url); } catch { failed.push({ product_id: it.product_id, retailer_id: it.retailer_id, reason: `link inválido: ${url}` }); continue; }
+    if (!it.retailer_id) { failed.push({ product_id: it.product_id, retailer_id: it.retailer_id, reason: 'sem retailer_id (rode Sincronizar Meta)' }); continue; }
+    valid.push({ ...it, video_url: url });
+  }
+
+  if (valid.length === 0) {
+    return { filled, failed, chunk_count: 0, verify_rounds: 0 };
+  }
+
+  const tokenInfo = await resolveCatalogToken(catalogId);
+  if (!tokenInfo) {
+    throw new MetaCatalogApiError('resolveToken', 'NO_TOKEN', `Nenhum token Meta com acesso ao catálogo ${catalogId}. Rode o sync de catálogos antes.`);
+  }
+  const token = tokenInfo.token;
+
+  // 1) Chunked items_batch writes (UPDATE, allow_upsert, field `video` only).
+  const chunks: BulkVideoItem[][] = [];
+  for (let i = 0; i < valid.length; i += BULK_CHUNK_SIZE) chunks.push(valid.slice(i, i + BULK_CHUNK_SIZE));
+
+  const handles: string[] = [];
+  for (const chunk of chunks) {
+    try {
+      const resp = await postGraph<any>(
+        `${catalogId}/items_batch`,
+        {
+          item_type: 'PRODUCT_ITEM',
+          allow_upsert: true,
+          validate_only: false,
+          requests: chunk.map((c) => ({ method: 'UPDATE', data: { id: c.retailer_id, video: [{ url: c.video_url }] } })),
+        },
+        token,
+        'bulkUpdateProductVideos:post',
+      );
+      const handle = resp?.handles?.[0] ?? null;
+      if (handle) handles.push(handle);
+    } catch (err: any) {
+      // A failed POST kills only its own chunk; other chunks still write.
+      const reason = `POST falhou: ${err?.message ?? String(err)}`;
+      for (const c of chunk) failed.push({ product_id: c.product_id, retailer_id: c.retailer_id, reason });
+    }
+  }
+
+  // 2) Best-effort poll of the batch handles so they're likely settled before verify.
+  for (const h of handles) {
+    try { await pollBatchHandle(catalogId, h, token); } catch { /* verify is the source of truth */ }
+  }
+
+  // 3) Single-pass verify: re-read the WHOLE catalog and diff. Retry a few rounds
+  //    because items_batch propagation to reads lags by several seconds.
+  const expected = new Map<string, BulkVideoItem>(); // retailer_id → item still unconfirmed
+  for (const it of valid) {
+    if (!failed.some((f) => f.product_id === it.product_id)) expected.set(it.retailer_id, it);
+  }
+  const delays = [2000, 3000, 5000, 8000, 8000]; // ~26s worst case across rounds
+  let verifyRounds = 0;
+  for (const d of delays) {
+    if (expected.size === 0) break;
+    await sleep(d);
+    verifyRounds++;
+    const fresh = await fetchAllCatalogProducts(catalogId, token);
+    // Index fresh products by retailer_id → its video list.
+    const freshByRetailer = new Map<string, Array<{ url: string; tag?: string }>>();
+    for (const p of fresh.items) {
+      if (p?.retailer_id) freshByRetailer.set(String(p.retailer_id), extractVideos(p));
+    }
+    for (const [retailerId, it] of Array.from(expected.entries())) {
+      const vids = freshByRetailer.get(retailerId);
+      if (vids && vids.some((v) => v.url === it.video_url)) {
+        // Confirmed — persist to snapshot and stop tracking it.
+        await pool.query(
+          `UPDATE meta_catalog_products SET videos = $1::jsonb, updated_at = now() WHERE catalog_id = $2 AND product_id = $3`,
+          [JSON.stringify(vids), catalogId, it.product_id],
+        );
+        filled.push({ product_id: it.product_id, retailer_id: retailerId });
+        expected.delete(retailerId);
+      }
+    }
+  }
+
+  // Anything still unconfirmed = Meta accepted but didn't persist (or not found).
+  for (const it of expected.values()) {
+    failed.push({ product_id: it.product_id, retailer_id: it.retailer_id, reason: 'não persistiu na Meta (verificação)' });
+  }
+
+  return { filled, failed, chunk_count: chunks.length, verify_rounds: verifyRounds };
+}
+
+/**
+ * Atualiza a URL de vídeo de UM produto na Meta via items_batch + tenta múltiplos
  * field names em sequência (o nome certo varia entre versões/contextos da API).
  *
- * Field-name candidates testados em ordem:
- *  - `video_link`             — string (formato XML feed `<g:video_link>`)
- *  - `additional_video_urls`  — array de strings
- *  - `video`                  — array `[{url, tag}]` (formato CSV feed `video[0].url`)
- *  - `videos`                 — array (plural, observado em algumas versões)
+ * Field-name candidates testados em ordem: `video`, `video_link`,
+ * `additional_video_urls`, `videos`. Para cada strategy: POST items_batch → poll
+ * do handle → GET do produto pra confirmar (post-and-verify, ~25s). Se nenhuma
+ * persistir, lança erro detalhado.
  *
- * Para cada strategy:
- *  1. POST items_batch com o field name dela.
- *  2. Se o POST retornar #100 "nonexisting field", segue pra próxima.
- *  3. Se aceitar, poll do handle até concluir.
- *  4. GET do produto pra confirmar que o vídeo aparece (com retry 2s).
- *  5. Se confirmou, atualiza snapshot e retorna.
- *
- * Se nenhuma strategy funcionar, retorna erro detalhado com o resultado de cada.
+ * NOTE: o importador em lote (bulkUpdateProductVideos) NÃO reusa esse loop
+ * post-and-verify por produto — ele agrupa as escritas e verifica com uma única
+ * releitura do catálogo pra ficar abaixo do teto de 300s. Ver docs/adr/0006.
  */
 export async function updateProductVideo(
   catalogId: string,

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { openSheetPicker, isPickerConfigured } from '@/lib/google-picker';
 
 interface CatalogEntry {
   id: string;
@@ -167,6 +168,26 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
   // product_ids em ação (salvando/ignorando) — desabilita botões dessa linha
   const [videoRowBusy, setVideoRowBusy] = useState<Record<string, 'saving' | 'ignoring' | 'unignoring'>>({});
 
+  // ── Estado do import de vídeos via planilha do Drive ───────────────────
+  interface ImportPlan {
+    to_fill: Array<{ product_id: string; retailer_id: string; baseAdName: string; link: string }>;
+    products_without_link: Array<{ product_id: string; retailer_id: string | null; name: string | null }>;
+    unmatched_sheet_keys: string[];
+    duplicate_sheet_keys: string[];
+  }
+  const [importBusy, setImportBusy] = useState<false | 'previewing' | 'committing'>(false);
+  const [importPreview, setImportPreview] = useState<{
+    spreadsheet_id: string;
+    filename: string;
+    tab: string;
+    sheet_link_rows: number;
+    plan: ImportPlan;
+  } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    filled: number;
+    failed: Array<{ retailer_id: string; reason: string }>;
+  } | null>(null);
+
   // ── Estado do modal "Criar catálogo" ──────────────────────────────────
   interface BmOption { bm_id: string; bm_name: string; }
   // lockedBm != null → aberto a partir do header de um BM (dropdown travado).
@@ -305,6 +326,9 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
     setVideoUrlDrafts({});
     setVideoRowBusy({});
     setVideoError(null);
+    setImportPreview(null);
+    setImportResult(null);
+    setImportBusy(false);
     loadVideoData(catalog.id);
   };
 
@@ -318,6 +342,85 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
     setVideoError(null);
     setVideoLoading(false);
     setVideoSyncing(false);
+    setImportPreview(null);
+    setImportResult(null);
+    setImportBusy(false);
+  };
+
+  // ── Import de vídeos via planilha do Drive ────────────────────────────
+  // Fluxo: Picker (escolhe a Planilha Google) → preview (dry-run, casa
+  // "Nº CRIATIVO" com o nome-base dos produtos sem vídeo) → commit (grava na
+  // Meta em lote + verifica). Ver docs/adr/0006.
+  const handleOpenSheetImport = async () => {
+    if (!videoModalCatalog) return;
+    setVideoError(null);
+    setImportResult(null);
+    let picked: { file_id: string; filename: string } | null = null;
+    try {
+      picked = await openSheetPicker();
+    } catch (e: any) {
+      setVideoError(`Google Picker: ${e?.message ?? String(e)}`);
+      return;
+    }
+    if (!picked) return; // usuário cancelou
+    setImportBusy('previewing');
+    try {
+      const res = await fetch('/api/catalogs/products/video/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          catalog_id: videoModalCatalog.catalog.id,
+          spreadsheet_id: picked.file_id,
+          mode: 'preview',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+      setImportPreview({
+        spreadsheet_id: picked.file_id,
+        filename: picked.filename,
+        tab: data.tab,
+        sheet_link_rows: data.sheet_link_rows ?? 0,
+        plan: data.plan,
+      });
+    } catch (e: any) {
+      setVideoError(`Falha ao ler a planilha: ${e?.message ?? String(e)}`);
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const handleCommitImport = async () => {
+    if (!videoModalCatalog || !importPreview) return;
+    const n = importPreview.plan.to_fill.length;
+    if (n === 0) return;
+    if (!window.confirm(`Gravar ${n} vídeo(s) na Meta para "${videoModalCatalog.catalog.name}"? Isso pode levar até alguns minutos.`)) return;
+    setImportBusy('committing');
+    setVideoError(null);
+    try {
+      const res = await fetch('/api/catalogs/products/video/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          catalog_id: videoModalCatalog.catalog.id,
+          spreadsheet_id: importPreview.spreadsheet_id,
+          tab_name: importPreview.tab,
+          mode: 'commit',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+      setImportResult({
+        filled: data.result.filled.length,
+        failed: data.result.failed ?? [],
+      });
+      setImportPreview(null);
+      await loadVideoData(videoModalCatalog.catalog.id); // recarrega "sem vídeo"
+    } catch (e: any) {
+      setVideoError(`Falha ao gravar vídeos: ${e?.message ?? String(e)}`);
+    } finally {
+      setImportBusy(false);
+    }
   };
 
   const handleVideoSync = async () => {
@@ -1349,6 +1452,19 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {isPickerConfigured && (
+                  <button
+                    onClick={handleOpenSheetImport}
+                    disabled={!!importBusy || videoSyncing || videoLoading}
+                    title="Escolher uma planilha do Drive e puxar os links de vídeo pelo nome do criativo"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:border-indigo-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2a4 4 0 014-4h3m0 0l-3-3m3 3l-3 3M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v1" />
+                    </svg>
+                    {importBusy === 'previewing' ? 'Lendo planilha…' : 'Importar planilha'}
+                  </button>
+                )}
                 <button
                   onClick={handleVideoSync}
                   disabled={videoSyncing || videoLoading}
@@ -1422,6 +1538,83 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
               {videoError && (
                 <div className="mb-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded-lg p-3 text-xs">
                   {videoError}
+                </div>
+              )}
+
+              {/* Resultado do último commit do import */}
+              {importResult && (
+                <div className={`mb-3 rounded-lg p-3 text-xs border ${
+                  importResult.failed.length === 0
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
+                    : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400'
+                }`}>
+                  <div className="font-bold">
+                    {importResult.filled} vídeo(s) gravado(s) na Meta.
+                    {importResult.failed.length > 0 && ` ${importResult.failed.length} falharam.`}
+                  </div>
+                  {importResult.failed.length > 0 && (
+                    <ul className="mt-1 space-y-0.5 max-h-32 overflow-y-auto font-mono text-[10px]">
+                      {importResult.failed.map((f, i) => (
+                        <li key={i}>{f.retailer_id || '—'}: {f.reason}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="mt-1 text-[10px] opacity-80">Re-importar é seguro — só produtos ainda sem vídeo são reescritos.</div>
+                </div>
+              )}
+
+              {/* Pré-visualização do import (dry-run, antes de gravar) */}
+              {importPreview && (
+                <div className="mb-3 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20 p-3 text-xs space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold text-indigo-700 dark:text-indigo-300 truncate">
+                      Pré-visualização · {importPreview.filename}
+                      <span className="font-normal text-gray-500 dark:text-gray-400 ml-1">(aba {importPreview.tab})</span>
+                    </div>
+                    <button
+                      onClick={() => setImportPreview(null)}
+                      disabled={importBusy === 'committing'}
+                      className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-[11px] disabled:opacity-40"
+                    >
+                      cancelar
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-600 dark:text-gray-300">
+                    <span><b className="text-indigo-700 dark:text-indigo-300">{importPreview.plan.to_fill.length}</b> produto(s) receberão vídeo</span>
+                    <span><b className="text-purple-700 dark:text-purple-400">{importPreview.plan.products_without_link.length}</b> sem link na planilha</span>
+                    <span className="text-gray-400 dark:text-gray-500">{importPreview.sheet_link_rows} linha(s) com link · {importPreview.plan.unmatched_sheet_keys.length} sem produto neste catálogo</span>
+                  </div>
+
+                  {importPreview.plan.duplicate_sheet_keys.length > 0 && (
+                    <div className="text-[10px] text-amber-700 dark:text-amber-400">
+                      ⚠ Nº CRIATIVO duplicado na planilha (1º link venceu): {importPreview.plan.duplicate_sheet_keys.join(', ')}
+                    </div>
+                  )}
+
+                  {importPreview.plan.to_fill.length > 0 ? (
+                    <div className="border border-indigo-100 dark:border-indigo-900 rounded max-h-48 overflow-y-auto divide-y divide-indigo-50 dark:divide-indigo-950 bg-white dark:bg-gray-900">
+                      {importPreview.plan.to_fill.map((f) => (
+                        <div key={f.product_id} className="px-2 py-1 flex items-center gap-2 text-[10px]">
+                          <span className="font-mono text-gray-700 dark:text-gray-300 truncate flex-shrink-0 max-w-[160px]" title={f.retailer_id}>{f.retailer_id}</span>
+                          <span className="text-gray-400 dark:text-gray-500 truncate flex-1" title={f.link}>{f.link}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                      Nenhum produto sem vídeo casou com a planilha. Verifique a aba/nomes ou rode "Sincronizar Meta".
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleCommitImport}
+                      disabled={importBusy === 'committing' || importPreview.plan.to_fill.length === 0}
+                      className="px-3 py-1.5 text-[11px] font-bold rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {importBusy === 'committing' ? 'Gravando na Meta…' : `Gravar ${importPreview.plan.to_fill.length} vídeo(s)`}
+                    </button>
+                  </div>
                 </div>
               )}
 
