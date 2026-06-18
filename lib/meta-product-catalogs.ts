@@ -10,6 +10,7 @@
 
 import { pool } from './db';
 import { getMetaProfiles } from './config';
+import type { ConjuntoSessionItem } from './conjunto-sessions';
 
 const API_VERSION = 'v21.0';
 const GRAPH = `https://graph.facebook.com/${API_VERSION}`;
@@ -345,6 +346,86 @@ export async function deletePreset(idOrName: { id?: number; name?: string }): Pr
     await pool.query(`DELETE FROM catalog_product_presets WHERE id = $1`, [idOrName.id]);
   } else if (idOrName.name) {
     await pool.query(`DELETE FROM catalog_product_presets WHERE name = $1`, [idOrName.name]);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Sessões de criação de conjuntos (histórico por catálogo) — JSONB, upsert por
+// session_id. Cada lote do modal "Criar produto + conjunto" vira uma sessão;
+// retries fazem merge no mesmo registro (ver lib/conjunto-sessions.ts e o grill
+// de 2026-06-18). Escopo global (qualquer um do time vê), carimbo created_by.
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface ConjuntoSessionRecord {
+  id: number;
+  session_id: string;
+  catalog_id: string;
+  bm_id: string | null;
+  created_by: string | null;
+  items: ConjuntoSessionItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export async function ensureConjuntoSessionsTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS catalog_conjunto_sessions (
+      id         SERIAL PRIMARY KEY,
+      session_id TEXT NOT NULL UNIQUE,
+      catalog_id TEXT NOT NULL,
+      bm_id      TEXT,
+      created_by TEXT,
+      items      JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_conjunto_sessions_catalog
+       ON catalog_conjunto_sessions (catalog_id, created_at DESC)`,
+  );
+}
+
+export async function listConjuntoSessions(catalogId: string): Promise<ConjuntoSessionRecord[]> {
+  await ensureConjuntoSessionsTable();
+  const { rows } = await pool.query(
+    `SELECT id, session_id, catalog_id, bm_id, created_by, items, created_at, updated_at
+       FROM catalog_conjunto_sessions
+      WHERE catalog_id = $1
+      ORDER BY created_at DESC`,
+    [catalogId],
+  );
+  return rows as ConjuntoSessionRecord[];
+}
+
+export async function upsertConjuntoSession(s: {
+  session_id: string;
+  catalog_id: string;
+  bm_id?: string | null;
+  created_by?: string | null;
+  items: ConjuntoSessionItem[];
+}): Promise<ConjuntoSessionRecord> {
+  await ensureConjuntoSessionsTable();
+  // created_by NÃO é sobrescrito no conflito: mantém quem criou a sessão original.
+  const { rows } = await pool.query(
+    `INSERT INTO catalog_conjunto_sessions (session_id, catalog_id, bm_id, created_by, items)
+          VALUES ($1, $2, $3, $4, $5::jsonb)
+     ON CONFLICT (session_id) DO UPDATE
+          SET items = EXCLUDED.items,
+              bm_id = EXCLUDED.bm_id,
+              updated_at = NOW()
+      RETURNING id, session_id, catalog_id, bm_id, created_by, items, created_at, updated_at`,
+    [s.session_id, s.catalog_id, s.bm_id ?? null, s.created_by ?? null, JSON.stringify(s.items)],
+  );
+  return rows[0] as ConjuntoSessionRecord;
+}
+
+export async function deleteConjuntoSession(idOrSession: { id?: number; session_id?: string }): Promise<void> {
+  await ensureConjuntoSessionsTable();
+  if (idOrSession.id != null) {
+    await pool.query(`DELETE FROM catalog_conjunto_sessions WHERE id = $1`, [idOrSession.id]);
+  } else if (idOrSession.session_id) {
+    await pool.query(`DELETE FROM catalog_conjunto_sessions WHERE session_id = $1`, [idOrSession.session_id]);
   }
 }
 

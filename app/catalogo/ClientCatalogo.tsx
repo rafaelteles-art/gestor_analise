@@ -1,7 +1,17 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { openSheetPicker, isPickerConfigured } from '@/lib/google-picker';
+import {
+  initDraft,
+  recordSuccess,
+  sessionItems,
+  hasResults,
+  copyIdsText,
+  copyIdNameText,
+  type SessionDraft,
+  type ConjuntoSessionItem,
+} from '@/lib/conjunto-sessions';
 
 interface CatalogEntry {
   id: string;
@@ -61,6 +71,31 @@ function brtDayMonthClient(): { dmShort: string; dmId: string } {
   const dd = parts.find((p) => p.type === 'day')?.value ?? '00';
   const mm = parts.find((p) => p.type === 'month')?.value ?? '00';
   return { dmShort: `${dd}/${mm}`, dmId: `${dd}-${mm}` };
+}
+
+/** Formata um ISO (TIMESTAMPTZ do servidor) em data+hora GMT-3 (America/Sao_Paulo). */
+function fmtDateTimeBR(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d);
+}
+
+interface ConjuntoSessionRecord {
+  id: number;
+  session_id: string;
+  catalog_id: string;
+  bm_id: string | null;
+  created_by: string | null;
+  items: ConjuntoSessionItem[];
+  created_at: string;
+  updated_at: string;
 }
 
 interface CatalogEndpointAttempt {
@@ -128,6 +163,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
     successes: BatchSuccessItem[];
     failures: BatchFailureItem[];
   } | null>(null);
+  // Rascunho da sessão vivo enquanto o modal de criar está aberto. null = nada
+  // a continuar (próximo "Criar" cunha uma sessão nova). Persiste entre retries.
+  const sessionDraftRef = useRef<SessionDraft | null>(null);
+  const [historySaveWarning, setHistorySaveWarning] = useState<string | null>(null);
+
+  // ── Estado do modal "Histórico de conjuntos" ───────────────────────────
+  const [historyCatalog, setHistoryCatalog] = useState<
+    { catalog: CatalogEntry; bm_id: string; bm_name: string } | null
+  >(null);
+  const [historySessions, setHistorySessions] = useState<ConjuntoSessionRecord[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [expandedSessions, setExpandedSessions] = useState<Set<number>>(new Set());
+  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
 
   // ── Estado do modal "Vídeos" ───────────────────────────────────────────
   interface CatalogProductRow {
@@ -574,6 +623,8 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
     setModalError(null);
     setBatchResult(null);
     setCreateProgress(null);
+    sessionDraftRef.current = null;
+    setHistorySaveWarning(null);
   };
 
   const closeCreateModal = () => {
@@ -586,6 +637,69 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
     setBatchResult(null);
     setCreateProgress(null);
     setCreating(false);
+    sessionDraftRef.current = null;
+    setHistorySaveWarning(null);
+  };
+
+  // ── Handlers do modal "Histórico de conjuntos" ─────────────────────────
+  const openHistoryModal = async (catalog: CatalogEntry, bm: BMWithCatalogs) => {
+    setHistoryCatalog({ catalog, bm_id: bm.bm_id, bm_name: bm.bm_name });
+    setHistorySessions(null);
+    setHistoryError(null);
+    setExpandedSessions(new Set());
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/catalogs/conjunto-sessions?catalog_id=${encodeURIComponent(catalog.id)}`);
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+      setHistorySessions(data.sessions ?? []);
+    } catch (e: any) {
+      setHistoryError(e?.message ?? String(e));
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const closeHistoryModal = () => {
+    setHistoryCatalog(null);
+    setHistorySessions(null);
+    setHistoryError(null);
+    setExpandedSessions(new Set());
+  };
+
+  const toggleSession = (id: number) => {
+    setExpandedSessions((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const copyText = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedSessionId(key);
+      setTimeout(() => setCopiedSessionId((c) => (c === key ? null : c)), 1500);
+    } catch {}
+  };
+
+  const deleteSession = async (s: ConjuntoSessionRecord) => {
+    if (!window.confirm(
+      `Excluir esta sessão (${s.items.length} conjunto${s.items.length === 1 ? '' : 's'})? ` +
+      `Não apaga nada na Meta — só o registro do histórico.`,
+    )) return;
+    try {
+      const res = await fetch(
+        `/api/catalogs/conjunto-sessions?id=${encodeURIComponent(String(s.id))}`,
+        { method: 'DELETE' },
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+      setHistorySessions((prev) => (prev ? prev.filter((x) => x.id !== s.id) : prev));
+    } catch (e: any) {
+      setHistoryError(`Falha ao excluir: ${e?.message ?? String(e)}`);
+    }
   };
 
   const applyPreset = (name: string) => {
@@ -668,10 +782,25 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
     setCreating(true);
     setModalError(null);
     setBatchResult(null);
+    setHistorySaveWarning(null);
     setCreateProgress({ current: 0, total: names.length });
 
     const successes: BatchSuccessItem[] = [];
     const failures: BatchFailureItem[] = [];
+
+    // Continuidade da sessão: rascunho existente (retry) faz merge no mesmo
+    // registro; sem rascunho, cunha uma sessão nova a partir do colar atual.
+    let draft: SessionDraft =
+      sessionDraftRef.current ??
+      initDraft({
+        session_id:
+          typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        catalog_id: modalCatalog.catalog.id,
+        bm_id: modalCatalog.bm_id,
+        adNames: names,
+      });
 
     for (let i = 0; i < names.length; i++) {
       const ad = names[i];
@@ -699,8 +828,42 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
           retailer_id: data.retailer_id,
           product_name: data.product_name,
         });
+        // Reencaixa o sucesso no slot original (mantém a ordem do colar).
+        draft = recordSuccess(draft, {
+          ad_name: ad,
+          product_id: data.product_id,
+          product_set_id: data.product_set_id,
+          retailer_id: data.retailer_id,
+          product_name: data.product_name,
+        });
       } catch (e: any) {
         failures.push({ ad_name: ad, error: e?.message ?? String(e) });
+      }
+    }
+
+    // Mantém o rascunho vivo p/ retries subsequentes no mesmo modal.
+    sessionDraftRef.current = draft;
+
+    // Persiste a sessão inteira (best-effort, 1 upsert). Falha aqui NUNCA
+    // derruba o resultado em tela — os conjuntos já foram criados na Meta.
+    if (hasResults(draft)) {
+      try {
+        const res = await fetch('/api/catalogs/conjunto-sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: draft.session_id,
+            catalog_id: draft.catalog_id,
+            bm_id: draft.bm_id,
+            items: sessionItems(draft),
+          }),
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => null);
+          setHistorySaveWarning(d?.error || `HTTP ${res.status}`);
+        }
+      } catch (e: any) {
+        setHistorySaveWarning(e?.message ?? String(e));
       }
     }
 
@@ -1122,6 +1285,16 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                               </svg>
                               Vídeos
                             </button>
+                            <button
+                              onClick={() => openHistoryModal(c, g)}
+                              title="Histórico de conjuntos criados neste catálogo"
+                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:border-emerald-400 transition-colors whitespace-nowrap"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Histórico
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -1216,11 +1389,25 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                     </div>
                   )}
 
+                  {historySaveWarning && (
+                    <div className="rounded-lg p-3 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-[11px] text-amber-700 dark:text-amber-400">
+                      Conjuntos criados na Meta normalmente, mas não consegui salvar no histórico: {historySaveWarning}
+                    </div>
+                  )}
+
                   <div className="pt-1 flex gap-2">
                     <button
                       onClick={() => {
-                        setAdNames(batchResult.failures.map((f) => f.ad_name).join('\n'));
+                        if (batchResult.failures.length > 0) {
+                          // Retry: mantém o rascunho vivo → merge na mesma sessão.
+                          setAdNames(batchResult.failures.map((f) => f.ad_name).join('\n'));
+                        } else {
+                          // "Criar mais": lote novo → sessão nova.
+                          sessionDraftRef.current = null;
+                          setAdNames('');
+                        }
                         setBatchResult(null);
+                        setHistorySaveWarning(null);
                       }}
                       className="px-3 py-1.5 text-xs font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
                     >
@@ -1826,6 +2013,124 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   </svg>
                 )}
                 {creatingCatalog ? 'Criando…' : 'Criar catálogo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historyCatalog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeHistoryModal}>
+          <div
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-gray-200 dark:border-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+              <div>
+                <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">Histórico de conjuntos</h2>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                  {historyCatalog.catalog.name} · <span className="font-mono">{historyCatalog.catalog.id}</span>
+                </p>
+              </div>
+              <button
+                onClick={closeHistoryModal}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                aria-label="Fechar"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {historyError && (
+                <div className="rounded-lg p-3 border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-[11px] text-rose-700 dark:text-rose-400">
+                  {historyError}
+                </div>
+              )}
+
+              {historyLoading && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 py-8 text-center">Carregando…</div>
+              )}
+
+              {!historyLoading && historySessions && historySessions.length === 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 py-8 text-center">
+                  Nenhuma sessão ainda. Crie produtos + conjuntos neste catálogo e o lote aparece aqui.
+                </div>
+              )}
+
+              {!historyLoading && historySessions && historySessions.map((s) => {
+                const open = expandedSessions.has(s.id);
+                const idsKey = `${s.session_id}:ids`;
+                const idNameKey = `${s.session_id}:idname`;
+                return (
+                  <div key={s.id} className="border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => toggleSession(s.id)}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    >
+                      <span className="flex items-center gap-2 text-[12px]">
+                        <svg
+                          className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                          {s.items.length} conjunto{s.items.length === 1 ? '' : 's'}
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400">· {fmtDateTimeBR(s.created_at)}</span>
+                        {s.created_by && (
+                          <span className="text-gray-400 dark:text-gray-500">· {s.created_by}</span>
+                        )}
+                      </span>
+                    </button>
+
+                    {open && (
+                      <div className="border-t border-gray-100 dark:border-gray-800">
+                        <div className="flex flex-wrap gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/40">
+                          <button
+                            onClick={() => copyText(copyIdsText(s.items), idsKey)}
+                            className="px-2.5 py-1 text-[11px] font-semibold rounded border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+                          >
+                            {copiedSessionId === idsKey ? 'Copiado!' : 'Copiar IDs'}
+                          </button>
+                          <button
+                            onClick={() => copyText(copyIdNameText(s.items), idNameKey)}
+                            className="px-2.5 py-1 text-[11px] font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            {copiedSessionId === idNameKey ? 'Copiado!' : 'Copiar ID+nome'}
+                          </button>
+                          <button
+                            onClick={() => deleteSession(s)}
+                            className="ml-auto px-2.5 py-1 text-[11px] font-semibold rounded border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+                          {s.items.map((it) => (
+                            <div key={`${it.orderIndex}-${it.product_set_id}`} className="px-3 py-2 text-[11px] flex flex-wrap gap-x-3 gap-y-0.5">
+                              <span className="text-gray-400 dark:text-gray-500 w-6 tabular-nums">{it.orderIndex + 1}</span>
+                              <span className="font-mono text-emerald-700 dark:text-emerald-400">{it.product_set_id}</span>
+                              <span className="text-gray-600 dark:text-gray-300">{it.ad_name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-800 flex justify-end">
+              <button
+                onClick={closeHistoryModal}
+                className="px-3 py-1.5 text-xs font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Fechar
               </button>
             </div>
           </div>
