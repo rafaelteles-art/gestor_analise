@@ -1,6 +1,7 @@
 import { pool } from './db';
 import { getMetaProfiles } from './config';
 import { Pacer } from './meta-pages-pacing';
+import type { ProfileSyncState } from './sync-jobs';
 
 /**
  * Ordered, de-duplicated list of tokens to try for an ad account, resolved from
@@ -23,7 +24,6 @@ export function tokensForAccount(
 
 const API_VERSION = 'v19.0';
 
-export const REFRESH_BATCH = 100;
 export const REFRESH_TIME_BUDGET_MS = 180_000; // stop a chunk after ~180s so it always fits the cron window
 
 const PAGE_FIELDS = 'id,name,instagram_business_account{id}';
@@ -34,22 +34,12 @@ interface RawPage {
   instagram_business_account?: { id?: string };
 }
 
-interface RawBM {
-  id: string;
-  name?: string;
-}
-
 interface AdsVolumeRow {
   actor_id?: string;
   actor_name?: string;
   ads_running_or_in_review_count?: number;
   limit_on_ads_running_or_in_review?: number;
   current_account_ads_running_or_in_review_count?: number;
-}
-
-interface DbAdAccount {
-  account_id: string;          // "act_XXXXX"
-  accessible_profiles: string[];
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -205,103 +195,77 @@ async function fetchGraphWithRetry(
   }
 }
 
-// Pagina um endpoint do Graph até esgotar.
-// Em erro persistente (após retries), retorna o que coletou.
-async function fetchAllPages<T = any>(url: string): Promise<T[]> {
-  const results: T[] = [];
+/**
+ * Pagina um endpoint do Graph até esgotar, sinalizando se parou por erro de auth
+ * (#190/#102 — token expirado/inválido). `#4` propaga como AppRateLimitError.
+ */
+async function fetchAllPagedChecked<T = any>(url: string): Promise<{ items: T[]; authError: boolean }> {
+  const items: T[] = [];
   let nextUrl: string | null = url;
+  let authError = false;
 
   while (nextUrl) {
     const { data, error } = await fetchGraphWithRetry(nextUrl);
-
     if (error) {
+      const code = Number(error.code);
+      if (code === 190 || code === 102) authError = true;
       console.warn(`[meta-pages] Graph error (${error.code}): ${error.message ?? '—'}`);
       break;
     }
-
-    if (Array.isArray(data?.data)) results.push(...data.data);
+    if (Array.isArray(data?.data)) items.push(...data.data);
     nextUrl = data?.paging?.next ?? null;
   }
 
-  return results;
+  return { items, authError };
 }
 
-// Descobre todos os BMs visíveis ao token: diretos (me/businesses) + sub-BMs
-// (owned_businesses de cada BM direto). Mesmo padrão de meta-accounts.ts.
-async function listAllBMs(token: string): Promise<RawBM[]> {
-  const direct = await fetchAllPages<RawBM>(
-    `https://graph.facebook.com/${API_VERSION}/me/businesses?fields=id,name&limit=200&access_token=${token}`
-  );
+/**
+ * Resolve a lista de perfis a sincronizar a partir dos perfis configurados.
+ * `names` (case/space-insensitive) filtra; vazio/undefined = todos. Função pura
+ * sobre a lista de entrada — testável sem DB.
+ */
+export function selectProfiles<T extends { name: string; token: string }>(
+  all: T[],
+  names?: string[],
+): T[] {
+  const withToken = all.filter((p) => p.token);
+  const wanted = names?.map((n) => n.toLowerCase().trim()).filter(Boolean);
+  if (!wanted || wanted.length === 0) return withToken;
+  return withToken.filter((p) => wanted.includes(p.name.toLowerCase().trim()));
+}
 
-  const all = new Map<string, RawBM>();
-  for (const bm of direct) all.set(bm.id, bm);
-
-  for (const bm of direct) {
-    const owned = await fetchAllPages<RawBM>(
-      `https://graph.facebook.com/${API_VERSION}/${bm.id}/owned_businesses?fields=id,name&limit=200&access_token=${token}`
-    );
-    for (const ob of owned) {
-      if (!all.has(ob.id)) all.set(ob.id, ob);
+/**
+ * Reduz linhas de ads_volume (breakdown por actor) a mapas page_id → MAX(limit)
+ * e page_id → MAX(running). `ads_running_or_in_review_count` e
+ * `limit_on_ads_running_or_in_review` já são totais por-Página → MAX, nunca soma
+ * (a mesma página pode reaparecer em várias contas). Função pura — testável.
+ */
+export function foldAdsVolumeRows(
+  rows: AdsVolumeRow[],
+  into?: { limits: Map<string, number>; running: Map<string, number>; names: Map<string, string> },
+): { limits: Map<string, number>; running: Map<string, number>; names: Map<string, string> } {
+  const acc = into ?? { limits: new Map(), running: new Map(), names: new Map() };
+  for (const row of rows) {
+    const id = row.actor_id;
+    if (!id) continue;
+    if (row.actor_name) acc.names.set(id, row.actor_name);
+    const running = row.ads_running_or_in_review_count;
+    if (typeof running === 'number') acc.running.set(id, Math.max(acc.running.get(id) ?? 0, running));
+    const limit = row.limit_on_ads_running_or_in_review;
+    if (typeof limit === 'number') {
+      const cur = acc.limits.get(id);
+      if (cur === undefined || limit > cur) acc.limits.set(id, limit);
     }
   }
-
-  return Array.from(all.values());
+  return acc;
 }
 
-/**
- * Discover all Pages a single Profile's token can see: me/accounts (personal)
- * ∪ owned_pages ∪ client_pages across every BM (direct + sub-BMs). System User
- * tokens return nothing on me/accounts, so the BM walk does the real work.
- * No ads_volume here — limits are filled later from the deduped account list.
- */
-export async function discoverPagesForProfile(
-  token: string,
-  pacer?: Pacer,
-  onProgress?: (msg: string) => void,
-): Promise<RawPage[]> {
-  const report = (m: string) => { try { onProgress?.(m); } catch {} };
-  const out: RawPage[] = [];
+const ADS_VOLUME_FIELDS = [
+  'actor_id', 'actor_name', 'ads_running_or_in_review_count',
+  'limit_on_ads_running_or_in_review', 'current_account_ads_running_or_in_review_count',
+].join(',');
 
-  const personal = await fetchAllPages<RawPage>(
-    `https://graph.facebook.com/${API_VERSION}/me/accounts?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`,
-  );
-  out.push(...personal);
-
-  const bms = await listAllBMs(token);
-  for (let i = 0; i < bms.length; i++) {
-    const bm = bms[i];
-    report(`Páginas: BM ${i + 1}/${bms.length}`);
-    const owned = await fetchAllPages<RawPage>(
-      `https://graph.facebook.com/${API_VERSION}/${bm.id}/owned_pages?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`,
-    );
-    const client = await fetchAllPages<RawPage>(
-      `https://graph.facebook.com/${API_VERSION}/${bm.id}/client_pages?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`,
-    );
-    out.push(...owned, ...client);
-    if (pacer && i < bms.length - 1) await sleep(pacer.delayMs());
-  }
-  return out;
-}
-
-/**
- * Refresh ad_limit/ads_running for ONE batch of distinct ad accounts (account-scoped
- * ads_volume), upserting affected pages immediately. Resumable via offset. No BM walk.
- * ad_limit/ads_running are per-Page totals → MAX, never summed.
- */
-export async function runRefreshChunk(opts: {
-  offset: number;
-  batchSize?: number;
-  onProgress?: (p: { message: string; current?: number; total?: number }) => void;
-}): Promise<{ processed: number; total: number; nextOffset: number; done: boolean; partial: boolean }> {
-  const report = (message: string, current?: number, total?: number) => {
-    try { opts.onProgress?.({ message, current, total }); } catch {}
-  };
-  const batchSize = opts.batchSize ?? REFRESH_BATCH;
-
-  const profiles = (await getMetaProfiles()).filter((p) => p.token);
-  const profileMap = new Map(profiles.map((p) => [p.name, p.token]));
-  const pacer = new Pacer();
-
+async function ensureMetaPagesTable(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS meta_pages (
       page_id TEXT PRIMARY KEY, page_name TEXT NOT NULL, ad_limit INTEGER,
@@ -309,146 +273,161 @@ export async function runRefreshChunk(opts: {
       ig_account_id TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`);
   await pool.query(`ALTER TABLE meta_pages ADD COLUMN IF NOT EXISTS ig_account_id TEXT`);
-
-  const totalRes = await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM meta_ad_accounts`);
-  const total = totalRes.rows[0]?.n ?? 0;
-
-  const accRes = await pool.query<DbAdAccount>(
-    `SELECT account_id, COALESCE(accessible_profiles, '{}') AS accessible_profiles
-       FROM meta_ad_accounts ORDER BY account_id ASC OFFSET $1 LIMIT $2`,
-    [opts.offset, batchSize],
-  );
-  const accounts = accRes.rows;
-
-  const fields = [
-    'actor_id', 'actor_name', 'ads_running_or_in_review_count',
-    'limit_on_ads_running_or_in_review', 'current_account_ads_running_or_in_review_count',
-  ].join(',');
-
-  const pageName = new Map<string, string>();
-  const pageLimit = new Map<string, number>();
-  const pageRunning = new Map<string, number>();
-  const startMs = Date.now();
-  let stoppedEarly = false;
-  let partial = false;
-  let processed = 0;
-
-  for (const acc of accounts) {
-    if (Date.now() - startMs > REFRESH_TIME_BUDGET_MS) { stoppedEarly = true; break; }
-    const tokens = tokensForAccount(acc.accessible_profiles, profileMap);
-    if (tokens.length === 0) { processed++; continue; }
-    let rows: AdsVolumeRow[] = [];
-    try {
-      for (const token of tokens) {
-        const url = `https://graph.facebook.com/${API_VERSION}/${acc.account_id}/ads_volume` +
-          `?show_breakdown_by_actor=true&fields=${fields}&limit=50&access_token=${token}`;
-        const r = await fetchAdsVolumePagedPaced<AdsVolumeRow>(url, pacer);
-        rows = r.rows;
-        if (r.ok) break;
-      }
-    } catch (err: any) {
-      if (err instanceof AppRateLimitError) { partial = true; stoppedEarly = true; break; }
-      throw err;
-    }
-    for (const row of rows) {
-      const id = row.actor_id;
-      if (!id) continue;
-      if (row.actor_name) pageName.set(id, row.actor_name);
-      const running = row.ads_running_or_in_review_count;
-      if (typeof running === 'number') pageRunning.set(id, Math.max(pageRunning.get(id) ?? 0, running));
-      const limit = row.limit_on_ads_running_or_in_review;
-      if (typeof limit === 'number') {
-        const cur = pageLimit.get(id);
-        if (cur === undefined || limit > cur) pageLimit.set(id, limit);
-      }
-    }
-    processed++;
-    if (processed % 10 === 0) report(`Limites: ${opts.offset + processed}/${total} contas`, opts.offset + processed, total);
-    await sleep(pacer.delayMs());
-  }
-
-  const ids = new Set<string>([...pageName.keys(), ...pageLimit.keys(), ...pageRunning.keys()]);
-  if (ids.size > 0) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      for (const id of ids) {
-        await client.query(
-          `INSERT INTO meta_pages (page_id, page_name, ad_limit, ads_running, updated_at)
-           VALUES ($1, $2, $3, $4, now())
-           ON CONFLICT (page_id) DO UPDATE SET
-             ad_limit = EXCLUDED.ad_limit,
-             ads_running = EXCLUDED.ads_running,
-             page_name = COALESCE(NULLIF(meta_pages.page_name, ''), EXCLUDED.page_name),
-             updated_at = now()`,
-          [id, pageName.get(id) ?? id, pageLimit.get(id) ?? null, pageRunning.get(id) ?? 0],
-        );
-      }
-      await client.query('COMMIT');
-    } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
-  }
-
-  const nextOffset = opts.offset + processed;
-  const done = !stoppedEarly && (opts.offset + accounts.length >= total);
-  report(`Limites: ${Math.min(nextOffset, total)}/${total} contas`, Math.min(nextOffset, total), total);
-  return { processed, total, nextOffset, done, partial };
 }
 
 /**
- * Discover pages for ONE profile (by index) and upsert them immediately, unioning
- * accessible_profiles. Resumable per profile. ig preferred non-null; additive only.
+ * Per-profile page sync, modelado no script standalone (`Lista de páginas`):
+ * por token, `me/accounts` (páginas) + `me/adaccounts` (contas do perfil) +
+ * `ads_volume` por conta (limites/ativos). Escopado por token → rápido.
+ *
+ * Resumível via `state` (qual perfil, fase, contas cacheadas, offset). Processa
+ * os perfis sequencialmente, fatiando a fase de limites pelo orçamento de tempo
+ * para caber na janela do cron. `#4` → parcial + retoma; token expirado (#190)
+ * → pula o perfil e registra em `state.failed`.
  */
-export async function runDiscoveryChunk(opts: {
-  profileIndex: number;
+export async function runProfileSyncChunk(opts: {
+  state: ProfileSyncState;
   profileNames?: string[];
   onProgress?: (p: { message: string; current?: number; total?: number }) => void;
-}): Promise<{ total: number; nextIndex: number; done: boolean }> {
+}): Promise<{ state: ProfileSyncState; total: number; done: boolean; partial: boolean }> {
   const report = (message: string, current?: number, total?: number) => {
     try { opts.onProgress?.({ message, current, total }); } catch {}
   };
-  const all = (await getMetaProfiles()).filter((p) => p.token);
-  const wanted = opts.profileNames?.map((n) => n.toLowerCase().trim());
-  const profiles = wanted && wanted.length ? all.filter((p) => wanted.includes(p.name.toLowerCase().trim())) : all;
+
+  const all = await getMetaProfiles();
+  const profiles = selectProfiles(all, opts.profileNames);
   const total = profiles.length;
-  if (opts.profileIndex >= total) return { total, nextIndex: opts.profileIndex, done: true };
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS meta_pages (
-      page_id TEXT PRIMARY KEY, page_name TEXT NOT NULL, ad_limit INTEGER,
-      ads_running INTEGER NOT NULL DEFAULT 0, accessible_profiles TEXT[] NOT NULL DEFAULT '{}',
-      ig_account_id TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )`);
-  await pool.query(`ALTER TABLE meta_pages ADD COLUMN IF NOT EXISTS ig_account_id TEXT`);
+  // Clone defensivo do estado (não mutamos o objeto do chamador).
+  const st: ProfileSyncState = {
+    profileIndex: opts.state.profileIndex ?? 0,
+    phase: opts.state.phase ?? 'pages',
+    accounts: opts.state.accounts ?? null,
+    accountOffset: opts.state.accountOffset ?? 0,
+    failed: Array.isArray(opts.state.failed) ? [...opts.state.failed] : [],
+  };
 
-  const profile = profiles[opts.profileIndex];
+  if (total === 0 || st.profileIndex >= total) {
+    return { state: { ...st, profileIndex: total }, total, done: true, partial: false };
+  }
+
+  await ensureMetaPagesTable();
+
+  const profile = profiles[st.profileIndex];
+  const token = profile.token;
   const pacer = new Pacer();
-  report(`Descobrindo páginas: ${profile.name} (${opts.profileIndex + 1}/${total})`, opts.profileIndex, total);
+  const startMs = Date.now();
+  let partial = false;
 
-  const pages = await discoverPagesForProfile(profile.token, pacer, (m) => report(`Perfil ${profile.name}: ${m}`, opts.profileIndex, total));
+  const advanceToNextProfile = () => {
+    st.profileIndex += 1;
+    st.phase = 'pages';
+    st.accounts = null;
+    st.accountOffset = 0;
+  };
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    for (const p of pages) {
-      if (!p.id) continue;
-      const ig = p.instagram_business_account?.id ?? null;
-      await client.query(
-        `INSERT INTO meta_pages (page_id, page_name, accessible_profiles, ig_account_id, updated_at)
-         VALUES ($1, $2, ARRAY[$3]::text[], $4, now())
-         ON CONFLICT (page_id) DO UPDATE SET
-           page_name = COALESCE(NULLIF(EXCLUDED.page_name, ''), meta_pages.page_name),
-           accessible_profiles = ARRAY(SELECT DISTINCT unnest(meta_pages.accessible_profiles || EXCLUDED.accessible_profiles)),
-           ig_account_id = COALESCE(EXCLUDED.ig_account_id, meta_pages.ig_account_id),
-           updated_at = now()`,
-        [p.id, p.name ?? p.id, profile.name, ig],
-      );
+  // ─── Fase 1: páginas (me/accounts) + lista de contas (me/adaccounts) ───
+  if (st.phase === 'pages') {
+    report(`Perfil ${profile.name} (${st.profileIndex + 1}/${total}) — buscando páginas`, st.profileIndex, total);
+
+    const { items: pages, authError } = await fetchAllPagedChecked<RawPage>(
+      `https://graph.facebook.com/${API_VERSION}/me/accounts?fields=${PAGE_FIELDS}&limit=200&access_token=${token}`,
+    );
+
+    if (authError) {
+      if (!st.failed.includes(profile.name)) st.failed.push(profile.name);
+      report(`Perfil ${profile.name}: token inválido/expirado — pulando`, st.profileIndex, total);
+      advanceToNextProfile();
+      return { state: st, total, done: st.profileIndex >= total, partial: false };
     }
-    await client.query('COMMIT');
-  } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
 
-  const nextIndex = opts.profileIndex + 1;
-  report(`${profile.name}: ${pages.length} páginas`, nextIndex, total);
-  return { total, nextIndex, done: nextIndex >= total };
+    if (pages.length > 0) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        for (const p of pages) {
+          if (!p.id) continue;
+          const ig = p.instagram_business_account?.id ?? null;
+          await client.query(
+            `INSERT INTO meta_pages (page_id, page_name, accessible_profiles, ig_account_id, updated_at)
+             VALUES ($1, $2, ARRAY[$3]::text[], $4, now())
+             ON CONFLICT (page_id) DO UPDATE SET
+               page_name = COALESCE(NULLIF(EXCLUDED.page_name, ''), meta_pages.page_name),
+               accessible_profiles = ARRAY(SELECT DISTINCT unnest(meta_pages.accessible_profiles || EXCLUDED.accessible_profiles)),
+               ig_account_id = COALESCE(EXCLUDED.ig_account_id, meta_pages.ig_account_id),
+               updated_at = now()`,
+            [p.id, p.name ?? p.id, profile.name, ig],
+          );
+        }
+        await client.query('COMMIT');
+      } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+    }
+
+    // Lista de contas do perfil (ao vivo). `id` já vem como "act_XXXX".
+    const { items: accs } = await fetchAllPagedChecked<{ id: string }>(
+      `https://graph.facebook.com/${API_VERSION}/me/adaccounts?fields=id,account_id,name&limit=200&access_token=${token}`,
+    );
+    st.accounts = accs.map((a) => a.id).filter(Boolean);
+    st.accountOffset = 0;
+    st.phase = 'limits';
+    report(`Perfil ${profile.name} (${st.profileIndex + 1}/${total}) — ${pages.length} páginas, ${st.accounts.length} contas`, st.profileIndex, total);
+  }
+
+  // ─── Fase 2: limites (ads_volume por conta) — fatiada pelo orçamento ───
+  if (st.phase === 'limits') {
+    const accounts = st.accounts ?? [];
+    const folded = { limits: new Map<string, number>(), running: new Map<string, number>(), names: new Map<string, string>() };
+    let stoppedEarly = false;
+
+    while (st.accountOffset < accounts.length) {
+      if (Date.now() - startMs > REFRESH_TIME_BUDGET_MS) { stoppedEarly = true; break; }
+      const acc = accounts[st.accountOffset];
+      try {
+        const url = `https://graph.facebook.com/${API_VERSION}/${acc}/ads_volume` +
+          `?show_breakdown_by_actor=true&fields=${ADS_VOLUME_FIELDS}&limit=50&access_token=${token}`;
+        const r = await fetchAdsVolumePagedPaced<AdsVolumeRow>(url, pacer);
+        foldAdsVolumeRows(r.rows, folded);
+      } catch (err: any) {
+        if (err instanceof AppRateLimitError) { partial = true; stoppedEarly = true; break; }
+        throw err;
+      }
+      st.accountOffset += 1;
+      if (st.accountOffset % 10 === 0) {
+        report(`Perfil ${profile.name} (${st.profileIndex + 1}/${total}) — Limites: ${st.accountOffset}/${accounts.length} contas`, st.profileIndex, total);
+      }
+      await sleep(pacer.delayMs());
+    }
+
+    // Upsert dos limites coletados. UPDATE guardado pela posse do perfil: só
+    // toca páginas que ESTE perfil descobriu via me/accounts (igual ao standalone,
+    // que ignora actors fora da lista de páginas).
+    const ids = new Set<string>([...folded.limits.keys(), ...folded.running.keys()]);
+    if (ids.size > 0) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        for (const id of ids) {
+          await client.query(
+            `UPDATE meta_pages SET
+               ad_limit = COALESCE($2, ad_limit),
+               ads_running = $3,
+               updated_at = now()
+             WHERE page_id = $1 AND $4 = ANY(accessible_profiles)`,
+            [id, folded.limits.get(id) ?? null, folded.running.get(id) ?? 0, profile.name],
+          );
+        }
+        await client.query('COMMIT');
+      } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+    }
+
+    if (!stoppedEarly && st.accountOffset >= accounts.length) {
+      report(`Perfil ${profile.name} (${st.profileIndex + 1}/${total}) — concluído`, st.profileIndex, total);
+      advanceToNextProfile();
+    }
+  }
+
+  const done = !partial && st.profileIndex >= total;
+  return { state: st, total, done, partial };
 }
 
 async function fetchAdsVolumePagedPaced<T = any>(
