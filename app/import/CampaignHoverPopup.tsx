@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { globalHoverCache, cacheKey } from './hoverCache';
+import { globalHoverCache, cacheKey, rtCampaignSetKey } from './hoverCache';
 import {
   CreativeDiagnostic,
   CreativeCategory,
@@ -14,7 +14,7 @@ interface PopupProps {
   y: number;
   groupData: any;
   accountId: string;
-  rtCampaignId: string;
+  rtCampaignIds: string[];
   /** Diagnóstico computado pela análise da conta (categoria, veredicto, sinais). */
   diagnostic: CreativeDiagnostic | null;
   onMouseLeave: () => void;
@@ -130,7 +130,7 @@ function computeConfidence(cost: number): string {
 // Componente
 // ============================================================
 export default function CampaignHoverPopup({
-  x, y, groupData, accountId, rtCampaignId, diagnostic,
+  x, y, groupData, accountId, rtCampaignIds, diagnostic,
   onMouseLeave, onMouseEnter,
 }: PopupProps) {
   const [history, setHistory] = useState<any>(null);
@@ -140,7 +140,7 @@ export default function CampaignHoverPopup({
     let mounted = true;
 
     async function fetchHistory() {
-      const key = cacheKey(groupData.rt_ad, accountId, rtCampaignId);
+      const key = cacheKey(groupData.rt_ad, accountId, rtCampaignIds);
 
       if (globalHoverCache[key]) {
         if (mounted) {
@@ -157,7 +157,7 @@ export default function CampaignHoverPopup({
           body: JSON.stringify({
             metaAccountId: accountId,
             rtAd: groupData.rt_ad,
-            rtCampaignId: rtCampaignId,
+            rtCampaignIds: rtCampaignIds,
           }),
         });
         const d = await res.json();
@@ -171,13 +171,14 @@ export default function CampaignHoverPopup({
       }
     }
 
-    if (groupData && accountId && rtCampaignId) {
+    if (groupData && accountId && rtCampaignIds.length > 0) {
       setLoading(true);
       fetchHistory();
     }
 
     return () => { mounted = false; };
-  }, [groupData, accountId, rtCampaignId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupData, accountId, rtCampaignSetKey(rtCampaignIds)]);
 
   const ranges = ['Hoje', '2D', '3D', '7D', '14D', '30D', '30D+HOJE'];
 

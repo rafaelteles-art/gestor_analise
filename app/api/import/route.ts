@@ -76,7 +76,13 @@ export async function POST(req: NextRequest) {
     }
 
     const rtCampaignIds: string[] = rtCampaigns.map((c: any) => c.campaign_id);
-    const campaignIdParam = [...rtCampaignIds].sort().join(',');
+    // O cache é gravado POR CAMPANHA individual (rt-bulk / sync-today usam
+    // `rt_ad:${campaign_id}`, etc). Para agregar várias campanhas RedTrack de uma
+    // mesma oferta, lemos a chave de CADA campanha e unimos as linhas diárias — os
+    // combinadores abaixo somam por rt_ad / rt_campaign / sub3 entre todas elas.
+    const rtAdKeys     = rtCampaignIds.map((id) => `rt_ad:${id}`);
+    const rtCampKeys   = rtCampaignIds.map((id) => `rt_camp:${id}`);
+    const rtCampIdKeys = rtCampaignIds.map((id) => `rt_camp_id:${id}`);
 
     console.log(`[Import] Meta contas: ${accounts.length}, RT campanhas: ${rtCampaignIds.length} | Fonte: banco de dados`);
 
@@ -139,27 +145,27 @@ export async function POST(req: NextRequest) {
     const [rtAdResult, rtCampResult, rtCampIdResult, usdToBrl] = await Promise.all([
       pool.query(
         `SELECT data FROM import_cache
-         WHERE cache_key = $1
+         WHERE cache_key = ANY($1)
            AND date_from >= $2 AND date_from <= $3
            AND date_from = date_to
          ORDER BY date_from`,
-        [`rt_ad:${campaignIdParam}`, dateFrom, dateTo]
+        [rtAdKeys, dateFrom, dateTo]
       ),
       pool.query(
         `SELECT data FROM import_cache
-         WHERE cache_key = $1
+         WHERE cache_key = ANY($1)
            AND date_from >= $2 AND date_from <= $3
            AND date_from = date_to
          ORDER BY date_from`,
-        [`rt_camp:${campaignIdParam}`, dateFrom, dateTo]
+        [rtCampKeys, dateFrom, dateTo]
       ),
       pool.query(
         `SELECT data FROM import_cache
-         WHERE cache_key = $1
+         WHERE cache_key = ANY($1)
            AND date_from >= $2 AND date_from <= $3
            AND date_from = date_to
          ORDER BY date_from`,
-        [`rt_camp_id:${campaignIdParam}`, dateFrom, dateTo]
+        [rtCampIdKeys, dateFrom, dateTo]
       ),
       usdToBrlPromise,
     ]);

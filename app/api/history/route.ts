@@ -49,15 +49,24 @@ function aggregateByKey(rows: AggRow[], dateFrom: string): Map<string, RtAgg> {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { metaAccountId, rtCampaignId } = body;
+    const { metaAccountId } = body;
+    // Aceita rtCampaignIds: string[] (várias campanhas RedTrack da oferta) ou
+    // rtCampaignId: string (compat). O cache é por campanha individual, então
+    // lemos a chave de cada uma e unimos via ANY($1).
+    const rtCampaignIds: string[] = Array.isArray(body.rtCampaignIds)
+      ? body.rtCampaignIds.filter((x: any) => typeof x === 'string' && x.length > 0)
+      : (typeof body.rtCampaignId === 'string' && body.rtCampaignId ? [body.rtCampaignId] : []);
     const rtAds: string[] = Array.isArray(body.rtAds)
       ? body.rtAds.filter((x: any) => typeof x === 'string' && x.length > 0)
       : (typeof body.rtAd === 'string' ? [body.rtAd] : []);
     const isBatch = Array.isArray(body.rtAds);
 
-    if (!metaAccountId || !rtCampaignId || rtAds.length === 0) {
+    if (!metaAccountId || rtCampaignIds.length === 0 || rtAds.length === 0) {
       return NextResponse.json({ error: 'Parâmetros insuficientes' }, { status: 400 });
     }
+
+    const rtCampKeys   = rtCampaignIds.map((id) => `rt_camp:${id}`);
+    const rtCampIdKeys = rtCampaignIds.map((id) => `rt_camp_id:${id}`);
 
     const today  = todayStr();
     const d29ago = daysAgoStr(29);
@@ -84,12 +93,12 @@ export async function POST(req: NextRequest) {
            COALESCE(NULLIF(entry->>'cost',          '')::float, 0)       AS cost
          FROM import_cache ic,
               jsonb_array_elements(ic.data) entry
-         WHERE ic.cache_key = $1
+         WHERE ic.cache_key = ANY($1)
            AND ic.date_from >= $2
            AND ic.date_from = ic.date_to
            AND entry->>'rt_campaign' IS NOT NULL
            AND entry->>'rt_campaign' <> ''`,
-        [`rt_camp:${rtCampaignId}`, d29ago]
+        [rtCampKeys, d29ago]
       ),
       pool.query<AggRow>(
         `SELECT
@@ -100,12 +109,12 @@ export async function POST(req: NextRequest) {
            COALESCE(NULLIF(entry->>'cost',          '')::float, 0)       AS cost
          FROM import_cache ic,
               jsonb_array_elements(ic.data) entry
-         WHERE ic.cache_key = $1
+         WHERE ic.cache_key = ANY($1)
            AND ic.date_from >= $2
            AND ic.date_from = ic.date_to
            AND entry->>'sub3' IS NOT NULL
            AND entry->>'sub3' <> ''`,
-        [`rt_camp_id:${rtCampaignId}`, d29ago]
+        [rtCampIdKeys, d29ago]
       ),
       pool.query(
         `SELECT campaign_id, campaign_name,

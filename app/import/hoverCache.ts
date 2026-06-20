@@ -2,21 +2,28 @@
 
 export const globalHoverCache: Record<string, any> = {};
 
-export function cacheKey(rtAd: string, accountId: string, rtCampaignId: string) {
-  return `${rtAd}_${accountId}_${rtCampaignId}`;
+// Chave de cache estável para um conjunto de campanhas RedTrack (oferta inteira).
+// Ordena os ids para que a ordem de seleção não gere chaves diferentes.
+export function rtCampaignSetKey(rtCampaignIds: string[]): string {
+  return [...rtCampaignIds].sort().join(',');
 }
 
-// Requisições em andamento por (account, campaign) pra evitar chamadas duplicadas
-// em re-renders, mas permitir preload paralelo para múltiplas contas selecionadas.
+export function cacheKey(rtAd: string, accountId: string, rtCampaignIds: string[]) {
+  return `${rtAd}_${accountId}_${rtCampaignSetKey(rtCampaignIds)}`;
+}
+
+// Requisições em andamento por (account, set de campanhas) pra evitar chamadas
+// duplicadas em re-renders, mas permitir preload paralelo para múltiplas contas.
 const inflightByKey: Map<string, Promise<void>> = new Map();
 
 export async function preloadHistoryBatch(
   accountId: string,
-  rtCampaignId: string,
+  rtCampaignIds: string[],
   rtAds: string[],
 ): Promise<void> {
-  if (!accountId || !rtCampaignId || rtAds.length === 0) return;
-  const key = `${accountId}__${rtCampaignId}`;
+  if (!accountId || rtCampaignIds.length === 0 || rtAds.length === 0) return;
+  const setKey = rtCampaignSetKey(rtCampaignIds);
+  const key = `${accountId}__${setKey}`;
   const existing = inflightByKey.get(key);
   if (existing) return existing;
 
@@ -25,7 +32,7 @@ export async function preloadHistoryBatch(
       const res = await fetch('/api/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ metaAccountId: accountId, rtCampaignId, rtAds }),
+        body: JSON.stringify({ metaAccountId: accountId, rtCampaignIds, rtAds }),
       });
       if (!res.ok) {
         console.error('[preloadHistoryBatch] falhou', res.status);
@@ -34,7 +41,7 @@ export async function preloadHistoryBatch(
       const d = await res.json();
       if (!d?.data) return;
       for (const rtAd of Object.keys(d.data)) {
-        globalHoverCache[cacheKey(rtAd, accountId, rtCampaignId)] = d.data[rtAd];
+        globalHoverCache[cacheKey(rtAd, accountId, rtCampaignIds)] = d.data[rtAd];
       }
     } catch (e) {
       console.error('[preloadHistoryBatch]', e);

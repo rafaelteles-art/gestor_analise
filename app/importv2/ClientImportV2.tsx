@@ -42,7 +42,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
   const rtScopeKey = sortedRtCampaigns.map(c => c.campaign_id).join(',');
 
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
-  const [selectedRtCampaignId, setSelectedRtCampaignId] = useState<string>('');
+  const [selectedRtCampaignIds, setSelectedRtCampaignIds] = useState<string[]>([]);
 
   const [dateRangeFilter, setDateRangeFilter] = useState<'today'|'yesterday'|'7d'|'14d'|'30d'|'custom'>('today');
   const [dateFrom, setDateFrom] = useState(todayStr());
@@ -126,8 +126,8 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
     // Default-to-ALL within the offer scope: with no manual action, every
     // offer-scoped account is included so the user needn't pick anything.
     let initialAccountIds: string[] = sortedAccounts.map(a => a.account_id);
-    // RT single-select default semantics: first offer-scoped campaign (or '').
-    let initialRtCampaignId = sortedRtCampaigns.length > 0 ? sortedRtCampaigns[0].campaign_id : '';
+    // RT default: TODAS as campanhas escopadas pela oferta (agregação por oferta).
+    let initialRtCampaignIds: string[] = sortedRtCampaigns.map(c => c.campaign_id);
 
     try {
         const savedStr = localStorage.getItem('dopscale_prefs');
@@ -144,33 +144,39 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
             } else if (saved.accountId && sortedAccounts.some(a => a.account_id === saved.accountId)) {
                 initialAccountIds = [saved.accountId];
             }
-            // Only restore the stored RT campaign if it exists in the offer-scoped
-            // list; otherwise keep the default (first campaign / '').
-            if (saved.rtCampaignId && sortedRtCampaigns.some(c => c.campaign_id === saved.rtCampaignId)) {
-                initialRtCampaignId = saved.rtCampaignId;
+            // Restaura campanhas RT armazenadas que ainda existem no escopo da
+            // oferta. Vazio → mantém o default (todas). Aceita o formato antigo
+            // (rtCampaignId único) por compatibilidade.
+            if (Array.isArray(saved.rtCampaignIds)) {
+                const validRt = saved.rtCampaignIds.filter((id: string) =>
+                    sortedRtCampaigns.some(c => c.campaign_id === id)
+                );
+                if (validRt.length > 0) initialRtCampaignIds = validRt;
+            } else if (saved.rtCampaignId && sortedRtCampaigns.some(c => c.campaign_id === saved.rtCampaignId)) {
+                initialRtCampaignIds = [saved.rtCampaignId];
             }
         }
     } catch(e) {}
 
     setSelectedAccountIds(initialAccountIds);
-    setSelectedRtCampaignId(initialRtCampaignId);
+    setSelectedRtCampaignIds(initialRtCampaignIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountScopeKey, rtScopeKey]);
 
 
   useEffect(() => {
-    if (selectedAccountIds.length === 0 || !selectedRtCampaignId) return;
+    if (selectedAccountIds.length === 0 || selectedRtCampaignIds.length === 0) return;
     try {
         localStorage.setItem('dopscale_prefs', JSON.stringify({
             accountIds: selectedAccountIds,
-            rtCampaignId: selectedRtCampaignId,
+            rtCampaignIds: selectedRtCampaignIds,
             dateRange: dateRangeFilter,
             dateFrom: dateRangeFilter === 'custom' ? dateFrom : null,
             dateTo: dateRangeFilter === 'custom' ? dateTo : null,
             sortConfig: sortConfig
         }));
     } catch(e) {}
-  }, [selectedAccountIds, selectedRtCampaignId, dateRangeFilter, dateFrom, dateTo, sortConfig]);
+  }, [selectedAccountIds, selectedRtCampaignIds, dateRangeFilter, dateFrom, dateTo, sortConfig]);
 
   const handleDateShortcut = (range: 'today'|'yesterday'|'7d'|'14d'|'30d') => {
     setDateRangeFilter(range);
@@ -197,12 +203,12 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
   };
 
   const handleImport = async () => {
-    if (selectedAccountIds.length === 0 || !selectedRtCampaignId || !dateFrom || !dateTo) return;
+    if (selectedAccountIds.length === 0 || selectedRtCampaignIds.length === 0 || !dateFrom || !dateTo) return;
 
     setIsImporting(true);
     try {
       const accs = sortedAccounts.filter(a => selectedAccountIds.includes(a.account_id));
-      const camp = sortedRtCampaigns.find(c => c.campaign_id === selectedRtCampaignId);
+      const camps = sortedRtCampaigns.filter(c => selectedRtCampaignIds.includes(c.campaign_id));
 
       const response = await fetch('/api/import', {
         method: 'POST',
@@ -211,7 +217,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
           dateFrom,
           dateTo,
           accounts: accs,
-          rtCampaigns: camp ? [camp] : [],
+          rtCampaigns: camps,
           filterRegex: '',
         })
       });
@@ -232,20 +238,24 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
   };
 
   const handleSyncToday = async () => {
-    if (selectedAccountIds.length === 0 || !selectedRtCampaignId) return;
+    if (selectedAccountIds.length === 0 || selectedRtCampaignIds.length === 0) return;
     setIsSyncingToday(true);
     try {
-      const results = await Promise.all(selectedAccountIds.map(async (accId) => {
+      // Sincroniza hoje para cada par (conta × campanha RedTrack selecionada).
+      const pairs = selectedAccountIds.flatMap(accId =>
+        selectedRtCampaignIds.map(rtId => ({ accId, rtId }))
+      );
+      const results = await Promise.all(pairs.map(async ({ accId, rtId }) => {
         const response = await fetch('/api/import/sync-today', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accountId: accId, rtCampaignId: selectedRtCampaignId }),
+          body: JSON.stringify({ accountId: accId, rtCampaignId: rtId }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(`${accId}: ${data.error}`);
         return data;
       }));
-      console.log(`[SyncToday] ${results.length} contas sincronizadas`);
+      console.log(`[SyncToday] ${results.length} par(es) conta×campanha sincronizado(s)`);
       await handleImport();
     } catch (error: any) {
       console.error(error);
@@ -258,7 +268,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
   useEffect(() => {
     handleImport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccountIds, selectedRtCampaignId, dateFrom, dateTo]);
+  }, [selectedAccountIds, selectedRtCampaignIds, dateFrom, dateTo]);
 
   // Lista plana de campanhas Meta por conta (sem agrupamento por rt_ad).
   const campaignsByAccount = useMemo(() => {
@@ -277,12 +287,12 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
   // O endpoint /api/history filtra Meta por regex contendo o nome — para nomes
   // completos isso isola a campanha individual.
   useEffect(() => {
-    if (selectedAccountIds.length === 0 || !selectedRtCampaignId) return;
+    if (selectedAccountIds.length === 0 || selectedRtCampaignIds.length === 0) return;
     for (const accId of selectedAccountIds) {
       const names = (campaignsByAccount[accId] || []).map((mc: any) => mc.campaign_name).filter(Boolean);
-      if (names.length > 0) preloadHistoryBatch(accId, selectedRtCampaignId, names);
+      if (names.length > 0) preloadHistoryBatch(accId, selectedRtCampaignIds, names);
     }
-  }, [campaignsByAccount, selectedAccountIds, selectedRtCampaignId]);
+  }, [campaignsByAccount, selectedAccountIds, selectedRtCampaignIds]);
 
   const formatCurrency = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formatPercent = (v: number) => v.toFixed(2) + '%';
@@ -349,12 +359,27 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
       <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
 
         <div className="flex flex-wrap items-center gap-2">
-            <div className="min-w-[220px]">
+            <div className="min-w-[260px]">
                 <Select
                     instanceId="select-rt-campaign-v2"
-                    options={sortedRtCampaigns.map(c => ({ value: c.campaign_id, label: c.campaign_name }))}
-                    value={sortedRtCampaigns.map(c => ({ value: c.campaign_id, label: c.campaign_name })).find(o => o.value === selectedRtCampaignId) || null}
-                    onChange={(selected: any) => setSelectedRtCampaignId(selected?.value || '')}
+                    isMulti
+                    closeMenuOnSelect={false}
+                    hideSelectedOptions={false}
+                    options={[
+                        { value: '__all__', label: `Selecionar todas (${sortedRtCampaigns.length})` },
+                        ...sortedRtCampaigns.map(c => ({ value: c.campaign_id, label: c.campaign_name })),
+                    ]}
+                    value={sortedRtCampaigns
+                        .filter(c => selectedRtCampaignIds.includes(c.campaign_id))
+                        .map(c => ({ value: c.campaign_id, label: c.campaign_name }))}
+                    onChange={(selected: any) => {
+                        const opts = selected || [];
+                        if (opts.some((o: any) => o.value === '__all__')) {
+                            setSelectedRtCampaignIds(sortedRtCampaigns.map(c => c.campaign_id));
+                        } else {
+                            setSelectedRtCampaignIds(opts.map((o: any) => o.value));
+                        }
+                    }}
                     placeholder="Selecione RedTrack"
                     className="text-sm rounded-lg"
                     styles={darkAwareSelectStyles}
@@ -642,7 +667,7 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
            y={hoverData.y}
            groupData={hoverData.group}
            accountId={hoverData.accountId}
-           rtCampaignId={selectedRtCampaignId}
+           rtCampaignIds={selectedRtCampaignIds}
            diagnostic={null}
            onMouseEnter={cancelMouseLeave}
            onMouseLeave={handleMouseLeaveRow}
