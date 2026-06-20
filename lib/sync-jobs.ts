@@ -2,12 +2,22 @@ import { pool } from './db';
 
 export type JobStatus = 'pending' | 'running' | 'done' | 'error';
 
+/** Resumption state for a per-profile sync job (kind 'profile'). */
+export interface ProfileSyncState {
+  profileIndex: number;          // which profile in the resolved list we're on
+  phase: 'pages' | 'limits';     // current phase for that profile
+  accounts: string[] | null;     // cached me/adaccounts ids for the current profile
+  accountOffset: number;         // next account to process in the 'limits' phase
+  failed: string[];              // profiles skipped due to auth (expired token) errors
+}
+
 export interface PageSyncJob {
   id: number;
   status: JobStatus;
-  kind: 'refresh' | 'discovery';
+  kind: 'refresh' | 'discovery' | 'profile';
   cursor: number;
   profiles: string[] | null;
+  state: ProfileSyncState | null;
   message: string;
   current: number;
   total: number;
@@ -43,10 +53,11 @@ export async function ensureJobTable(): Promise<void> {
   `);
   await pool.query(`ALTER TABLE page_sync_jobs ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'refresh'`);
   await pool.query(`ALTER TABLE page_sync_jobs ADD COLUMN IF NOT EXISTS cursor INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE page_sync_jobs ADD COLUMN IF NOT EXISTS state JSONB`);
 }
 
 /** Insert a pending job. `profiles` null/empty = sync all. Returns its id. */
-export async function createPageSyncJob(opts: { kind: 'refresh' | 'discovery'; profiles?: string[] }): Promise<number> {
+export async function createPageSyncJob(opts: { kind: 'refresh' | 'discovery' | 'profile'; profiles?: string[] }): Promise<number> {
   await ensureJobTable();
   const list = opts.profiles && opts.profiles.length > 0 ? opts.profiles : null;
   const res = await pool.query(
@@ -118,6 +129,27 @@ export async function advanceAndRelease(
         leased_until = NULL
       WHERE id = $1`,
     [id, p.cursor, p.message ?? null, p.current ?? null, p.total ?? null],
+  );
+}
+
+/**
+ * Persist per-profile chunk progress (incl. the resumable `state`) and RELEASE the
+ * job so the next Scheduler tick continues from `state`. Status stays 'running'.
+ */
+export async function advanceProfileState(
+  id: number,
+  p: { state: ProfileSyncState; cursor: number; message?: string; current?: number; total?: number },
+): Promise<void> {
+  await pool.query(
+    `UPDATE page_sync_jobs SET
+        state = $2::jsonb,
+        cursor = $3,
+        message = COALESCE($4, message),
+        current = COALESCE($5, current),
+        total = COALESCE($6, total),
+        leased_until = NULL
+      WHERE id = $1`,
+    [id, JSON.stringify(p.state), p.cursor, p.message ?? null, p.current ?? null, p.total ?? null],
   );
 }
 
