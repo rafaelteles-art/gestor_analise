@@ -300,6 +300,20 @@ function emptyAd(): AdDraft {
   };
 }
 
+interface SharedCopy {
+  message: string;       // Texto Principal
+  headline: string;      // Título
+  description: string;   // Descrição
+  link: string;          // URL de Destino (non-DPA)
+  cta_type: CTA;         // Botão de Ação
+  cta_link: string;      // URL do CTA (non-DPA)
+  display_link: string;  // Link de Display (non-DPA, UI-only — not sent)
+}
+
+function emptySharedCopy(): SharedCopy {
+  return { message: '', headline: '', description: '', link: '', cta_type: 'SHOP_NOW', cta_link: '', display_link: '' };
+}
+
 function emptyChild(): ChildCard {
   return { id: makeId(), link: '', headline: '', description: '', image_hash: '', cta_link: '' };
 }
@@ -1945,6 +1959,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     setAds(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a));
   const addAd = () => setAds(prev => [...prev, { ...emptyAd(), name: `Criativo ${prev.length + 1}` }]);
   const removeAd = (id: string) => setAds(prev => prev.length === 1 ? prev : prev.filter(a => a.id !== id));
+
+  const [sharedCopy, setSharedCopy] = useState<SharedCopy>(emptySharedCopy());
+  const updateSharedCopy = (patch: Partial<SharedCopy>) => setSharedCopy(prev => ({ ...prev, ...patch }));
+  // Monotonic numbering so prepended creatives keep unique default names even after removals.
+  const creativeCounter = useRef(1); // initial ad is "Criativo 1"
+  const nextCreativeNo = () => { creativeCounter.current += 1; return creativeCounter.current; };
 
   // Quando o total de anúncios a publicar muda (mais/menos criativos ou
   // mudança nos multiplicadores), garante que a soma das alocações manuais
