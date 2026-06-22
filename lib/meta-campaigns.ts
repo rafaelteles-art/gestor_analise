@@ -1263,32 +1263,16 @@ export async function createAdCreative(
     // Por isso o bundle visual segue so para single/carousel/video.
     params.degrees_of_freedom_spec = { creative_features_spec };
   } else {
-    // ── DPA: "Midia dinamica" + "Priorizar videos" hardcoded ON (F8) ──────────
-    // Espelha os toggles do Ads Manager em anuncios de catalogo (Advantage+
-    // Catalog). Aplicado SEMPRE que type==='dpa', sem flag de UI.
+    // ── DPA: apenas "Ocultar preço" ativado; demais desativados ────────────
+    // Somente hide_price fica OPT_IN. media_type_automation e video_highlights
+    // vão explicitamente OPT_OUT para não depender do default da Meta.
     //
-    // Campos verificados contra a doc atual do Marketing API (jun/2026):
-    //  - "Midia dinamica"  -> creative_features_spec.media_type_automation
-    //      A AdCreativeFeaturesSpec lista `media_type_automation`
-    //      (developers.facebook.com/docs/marketing-api/reference/ad-creative-features-spec/).
-    //      A Meta passou a defaultar este campo p/ OPT_IN em Advantage+ Catalog
-    //      ads via Marketing API a partir de set/2025 (enforcement 100% out/2025) —
-    //      e exatamente o campo por tras do toggle "Dynamic Media"/"Midia dinamica"
-    //      (ppc.land/meta-enables-dynamic-media-by-default-for-catalog-ads-starting-september-2025).
-    //  - "Priorizar videos" -> creative_features_spec.video_highlights
-    //      "Prioritize Video" e um sub-toggle que so aparece sob "Dynamic Media"
-    //      em formato Single Image/Video (help.adsmurai.com/product-level-video).
-    //      Na AdCreativeFeaturesSpec o recurso de video de catalogo correspondente
-    //      e `video_highlights` (cluster de automacao de video: media_type_automation /
-    //      video_to_image / video_highlights). NOTA: a doc nao nomeia este campo
-    //      literalmente como "Prioritize Video"; mantemos a melhor correspondencia
-    //      verificada — se a Meta rejeitar, o retry-then-skip isola so este ad.
-    //
-    // IMPORTANTE: enviamos APENAS estes dois flags de catalogo no
-    // degrees_of_freedom_spec do DPA — NAO o bundle visual completo (image_*),
-    // que e o que historicamente disparava (#100/1772103). Bloco minimo = baixo risco.
+    // IMPORTANTE: NAO enviamos o bundle visual (image_*) no DPA — ele dispara
+    // (#100/1772103) "IG account missing" mesmo com identidade valida (bug Meta,
+    // thread 1905371253614148). Bloco minimo = baixo risco.
     params.degrees_of_freedom_spec = {
       creative_features_spec: {
+        hide_price: { enroll_status: 'OPT_IN' },
         media_type_automation: { enroll_status: 'OPT_IN' },
         video_highlights: { enroll_status: 'OPT_IN' },
       },
