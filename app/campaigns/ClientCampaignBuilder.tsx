@@ -169,25 +169,9 @@ type UploadResult =
   | { kind: 'image'; hash: string; preview: string }
   | { kind: 'video'; video_id: string; thumbnail_url: string; preview: string };
 
-interface ChildCard {
-  id: string;
-  link: string;
-  headline: string;
-  description: string;
-  image_hash: string;
-  image_preview?: string;
-  cta_link: string;
-}
-
 interface AdDraft {
   id: string;
   name: string;
-  type: 'single' | 'carousel';
-  // single — pode ser imagem OU vídeo
-  link: string;
-  message: string;
-  headline: string;
-  description: string;
   /** Imagem única: hash do adimages. */
   image_hash: string;
   /** Vídeo único: video_id do advideos. */
@@ -205,11 +189,6 @@ interface AdDraft {
    * Drive limpa image_hash/video_id e vice-versa.
    */
   drive_media?: { file_id: string; filename: string; mime: string };
-  cta_type: CTA;
-  cta_link: string;
-  display_link: string;
-  // carousel (sempre imagem por enquanto)
-  child_attachments: ChildCard[];
   // DPA: product set específico desse anúncio. Vazio = usa o set global (fallback).
   product_set_id: string;
 }
@@ -283,19 +262,10 @@ function emptyAd(): AdDraft {
   return {
     id: makeId(),
     name: 'Criativo 1',
-    type: 'single',
-    link: '',
-    message: '',
-    headline: '',
-    description: '',
     image_hash: '',
     video_id: '',
     video_thumbnail_url: '',
     media_kind: 'image',
-    cta_type: 'SHOP_NOW',
-    cta_link: '',
-    display_link: '',
-    child_attachments: [],
     product_set_id: '',
   };
 }
@@ -312,10 +282,6 @@ interface SharedCopy {
 
 function emptySharedCopy(): SharedCopy {
   return { message: '', headline: '', description: '', link: '', cta_type: 'SHOP_NOW', cta_link: '', display_link: '' };
-}
-
-function emptyChild(): ChildCard {
-  return { id: makeId(), link: '', headline: '', description: '', image_hash: '', cta_link: '' };
 }
 
 /** Bloco visual principal — uma das 3 grandes seções (Campanha / Conjuntos / Anúncios). */
@@ -1710,15 +1676,15 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     product_set: productSetId
       ? { id: productSetId, name: productSets.find(s => s.id === productSetId)?.name ?? productSetId }
       : undefined,
-    // ── F6: textos dos criativos ──
-    creatives_copy: ads.map(a => ({
-      message: a.message,
-      headline: a.headline,
-      description: a.description,
-      cta_type: a.cta_type,
-      link: a.link,
+    // ── F6: texto do criativo (agora comum à campanha — um único registro) ──
+    creatives_copy: [{
+      message: sharedCopy.message,
+      headline: sharedCopy.headline,
+      description: sharedCopy.description,
+      cta_type: sharedCopy.cta_type,
+      link: sharedCopy.link,
       url_tags: urlTagsTpl,
-    })),
+    }],
     // ── F6: template de nomenclatura (sai do localStorage) ──
     naming_template: { campaign: campaignName, adset: setName, ad: adNameTpl },
   });
@@ -1771,19 +1737,19 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     // ── F6 — textos dos criativos: aplica sobre os criativos existentes, na
     // ordem; cria/remove slots para casar a contagem salva. url_tags é único
     // pra campanha — adotamos o do primeiro criativo salvo (já vem de urlTagsTpl).
+    // ── F6 — texto do criativo: agora comum à campanha. Presets antigos com
+    // múltiplos criativos contribuem o copy do primeiro (semântica preservada).
     if (Array.isArray(c.creatives_copy) && c.creatives_copy.length > 0) {
-      setAds(prev => c.creatives_copy!.map((copy, i) => {
-        const base = prev[i] ?? { ...emptyAd(), name: `Criativo ${i + 1}` };
-        return {
-          ...base,
-          message: copy.message ?? base.message,
-          headline: copy.headline ?? base.headline,
-          description: copy.description ?? base.description,
-          cta_type: (copy.cta_type as CTA) ?? base.cta_type,
-          link: copy.link ?? base.link,
-        };
+      const copy = c.creatives_copy[0];
+      setSharedCopy(prev => ({
+        ...prev,
+        message: copy.message ?? prev.message,
+        headline: copy.headline ?? prev.headline,
+        description: copy.description ?? prev.description,
+        cta_type: (copy.cta_type as CTA) ?? prev.cta_type,
+        link: copy.link ?? prev.link,
       }));
-      if (typeof c.creatives_copy[0].url_tags === 'string') setUrlTagsTpl(c.creatives_copy[0].url_tags);
+      if (typeof copy.url_tags === 'string') setUrlTagsTpl(copy.url_tags);
     }
   };
 
@@ -1957,7 +1923,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [ads, setAds] = useState<AdDraft[]>([emptyAd()]);
   const updateAd = (id: string, patch: Partial<AdDraft>) =>
     setAds(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a));
-  const addAd = () => setAds(prev => [...prev, { ...emptyAd(), name: `Criativo ${prev.length + 1}` }]);
+  const addAd = () => setAds(prev => [{ ...emptyAd(), name: `Criativo ${nextCreativeNo()}` }, ...prev]);
   const removeAd = (id: string) => setAds(prev => prev.length === 1 ? prev : prev.filter(a => a.id !== id));
 
   const [sharedCopy, setSharedCopy] = useState<SharedCopy>(emptySharedCopy());
@@ -2093,30 +2059,24 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   if (bidStrategy === 'LOWEST_COST_WITH_BID_CAP' && bidCap === '') errors.push('Bid cap exige um valor.');
   if (bidStrategy === 'COST_CAP' && costCap === '') errors.push('Meta de custo exige um valor.');
   if (bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS' && minRoas === '') errors.push('Meta de ROAS exige um valor.');
-  ads.forEach((a, i) => {
-    // F5 — nome do criativo NÃO é mais obrigatório: quando vazio, o default é
-    // resolvido client-side no enqueue (defaultCreativeName). Não validar aqui.
-    if (a.type === 'single' && !isDPA) {
-      if (!a.link.trim())       errors.push(`Criativo ${i + 1}: link obrigatório.`);
+  // Copy é comum a todos os criativos — valida uma vez.
+  if (!sharedCopy.message.trim()) errors.push('Texto principal obrigatório.');
+  if (!isDPA && !sharedCopy.link.trim()) errors.push('URL de Destino obrigatória.');
+  // Mídia é por criativo (apenas non-DPA — DPA usa o catálogo).
+  if (!isDPA) {
+    ads.forEach((a, i) => {
       // Mídia importada do Drive (F4) satisfaz o requisito — o worker baixa o
       // arquivo e sobe pra Meta na execução, então não há hash/video_id ainda.
       if (!a.drive_media) {
         if (a.media_kind === 'video') {
           if (!a.video_id)              errors.push(`Criativo ${i + 1}: faça upload do vídeo (ou importe do Drive).`);
           if (a.video_id && !a.video_thumbnail_url) errors.push(`Criativo ${i + 1}: miniatura do vídeo ainda não disponível — aguarde o encoding terminar.`);
-        } else {
-          if (!a.image_hash)        errors.push(`Criativo ${i + 1}: faça upload da imagem (ou importe do Drive).`);
+        } else if (!a.image_hash) {
+          errors.push(`Criativo ${i + 1}: faça upload da imagem (ou importe do Drive).`);
         }
       }
-      if (!a.message.trim())    errors.push(`Criativo ${i + 1}: texto principal obrigatório.`);
-    } else if (a.type === 'carousel') {
-      if (a.child_attachments.length < 2) errors.push(`Criativo ${i + 1}: carrossel exige 2+ cards.`);
-      a.child_attachments.forEach((c, j) => {
-        if (!c.link.trim())  errors.push(`Criativo ${i + 1}, card ${j + 1}: link obrigatório.`);
-        if (!c.image_hash)   errors.push(`Criativo ${i + 1}, card ${j + 1}: imagem obrigatória.`);
-      });
-    }
-  });
+    });
+  }
 
   const canSubmit = errors.length === 0 && !running;
 
@@ -2279,24 +2239,23 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             page_id: firstPageId,
             instagram_user_id: firstIgId,
             type: 'dpa',
-            message: a.message,
-            headline: a.headline,
-            description: a.description,
-            template_link: a.link || '{{product.url}}',
-            cta_type: a.cta_type,
-            cta_link: a.cta_link || a.link || '{{product.url}}',
+            message: sharedCopy.message,
+            headline: sharedCopy.headline,
+            description: sharedCopy.description,
+            template_link: '{{product.url}}',
+            cta_type: sharedCopy.cta_type,
+            cta_link: '{{product.url}}',
             product_set_id: resolvedPsid,
           }
-        : a.type === 'single'
-        ? {
+        : {
             name: baseName + ' — Creative',
             page_id: firstPageId,
             instagram_user_id: firstIgId,
             type: 'single',
-            link: a.link,
-            message: a.message,
-            headline: a.headline,
-            description: a.description,
+            link: sharedCopy.link,
+            message: sharedCopy.message,
+            headline: sharedCopy.headline,
+            description: sharedCopy.description,
             // Mídia: importada do Drive (worker baixa+sobe na execução) OU já
             // enviada à Meta (hash/video_id). `media` é o slot discriminado da
             // Contract 2 (CreativeMedia); o worker resolve antes de criar o ad.
@@ -2305,23 +2264,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               : a.media_kind === 'video'
                 ? { video_id: a.video_id, video_thumbnail_url: a.video_thumbnail_url }
                 : { image_hash: a.image_hash }),
-            cta_type: a.cta_type,
-            cta_link: a.cta_link || a.link,
-          }
-        : {
-            name: baseName + ' — Creative',
-            page_id: firstPageId,
-            instagram_user_id: firstIgId,
-            type: 'carousel',
-            message: a.message,
-            multi_share_optimized: true,
-            child_attachments: a.child_attachments.map(c => ({
-              link: c.link,
-              name: c.headline,
-              description: c.description,
-              image_hash: c.image_hash,
-              call_to_action: { type: a.cta_type, value: { link: c.cta_link || c.link } },
-            })),
+            cta_type: sharedCopy.cta_type,
+            cta_link: sharedCopy.cta_link || sharedCopy.link,
           };
       // Toggles avançados — resolvidos em createAdCreative via creative_features_spec
       if (Object.keys(advFeatures).length) creative.advantage_creative_features = advFeatures;
@@ -3497,6 +3441,61 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           <input className={inputBase} value={adNameTpl} onChange={e => setAdNameTpl(e.target.value)} placeholder="Ex: Anúncio — conta…" />
         </SubBlock>
 
+        {/* TEXTO E LINK — comum a todos os criativos */}
+        <SubBlock label="Texto e link do anúncio" hint="Aplicado a todos os criativos da campanha.">
+          <Field label="Texto Principal">
+            <textarea className={cls(inputBase, 'min-h-[60px]')} value={sharedCopy.message}
+              onChange={e => updateSharedCopy({ message: e.target.value })}
+              placeholder="O texto principal aparece acima da mídia do anúncio. Máximo recomendado: 125 caracteres." />
+          </Field>
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <Field label="Título" hint="Aparece em destaque abaixo da mídia.">
+              <input className={inputBase} value={sharedCopy.headline}
+                onChange={e => updateSharedCopy({ headline: e.target.value })} placeholder="Ex: Transforme sua pele em 7 dias" />
+            </Field>
+            <Field label="Descrição" hint="Texto adicional (nem sempre visível).">
+              <input className={inputBase} value={sharedCopy.description}
+                onChange={e => updateSharedCopy({ description: e.target.value })} placeholder="Escreva uma descrição…" />
+            </Field>
+          </div>
+          {isDPA ? (
+            <>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
+                DPA usa <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.url}}'}</code>, <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.name}}'}</code>, etc. — não precisa subir imagem (vem do catálogo).
+              </p>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <Field label="Botão de Ação (CTA)">
+                  <select className={inputBase} value={sharedCopy.cta_type}
+                    onChange={e => updateSharedCopy({ cta_type: e.target.value as CTA })}>
+                    {CTA_OPTIONS.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
+                  </select>
+                </Field>
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Field label="URL de Destino *">
+                <input className={inputBase} value={sharedCopy.link}
+                  onChange={e => updateSharedCopy({ link: e.target.value })} placeholder="https://yoursite.com/offer" />
+              </Field>
+              <Field label="Botão de Ação (CTA)">
+                <select className={inputBase} value={sharedCopy.cta_type}
+                  onChange={e => updateSharedCopy({ cta_type: e.target.value as CTA })}>
+                  {CTA_OPTIONS.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
+                </select>
+              </Field>
+              <Field label="Link de Display/Exibição" hint="Texto que aparece no lugar da URL completa.">
+                <input className={inputBase} value={sharedCopy.display_link}
+                  onChange={e => updateSharedCopy({ display_link: e.target.value })} placeholder="seu-site.com" />
+              </Field>
+              <Field label="URL do CTA (opcional)" hint="Se vazio, usa o link principal">
+                <input className={inputBase} value={sharedCopy.cta_link}
+                  onChange={e => updateSharedCopy({ cta_link: e.target.value })} placeholder="https://seu-site.com/checkout" />
+              </Field>
+            </div>
+          )}
+        </SubBlock>
+
         {/* CRIATIVOS (lista) */}
         <SubBlock label="Criativos" hint="Cada criativo gera N campanhas × M conjuntos × K anúncios conforme a estrutura definida.">
           <div className="flex flex-col gap-3">
@@ -3756,13 +3755,6 @@ function AdEditor({
     }
   };
 
-  const updateChild = (cid: string, patch: Partial<ChildCard>) =>
-    onChange({ child_attachments: ad.child_attachments.map(c => c.id === cid ? { ...c, ...patch } : c) });
-
-  const addChild = () => onChange({ child_attachments: [...ad.child_attachments, emptyChild()] });
-  const removeChild = (cid: string) =>
-    onChange({ child_attachments: ad.child_attachments.filter(c => c.id !== cid) });
-
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-800/50">
       <div className="flex items-center justify-between mb-3">
@@ -3770,15 +3762,6 @@ function AdEditor({
           <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Criativo #{index + 1}</span>
           <input className={cls(inputBase, 'min-w-[200px]')} value={ad.name}
             onChange={e => onChange({ name: e.target.value })} placeholder="Nome do criativo" />
-          {!isDPA && (
-            <select className={inputBase} value={ad.type}
-              onChange={e => onChange({ type: e.target.value as 'single' | 'carousel',
-                child_attachments: e.target.value === 'carousel' && ad.child_attachments.length === 0
-                  ? [emptyChild(), emptyChild()] : ad.child_attachments })}>
-              <option value="single">Imagem única</option>
-              <option value="carousel">Carrossel</option>
-            </select>
-          )}
           {isDPA && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">DPA</span>}
         </div>
         {canRemove && (
@@ -3787,232 +3770,93 @@ function AdEditor({
         )}
       </div>
 
-      {/* CONTEÚDO DO ANÚNCIO */}
-      <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Textos do Anúncio</p>
-      <Field label="Texto Principal">
-        <textarea className={cls(inputBase, 'min-h-[60px]')} value={ad.message}
-          onChange={e => onChange({ message: e.target.value })}
-          placeholder="O texto principal aparece acima da mídia do anúncio. Máximo recomendado: 125 caracteres." />
-      </Field>
-      <div className="grid grid-cols-2 gap-3 mt-3">
-        <Field label="Título" hint="Aparece em destaque abaixo da mídia.">
-          <input className={inputBase} value={ad.headline}
-            onChange={e => onChange({ headline: e.target.value })} placeholder="Ex: Transforme sua pele em 7 dias" />
-        </Field>
-        <Field label="Descrição" hint="Texto adicional (nem sempre visível).">
-          <input className={inputBase} value={ad.description}
-            onChange={e => onChange({ description: e.target.value })} placeholder="Escreva uma descrição…" />
-        </Field>
-      </div>
-
-      {(!isDPA && ad.type === 'single') && (
-        <>
-          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 mt-4">Link e Ação</p>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="URL de Destino *">
-              <input className={inputBase} value={ad.link}
-                onChange={e => onChange({ link: e.target.value })} placeholder="https://yoursite.com/offer" />
-            </Field>
-            <Field label="Botão de Ação (CTA)">
-              <select className={inputBase} value={ad.cta_type}
-                onChange={e => onChange({ cta_type: e.target.value as CTA })}>
-                {CTA_OPTIONS.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
-              </select>
-            </Field>
-            <Field label="Link de Display/Exibição" hint="Texto que aparece no lugar da URL completa.">
-              <input className={inputBase} value={ad.display_link}
-                onChange={e => onChange({ display_link: e.target.value })} placeholder="seu-site.com" />
-            </Field>
-            <Field label="URL do CTA (opcional)" hint="Se vazio, usa o link principal">
-              <input className={inputBase} value={ad.cta_link}
-                onChange={e => onChange({ cta_link: e.target.value })} placeholder="https://seu-site.com/checkout" />
-            </Field>
-          </div>
-          <div className="mt-3">
-            <Field label="Mídia (imagem ou vídeo) *" hint="Imagem: JPG/PNG, ideal 1200×628 (1.91:1) ou 1080×1080 (1:1). Vídeo: MP4/MOV, até ~1GB; miniatura é gerada pela Meta em ~5-30s.">
-              <div className="flex items-center gap-3 flex-wrap">
-                <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleSingleUpload(f); }} />
-                <button type="button" onClick={() => fileRef.current?.click()}
-                  className="text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-50"
-                  disabled={uploading}>
-                  {uploading
-                    ? (ad.media_kind === 'video' ? 'Enviando vídeo…' : 'Enviando…')
-                    : (ad.video_id || ad.image_hash ? 'Trocar mídia' : 'Fazer upload')}
-                </button>
-                {/* F4 — Drive import button (only shown when picker is configured) */}
-                {openDrivePickerFn && (
-                  <button
-                    type="button"
-                    onClick={handleDriveImport}
-                    disabled={driveImporting || uploading}
-                    title={driveConnected === false ? 'Drive não conectado — clique para autorizar' : 'Importar mídia do Google Drive'}
-                    className="text-xs px-3 py-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 disabled:opacity-50 flex items-center gap-1.5"
-                  >
-                    {driveImporting ? 'Importando…' : (
-                      <>
-                        <span className="font-bold text-[10px]">▲</span>
-                        {ad.drive_media ? 'Trocar Drive' : 'Importar do Drive'}
-                      </>
-                    )}
-                  </button>
-                )}
-                {ad.drive_media && !driveImporting && (
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono truncate max-w-[160px]" title={ad.drive_media.filename}>
-                    Drive: {ad.drive_media.filename}
-                  </span>
-                )}
-                {/* F4 — server-side connection probe: the WORKER (not the browser
-                    picker) downloads the file at execution time, so it needs the
-                    refresh token saved in settings. Warn if that's missing. */}
-                {openDrivePickerFn && driveConnected === false && ad.drive_media && (
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400 w-full basis-full">
-                    Conecte o Google Drive nas configurações para a fila conseguir baixar.
-                  </span>
-                )}
-                {ad.media_kind === 'video' && ad.video_thumbnail_url ? (
-                  <img src={ad.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" />
-                ) : ad.image_preview && (
-                  ad.media_kind === 'video'
-                    ? <video src={ad.image_preview} className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" muted />
-                    : <img src={ad.image_preview} alt="" className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" />
-                )}
-                {ad.media_kind === 'video' && ad.video_id && (
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">vid {ad.video_id.slice(0, 12)}…</span>
-                )}
-                {ad.media_kind === 'image' && ad.image_hash && (
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{ad.image_hash.slice(0, 12)}…</span>
-                )}
-                {ad.media_kind === 'video' && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800">vídeo</span>
-                )}
-              </div>
-            </Field>
-          </div>
-        </>
-      )}
-
-      {(!isDPA && ad.type === 'carousel') && (
-        <div className="mt-3 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">{ad.child_attachments.length}/10 cards · CTA aplicado a todos os cards</p>
-            <select className={inputBase} value={ad.cta_type}
-              onChange={e => onChange({ cta_type: e.target.value as CTA })}>
-              {CTA_OPTIONS.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {ad.child_attachments.map((c, j) => (
-              <CarouselCardEditor key={c.id} index={j}
-                card={c}
-                canRemove={ad.child_attachments.length > 2}
-                onChange={(p) => updateChild(c.id, p)}
-                onRemove={() => removeChild(c.id)}
-                uploadFor={uploadFor}
-              />
-            ))}
-          </div>
-          {ad.child_attachments.length < 10 && (
-            <button type="button" onClick={addChild}
-              className="self-start text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold">
-              + Adicionar card
+      {/* Mídia (non-DPA) — único campo por criativo além do nome. */}
+      {!isDPA && (
+        <Field label="Mídia (imagem ou vídeo) *" hint="Imagem: JPG/PNG, ideal 1200×628 (1.91:1) ou 1080×1080 (1:1). Vídeo: MP4/MOV, até ~1GB; miniatura é gerada pela Meta em ~5-30s.">
+          <div className="flex items-center gap-3 flex-wrap">
+            <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleSingleUpload(f); }} />
+            <button type="button" onClick={() => fileRef.current?.click()}
+              className="text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-50"
+              disabled={uploading}>
+              {uploading
+                ? (ad.media_kind === 'video' ? 'Enviando vídeo…' : 'Enviando…')
+                : (ad.video_id || ad.image_hash ? 'Trocar mídia' : 'Fazer upload')}
             </button>
-          )}
-        </div>
-      )}
-
-      {isDPA && (
-        <>
-          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 mt-4">Link e Ação (DPA)</p>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
-            DPA usa <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.url}}'}</code>, <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.name}}'}</code>, etc. — não precisa subir imagem (vem do catálogo).
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="URL Template (opcional)" hint="Default: {{product.url}}">
-              <input className={inputBase} value={ad.link}
-                onChange={e => onChange({ link: e.target.value })} placeholder="{{product.url}}" />
-            </Field>
-            <Field label="Botão de Ação (CTA)">
-              <select className={inputBase} value={ad.cta_type}
-                onChange={e => onChange({ cta_type: e.target.value as CTA })}>
-                {CTA_OPTIONS.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
-              </select>
-            </Field>
-            <Field
-              label="Conjunto de Produtos"
-              hint={
-                defaultPsid
-                  ? 'Vazio = usa o fallback definido na config de catálogo.'
-                  : 'Cada criativo precisa do seu (sem fallback definido).'
-              }
-            >
-              <SSSelect
-                options={productSets.map(s => ({
-                  value: s.id,
-                  label: s.name,
-                  sublabel: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
-                }))}
-                value={ad.product_set_id || null}
-                onChange={v => onChange({ product_set_id: v ?? '' })}
-                placeholder={loadingProductSets ? 'Carregando…' : (defaultPsid ? '— usar fallback global —' : '— selecione um conjunto —')}
-                disabled={!catalogId || loadingProductSets}
-                clearable={!!defaultPsid}
-              />
-            </Field>
+            {/* F4 — Drive import button (only shown when picker is configured) */}
+            {openDrivePickerFn && (
+              <button
+                type="button"
+                onClick={handleDriveImport}
+                disabled={driveImporting || uploading}
+                title={driveConnected === false ? 'Drive não conectado — clique para autorizar' : 'Importar mídia do Google Drive'}
+                className="text-xs px-3 py-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {driveImporting ? 'Importando…' : (
+                  <>
+                    <span className="font-bold text-[10px]">▲</span>
+                    {ad.drive_media ? 'Trocar Drive' : 'Importar do Drive'}
+                  </>
+                )}
+              </button>
+            )}
+            {ad.drive_media && !driveImporting && (
+              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono truncate max-w-[160px]" title={ad.drive_media.filename}>
+                Drive: {ad.drive_media.filename}
+              </span>
+            )}
+            {/* F4 — server-side connection probe: the WORKER (not the browser
+                picker) downloads the file at execution time, so it needs the
+                refresh token saved in settings. Warn if that's missing. */}
+            {openDrivePickerFn && driveConnected === false && ad.drive_media && (
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 w-full basis-full">
+                Conecte o Google Drive nas configurações para a fila conseguir baixar.
+              </span>
+            )}
+            {ad.media_kind === 'video' && ad.video_thumbnail_url ? (
+              <img src={ad.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" />
+            ) : ad.image_preview && (
+              ad.media_kind === 'video'
+                ? <video src={ad.image_preview} className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" muted />
+                : <img src={ad.image_preview} alt="" className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" />
+            )}
+            {ad.media_kind === 'video' && ad.video_id && (
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">vid {ad.video_id.slice(0, 12)}…</span>
+            )}
+            {ad.media_kind === 'image' && ad.image_hash && (
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{ad.image_hash.slice(0, 12)}…</span>
+            )}
+            {ad.media_kind === 'video' && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800">vídeo</span>
+            )}
           </div>
-        </>
+        </Field>
       )}
-    </div>
-  );
-}
 
-function CarouselCardEditor({
-  index, card, canRemove, onChange, onRemove, uploadFor,
-}: {
-  index: number;
-  card: ChildCard;
-  canRemove: boolean;
-  onChange: (patch: Partial<ChildCard>) => void;
-  onRemove: () => void;
-  uploadFor: (file: File) => Promise<UploadResult | null>;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-
-  // Cards de carrossel aceitam só imagem por enquanto — Meta suporta vídeo em
-  // child_attachments, mas mistura/UI ficaria caótica nesta primeira versão.
-  const handleUpload = async (file: File) => {
-    if (file.type.startsWith('video/')) {
-      alert('Carrossel ainda aceita apenas imagens nos cards. Use "Imagem única" para anúncios em vídeo.');
-      return;
-    }
-    setUploading(true);
-    const r = await uploadFor(file);
-    setUploading(false);
-    if (r && r.kind === 'image') onChange({ image_hash: r.hash, image_preview: r.preview });
-  };
-
-  return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-900 flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Card #{index + 1}</span>
-        {canRemove && (
-          <button type="button" onClick={onRemove} className="text-[10px] text-rose-500 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold">Remover</button>
-        )}
-      </div>
-      <input className={inputBase} value={card.headline} onChange={e => onChange({ headline: e.target.value })} placeholder="Título" />
-      <input className={inputBase} value={card.description} onChange={e => onChange({ description: e.target.value })} placeholder="Descrição" />
-      <input className={inputBase} value={card.link} onChange={e => onChange({ link: e.target.value })} placeholder="https://seu-site.com/…" />
-      <input className={inputBase} value={card.cta_link} onChange={e => onChange({ cta_link: e.target.value })} placeholder="Link do CTA (opcional)" />
-      <div className="flex items-center gap-2">
-        <input ref={fileRef} type="file" accept="image/*" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
-        <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-          className="text-[11px] px-2 py-1 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-          {uploading ? 'Enviando…' : card.image_hash ? 'Trocar' : 'Imagem'}
-        </button>
-        {card.image_preview && <img src={card.image_preview} alt="" className="h-10 w-10 object-cover rounded border border-gray-200 dark:border-gray-700" />}
-      </div>
+      {/* Conjunto de Produtos (DPA) — único campo por criativo além do nome. */}
+      {isDPA && (
+        <Field
+          label="Conjunto de Produtos"
+          hint={
+            defaultPsid
+              ? 'Vazio = usa o fallback definido na config de catálogo.'
+              : 'Cada criativo precisa do seu (sem fallback definido).'
+          }
+        >
+          <SSSelect
+            options={productSets.map(s => ({
+              value: s.id,
+              label: s.name,
+              sublabel: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
+            }))}
+            value={ad.product_set_id || null}
+            onChange={v => onChange({ product_set_id: v ?? '' })}
+            placeholder={loadingProductSets ? 'Carregando…' : (defaultPsid ? '— usar fallback global —' : '— selecione um conjunto —')}
+            disabled={!catalogId || loadingProductSets}
+            clearable={!!defaultPsid}
+          />
+        </Field>
+      )}
     </div>
   );
 }
