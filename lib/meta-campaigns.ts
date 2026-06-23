@@ -1273,9 +1273,9 @@ export async function createAdCreative(
     // causava BM86/2061006 (`{{product.url}}` rejeitado). A causa real era o
     // campo `template_data.link` receber `{{product.url}}` — corrigido em
     // separado (validação + "URL base do site"). Com o link consertado,
-    // re-habilitamos o vídeo do produto. EM VALIDAÇÃO: subir campanha DPA real
-    // e confirmar que o toggle "Permitir vídeo do produto" marca E que o
-    // #100/1772103 não reaparece; se reaparecer, reverter este else.
+    // re-habilitamos o vídeo do produto. VALIDADO 2026-06-23 em campanha DPA
+    // real: o toggle "Permitir vídeo do produto" marca e o #100/1772103 NÃO
+    // reaparece. Se o #100 voltar no futuro, suspeitar deste bloco primeiro.
     params.degrees_of_freedom_spec = {
       creative_features_spec: {
         video_highlights: { enroll_status: 'OPT_IN' },
