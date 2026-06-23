@@ -1257,26 +1257,11 @@ export async function createAdCreative(
   // 1905371253614148). Em creatives DPA, omitimos esse bloco; Advantage+ Creative
   // segue funcionando para single/carousel/video.
   if (c.type !== 'dpa') {
-    // `degrees_of_freedom_spec` com o bundle COMPLETO de Advantage+ Creative
-    // dispara (#100/1772103) "IG account missing" em DPA mesmo com identidade
-    // valida — bug confirmado pela Meta Dev Community (thread 1905371253614148).
-    // Por isso o bundle visual segue so para single/carousel/video.
+    // `degrees_of_freedom_spec` (qualquer variante) em DPA impede o reconhecimento
+    // do creative como template — a Meta rejeita `{{product.url}}` com BM86/2061006
+    // — e também dispara (#100/1772103) "IG account missing" (bug Meta, thread
+    // 1905371253614148). Para DPA, omitimos inteiramente.
     params.degrees_of_freedom_spec = { creative_features_spec };
-  } else {
-    // ── DPA: apenas "Ocultar preço" ativado; demais desativados ────────────
-    // Somente hide_price fica OPT_IN. media_type_automation e video_highlights
-    // vão explicitamente OPT_OUT para não depender do default da Meta.
-    //
-    // IMPORTANTE: NAO enviamos o bundle visual (image_*) no DPA — ele dispara
-    // (#100/1772103) "IG account missing" mesmo com identidade valida (bug Meta,
-    // thread 1905371253614148). Bloco minimo = baixo risco.
-    params.degrees_of_freedom_spec = {
-      creative_features_spec: {
-        hide_price: { enroll_status: 'OPT_IN' },
-        media_type_automation: { enroll_status: 'OPT_IN' },
-        video_highlights: { enroll_status: 'OPT_IN' },
-      },
-    };
   }
   if (c.url_tags) params.url_tags = c.url_tags;
   // Multi-Advertiser Ads: a Meta defaulta para OPT_IN em OUTCOME_SALES desde 2024.
