@@ -1146,17 +1146,26 @@ function buildObjectStorySpec(c: CreativeSpec) {
   if (igUserId) base.instagram_user_id = igUserId;
 
   if (c.type === 'dpa') {
-    // DPA: usa template_data; os campos {{product.*}} viram dinâmicos.
-    // IMPORTANTE: usa `||` (não `??`) pra que strings VAZIAS também caiam no
-    // template fallback — sem isso a Meta recebe name/description vazios e não
-    // reconhece o creative como DPA, rejeitando `{{product.url}}` (subcode 2061006).
+    // DPA: usa template_data. Tokens {{product.*}} são dinâmicos em
+    // message/name/description, MAS o `link` precisa ser uma URL REAL: a Meta
+    // valida esse campo como URL literal no createAdCreative e rejeita
+    // `{{product.url}}` com BM86/subcode 2061006 ("a URL não direciona para um
+    // site"). O destino por produto vem automaticamente do feed do catálogo —
+    // este `link` é só a URL base/fallback exigida pela Meta.
+    if (!c.template_link || c.template_link.includes('{{')) {
+      throw new MetaApiError(
+        'createAdCreative',
+        undefined,
+        'DPA exige uma URL de destino real (ex.: https://seusite.com). A Meta rejeita {{product.url}} no campo link (BM86/2061006) — o destino por produto vem do catálogo automaticamente.'
+      );
+    }
     base.template_data = {
       message: c.message || '{{product.name}}',
-      link: c.template_link || '{{product.url}}',
+      link: c.template_link,
       name: c.headline || '{{product.name | titleize}}',
       description: c.description || '{{product.description}}',
       call_to_action: c.cta_type
-        ? { type: c.cta_type, value: { link: c.cta_link || c.template_link || '{{product.url}}' } }
+        ? { type: c.cta_type, value: { link: c.cta_link || c.template_link } }
         : undefined,
     };
   } else if (c.type === 'carousel') {
@@ -1252,16 +1261,28 @@ export async function createAdCreative(
     name: c.name,
     object_story_spec: buildObjectStorySpec(c),
   };
-  // `degrees_of_freedom_spec` em DPA dispara (#100/1772103) "IG account missing"
-  // mesmo com identidade válida — bug confirmado pela Meta Dev Community (thread
-  // 1905371253614148). Em creatives DPA, omitimos esse bloco; Advantage+ Creative
-  // segue funcionando para single/carousel/video.
   if (c.type !== 'dpa') {
-    // `degrees_of_freedom_spec` (qualquer variante) em DPA impede o reconhecimento
-    // do creative como template — a Meta rejeita `{{product.url}}` com BM86/2061006
-    // — e também dispara (#100/1772103) "IG account missing" (bug Meta, thread
-    // 1905371253614148). Para DPA, omitimos inteiramente.
+    // Non-DPA (single/carousel/video): bundle Advantage+ Creative completo.
     params.degrees_of_freedom_spec = { creative_features_spec };
+  } else {
+    // DPA: enviamos um `degrees_of_freedom_spec` MÍNIMO só com os recursos de
+    // catálogo (vídeo do produto + automação de mídia + ocultar preço). Sem o
+    // bundle visual (image_*), que disparava #100/1772103 "IG account missing".
+    //
+    // HISTÓRICO: chegamos a remover o bloco inteiro por suspeita de que ele
+    // causava BM86/2061006 (`{{product.url}}` rejeitado). A causa real era o
+    // campo `template_data.link` receber `{{product.url}}` — corrigido em
+    // separado (validação + "URL base do site"). Com o link consertado,
+    // re-habilitamos o vídeo do produto. EM VALIDAÇÃO: subir campanha DPA real
+    // e confirmar que o toggle "Permitir vídeo do produto" marca E que o
+    // #100/1772103 não reaparece; se reaparecer, reverter este else.
+    params.degrees_of_freedom_spec = {
+      creative_features_spec: {
+        video_highlights: { enroll_status: 'OPT_IN' },
+        media_type_automation: { enroll_status: 'OPT_IN' },
+        hide_price: { enroll_status: 'OPT_IN' },
+      },
+    };
   }
   if (c.url_tags) params.url_tags = c.url_tags;
   // Multi-Advertiser Ads: a Meta defaulta para OPT_IN em OUTCOME_SALES desde 2024.

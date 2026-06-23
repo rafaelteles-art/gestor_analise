@@ -389,9 +389,7 @@ function AccountMultiSelect({
 
   const toggle = (id: string) => {
     if (selectedSet.has(id)) {
-      // Mantém ordem; só remove. Se restou vazio e havia algo, reseta pra primária anterior.
-      const next = selected.filter(x => x !== id);
-      onChange(next.length === 0 && primaryId ? [primaryId] : next);
+      onChange(selected.filter(x => x !== id));
     } else {
       onChange([...selected, id]);
     }
@@ -1268,9 +1266,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   useEffect(() => {
     // Prune ao trocar de perfil: descarta contas que não pertencem ao perfil ativo.
     const valid = accountIds.filter(id => accountsForProfile.some(a => a.account_id === id));
-    if (valid.length === 0 && accountsForProfile[0]) {
-      setAccountIds([accountsForProfile[0].account_id]);
-    } else if (valid.length !== accountIds.length) {
+    if (valid.length !== accountIds.length) {
       setAccountIds(valid);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2061,7 +2057,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   if (bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS' && minRoas === '') errors.push('Meta de ROAS exige um valor.');
   // Copy é comum a todos os criativos — valida uma vez.
   if (!sharedCopy.message.trim()) errors.push('Texto principal obrigatório.');
-  if (!isDPA && !sharedCopy.link.trim()) errors.push('URL de Destino obrigatória.');
+  if (!sharedCopy.link.trim()) errors.push('URL de Destino obrigatória.');
+  if (isDPA && sharedCopy.link.includes('{{')) errors.push('Em DPA, a URL de destino deve ser um site real (ex.: https://seusite.com), não {{product.url}}.');
   // Mídia é por criativo (apenas non-DPA — DPA usa o catálogo).
   if (!isDPA) {
     ads.forEach((a, i) => {
@@ -2242,9 +2239,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             message: sharedCopy.message,
             headline: sharedCopy.headline,
             description: sharedCopy.description,
-            template_link: '{{product.url}}',
+            template_link: sharedCopy.link.trim(),
             cta_type: sharedCopy.cta_type,
-            cta_link: '{{product.url}}',
+            cta_link: sharedCopy.link.trim(),
             product_set_id: resolvedPsid,
           }
         : {
@@ -2456,7 +2453,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {/* IDENTIFICAÇÃO */}
         <SubBlock label="Identificação">
           <div className="grid grid-cols-1 gap-3">
-            <Field label="Conta de Anúncio *" hint={isBroadcast ? `Modo broadcast: a campanha será criada em ${accountIds.length} contas sequencialmente.` : undefined}>
+            <Field label="Conta de Anúncio" hint={isBroadcast ? `Modo broadcast: a campanha será criada em ${accountIds.length} contas sequencialmente.` : undefined}>
               <AccountMultiSelect
                 accounts={accountsForProfile}
                 selected={accountIds}
@@ -3461,9 +3458,13 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           {isDPA ? (
             <>
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
-                DPA usa <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.url}}'}</code>, <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.name}}'}</code>, etc. — não precisa subir imagem (vem do catálogo).
+                Nome, descrição, preço e imagem vêm do catálogo automaticamente e cada clique vai direto para a página do produto. A URL abaixo é só a base/fallback exigida pela Meta — <strong>não</strong> use <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.url}}'}</code> aqui (a Meta rejeita com erro BM86).
               </p>
               <div className="grid grid-cols-2 gap-3 mt-3">
+                <Field label="URL base do site *" hint="Ex.: https://seusite.com — a Meta roteia cada clique para o produto do catálogo automaticamente.">
+                  <input className={inputBase} value={sharedCopy.link}
+                    onChange={e => updateSharedCopy({ link: e.target.value })} placeholder="https://seusite.com" />
+                </Field>
                 <Field label="Botão de Ação (CTA)">
                   <select className={inputBase} value={sharedCopy.cta_type}
                     onChange={e => updateSharedCopy({ cta_type: e.target.value as CTA })}>
