@@ -416,7 +416,7 @@ export default function ClientOfertas({
 
       {picker && typeof window !== 'undefined' && createPortal(
         <>
-          <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setPicker(null)} />
+          <div className="fixed inset-0 z-40 bg-black/20" />
           <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
               <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100">

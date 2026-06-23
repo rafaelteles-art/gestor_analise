@@ -1310,7 +1310,6 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
       {modalCatalog && (
         <div
           className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-6"
-          onClick={closeCreateModal}
         >
           <div
             className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl my-8"
@@ -1624,7 +1623,6 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
       {videoModalCatalog && (
         <div
           className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-6"
-          onClick={closeVideoModal}
         >
           <div
             className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-3xl my-8"
@@ -1922,7 +1920,6 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
       {createCatalogOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-6"
-          onClick={closeCreateCatalogModal}
         >
           <div
             className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md my-8"
@@ -2020,7 +2017,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
       )}
 
       {historyCatalog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeHistoryModal}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div
             className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-gray-200 dark:border-gray-800"
             onClick={(e) => e.stopPropagation()}

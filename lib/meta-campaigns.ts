@@ -83,7 +83,9 @@ export type OptimizationGoal =
   | 'IMPRESSIONS'
   | 'REACH'
   | 'VALUE'
-  | 'THRUPLAY';
+  | 'THRUPLAY'
+  /** Engagement (curtidas/seguidores da Página). Exige promoted_object.page_id. */
+  | 'PAGE_LIKES';
 
 export type BillingEvent = 'IMPRESSIONS' | 'LINK_CLICKS' | 'THRUPLAY';
 
@@ -117,7 +119,9 @@ export type CallToActionType =
   | 'APPLY_NOW'
   | 'BUY_NOW'
   | 'GET_QUOTE'
-  | 'ORDER_NOW';
+  | 'ORDER_NOW'
+  /** Engagement: botão "Curtir Página". value = { page: <page_id> }, não { link }. */
+  | 'LIKE_PAGE';
 
 export interface PromotedObject {
   pixel_id?: string;
@@ -126,6 +130,8 @@ export interface PromotedObject {
   product_catalog_id?: string;
   /** Conjunto de produtos dentro do catálogo. Opcional — sem isso usa o catálogo inteiro. */
   product_set_id?: string;
+  /** Página promovida. Obrigatório quando optimization_goal = PAGE_LIKES (engagement). */
+  page_id?: string;
 }
 
 export interface Targeting {
@@ -183,6 +189,14 @@ export interface CreativeSpec {
   instagram_actor_id?: string;
   /** "single" → uma imagem ou vídeo; "carousel" → 2-10 child_attachments; "dpa" → template DPA */
   type: 'single' | 'carousel' | 'dpa';
+  /**
+   * Engagement (curtidas de Página). Quando true, o creative é um anúncio de
+   * "Curtir Página": sem destino externo, `link` é a URL da própria Página e o
+   * CTA é LIKE_PAGE apontando para `page_id`. Ignora headline/description/url_tags
+   * e NÃO resolve identidade IG/PBIA (entrega é Facebook-only). Vale para imagem
+   * (link_data) e vídeo (video_data).
+   */
+  page_like?: boolean;
   /** ── single ── */
   link?: string;
   message?: string;
@@ -1145,7 +1159,39 @@ function buildObjectStorySpec(c: CreativeSpec) {
   const igUserId = c.instagram_user_id ?? c.instagram_actor_id;
   if (igUserId) base.instagram_user_id = igUserId;
 
-  if (c.type === 'dpa') {
+  if (c.page_like) {
+    // Engagement (curtidas da Página): sem destino externo. A Meta exige um
+    // `link` no link_data/video_data — usamos a URL da própria Página — e o CTA
+    // é LIKE_PAGE com value.page = page_id (NÃO value.link). headline/description/
+    // url_tags não se aplicam a um anúncio de curtida.
+    const cta = { type: 'LIKE_PAGE', value: { page: c.page_id } };
+    const pageUrl = `https://facebook.com/${c.page_id}`;
+    if (c.video_id) {
+      if (!c.video_thumbnail_url && !c.image_hash) {
+        throw new MetaApiError(
+          'createAdCreative',
+          undefined,
+          'Anúncio de engajamento em vídeo exige miniatura — aguarde o encoding terminar e tente de novo.'
+        );
+      }
+      base.video_data = {
+        video_id: c.video_id,
+        message: c.message ?? '',
+        ...(c.image_hash ? { image_hash: c.image_hash } : { image_url: c.video_thumbnail_url }),
+        call_to_action: cta,
+      };
+    } else {
+      if (!c.image_hash) {
+        throw new MetaApiError('createAdCreative', undefined, 'Anúncio de engajamento exige uma imagem.');
+      }
+      base.link_data = {
+        link: pageUrl,
+        message: c.message ?? '',
+        image_hash: c.image_hash,
+        call_to_action: cta,
+      };
+    }
+  } else if (c.type === 'dpa') {
     // DPA: usa template_data. Tokens {{product.*}} são dinâmicos em
     // message/name/description, MAS o `link` precisa ser uma URL REAL: a Meta
     // valida esse campo como URL literal no createAdCreative e rejeita
@@ -1231,7 +1277,10 @@ export async function createAdCreative(
   // a PBIA automaticamente quando o campo é omitido E ela existe na Página.
   const incomingIg = c.instagram_user_id ?? c.instagram_actor_id;
   metaDebugLog('[createAdCreative] page_id=', c.page_id, 'instagram_user_id IN=', incomingIg);
-  if (!incomingIg && c.page_id) {
+  // Engagement (page_like) entrega só no Facebook — não precisa (nem queremos)
+  // resolver identidade IG/PBIA. Pular a resolução evita uma chamada extra e o
+  // erro em Páginas sem PBIA elegível.
+  if (!incomingIg && c.page_id && !c.page_like) {
     const pbia = await resolvePageBackedInstagram(c.page_id, token);
     // v22.0: PBIA agora é aceita como `instagram_user_id` (era rejeitada como
     // `instagram_actor_id` na v21). Setar explicitamente — DPA exige identidade
@@ -1261,7 +1310,12 @@ export async function createAdCreative(
     name: c.name,
     object_story_spec: buildObjectStorySpec(c),
   };
-  if (c.type !== 'dpa') {
+  if (c.page_like) {
+    // Engagement (curtidas): sem identidade IG, então NÃO enviamos o bundle
+    // visual (image_*). Esses recursos disparam #100/1772103 ("IG account
+    // missing") quando não há IG conectado — mesmo padrão de cautela do DPA.
+    // Nenhum degrees_of_freedom_spec.
+  } else if (c.type !== 'dpa') {
     // Non-DPA (single/carousel/video): bundle Advantage+ Creative completo.
     params.degrees_of_freedom_spec = { creative_features_spec };
   } else {
@@ -1288,7 +1342,10 @@ export async function createAdCreative(
   // Multi-Advertiser Ads: a Meta defaulta para OPT_IN em OUTCOME_SALES desde 2024.
   // Sem enviar enroll_status explícito ele fica ligado mesmo com o toggle off na UI.
   // Por isso ALWAYS enviamos — OPT_IN se o usuário marcou, OPT_OUT se desmarcou.
-  params.contextual_multi_ads = { enroll_status: c.multi_advertiser ? 'OPT_IN' : 'OPT_OUT' };
+  // Exceção: engagement (page_like) não suporta multi-advertiser — não enviar.
+  if (!c.page_like) {
+    params.contextual_multi_ads = { enroll_status: c.multi_advertiser ? 'OPT_IN' : 'OPT_OUT' };
+  }
   if (c.product_set_id && c.type === 'dpa') {
     params.product_set_id = c.product_set_id;
   }

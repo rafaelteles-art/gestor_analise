@@ -84,6 +84,8 @@ interface CampaignPreset {
 }
 
 interface PresetConfig {
+  /** Objetivo de negócio (Sales/Engagement). Ausente em presets antigos → 'SALES'. */
+  campaignGoal?: CampaignGoal;
   campaignType: 'CBO' | 'ABO';
   useCatalog: boolean;
   catalogLevel: 'ad' | 'campaign';
@@ -156,6 +158,11 @@ type CustomEvent =
 type OptGoal =
   | 'OFFSITE_CONVERSIONS' | 'LANDING_PAGE_VIEWS'
   | 'LINK_CLICKS' | 'IMPRESSIONS' | 'REACH' | 'VALUE';
+
+// Objetivo de negócio da campanha (ver CONTEXT.md → "Campaign Goal"). NÃO confundir
+// com `CampaignType` (CBO/ABO, estratégia de orçamento) — são eixos independentes.
+// 'SALES' = comportamento histórico; 'ENGAGEMENT' = curtidas/seguidores da Página.
+type CampaignGoal = 'SALES' | 'ENGAGEMENT';
 
 type CampaignType = 'CBO' | 'ABO';
 
@@ -1068,7 +1075,6 @@ function CampaignNameModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
-      onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
@@ -1322,6 +1328,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [campaignName, setCampaignName] = useState('Conversão Website — ' + todayStr());
   const [showNameModal, setShowNameModal] = useState(false);
   const [specialCategory, setSpecialCategory] = useState<'NONE' | 'EMPLOYMENT' | 'HOUSING' | 'CREDIT' | 'FINANCIAL_PRODUCTS_SERVICES'>('NONE');
+  // Objetivo de negócio (Sales/Engagement). Default 'SALES' → comportamento inalterado.
+  const [campaignGoal, setCampaignGoal] = useState<CampaignGoal>('SALES');
   const [campaignType, setCampaignType] = useState<CampaignType>('ABO');
   const [bidStrategy, setBidStrategy] = useState<BidStrategyUI>('LOWEST_COST_WITHOUT_CAP');
   const [bidCap, setBidCap] = useState<number | ''>('');
@@ -1640,6 +1648,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   }, []);
 
   const buildCurrentPresetConfig = (): PresetConfig => ({
+    campaignGoal,
     campaignType, useCatalog, catalogLevel, catalogConfigMode,
     specialCategory, bidStrategy, bidCap, costCap, minRoas, publishPaused,
     campaignsPerCreative, adsetsPerCampaign, adsPerAdset,
@@ -1686,6 +1695,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   });
 
   const applyPresetConfig = (c: PresetConfig) => {
+    setCampaignGoal(c.campaignGoal ?? 'SALES');
     setCampaignType(c.campaignType);
     setUseCatalog(c.useCatalog);
     setCatalogLevel(c.catalogLevel);
@@ -2017,7 +2027,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     return { camp, sets, ads: adsTotal };
   }, [ads.length, campaignsPerCreative, adsetsPerCampaign, adsPerAdset]);
 
-  const isDPA = useCatalog;
+  const isEngagement = campaignGoal === 'ENGAGEMENT';
+  // Engagement nunca usa catálogo/DPA — força isDPA=false mesmo que o toggle tenha
+  // ficado ligado antes de trocar de objetivo.
+  const isDPA = useCatalog && !isEngagement;
   const isCBO = campaignType === 'CBO';
 
   const errors: string[] = [];
@@ -2026,7 +2039,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   if (!campaignName.trim()) errors.push('Nome da campanha é obrigatório.');
   // Pixel é obrigatório quando otimização é por conversão (vale tanto para non-DPA quanto DPA
   // com OFFSITE_CONVERSIONS — Meta precisa saber qual evento do pixel otimizar).
-  if (!pixelId) errors.push('Selecione um pixel.');
+  if (!isEngagement && !pixelId) errors.push('Selecione um pixel.');
   if (isDPA && !catalogId) {
     errors.push(catalogConfigMode === 'new'
       ? 'Crie o novo catálogo (botão "Criar agora").'
@@ -2045,10 +2058,14 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       );
     }
   }
-  if (pageIds.length === 0) errors.push('Selecione pelo menos uma Página do Facebook.');
+  if (isEngagement) {
+    if (pageIds.length !== 1) errors.push('Campanha de engajamento promove exatamente uma Página — selecione apenas uma.');
+  } else if (pageIds.length === 0) {
+    errors.push('Selecione pelo menos uma Página do Facebook.');
+  }
   if (dailyBudget < 1) errors.push('Orçamento inválido.');
   if (!advantageAudience && (ageMin < 13 || ageMax > 65 || ageMin > ageMax)) errors.push('Faixa etária inválida (13–65).');
-  if (!advantagePositioning && !Object.values(platforms).some(Boolean)) errors.push('Escolha ao menos uma plataforma.');
+  if (!isEngagement && !advantagePositioning && !Object.values(platforms).some(Boolean)) errors.push('Escolha ao menos uma plataforma.');
   if (!devices.mobile && !devices.desktop) errors.push('Escolha pelo menos um dispositivo (mobile ou desktop).');
   if (ads.length === 0) errors.push('Adicione ao menos um criativo.');
   if (campaignsPerCreative < 1 || adsetsPerCampaign < 1 || adsPerAdset < 1) errors.push('Estrutura precisa ser ≥ 1 em cada campo.');
@@ -2057,7 +2074,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   if (bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS' && minRoas === '') errors.push('Meta de ROAS exige um valor.');
   // Copy é comum a todos os criativos — valida uma vez.
   if (!sharedCopy.message.trim()) errors.push('Texto principal obrigatório.');
-  if (!sharedCopy.link.trim()) errors.push('URL de Destino obrigatória.');
+  // Engagement (curtidas) não tem destino externo — o link é a própria Página.
+  if (!isEngagement && !sharedCopy.link.trim()) errors.push('URL de Destino obrigatória.');
   if (isDPA && sharedCopy.link.includes('{{')) errors.push('Em DPA, a URL de destino deve ser um site real (ex.: https://seusite.com), não {{product.url}}.');
   // Mídia é por criativo (apenas non-DPA — DPA usa o catálogo).
   if (!isDPA) {
@@ -2139,6 +2157,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     if (devices.desktop) devList.push('desktop');
     if (devList.length === 1) targeting.device_platforms = devList; // só envia quando há restrição
     if (wifiOnly) targeting.connection_type = ['WIFI'];
+    // Engagement (PAGE_LIKES) entrega só no Facebook — sobrescreve qualquer
+    // posicionamento (inclusive Advantage+) para não estourar erro de placement.
+    if (isEngagement) targeting.publisher_platforms = ['facebook'];
 
     // Atribuição
     const attribution_spec: any[] = [];
@@ -2156,7 +2177,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     //    NÃO vai no adset porque herda do campaign. Mandar gera erro 1815229
     //    ("product_catalog_id não aceito para WEBSITE_CONVERSIONS").
     //  - Non-DPA: pixel + evento de conversão.
-    const promotedObject: any = isDPA
+    //  - Engagement (PAGE_LIKES): apenas a Página promovida. Sem pixel/evento.
+    const promotedObject: any = isEngagement
+      ? { page_id: selectedPages[0]?.id }
+      : isDPA
       ? {
           product_set_id: productSetId || undefined,
           pixel_id: pixelId || undefined,
@@ -2168,17 +2192,19 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
     const adset: any = {
       name: setName.trim() || resolvedCampaignName + ' — Conjunto',
-      optimization_goal: isDPA ? 'OFFSITE_CONVERSIONS' : optGoal,
-      billing_event: optGoal === 'LINK_CLICKS' ? 'LINK_CLICKS' : 'IMPRESSIONS',
+      optimization_goal: isEngagement ? 'PAGE_LIKES' : isDPA ? 'OFFSITE_CONVERSIONS' : optGoal,
+      billing_event: isEngagement ? 'IMPRESSIONS' : optGoal === 'LINK_CLICKS' ? 'LINK_CLICKS' : 'IMPRESSIONS',
       bid_strategy: !isCBO ? bidStrategy : undefined,
       [budgetKind === 'daily' ? 'daily_budget_cents' : 'lifetime_budget_cents']: adsetBudgetCents,
       promoted_object: promotedObject,
       targeting,
-      destination_type: isDPA ? undefined : 'WEBSITE',
+      // Engagement não tem destino de site; DPA herda do catálogo; demais → WEBSITE.
+      destination_type: (isEngagement || isDPA) ? undefined : 'WEBSITE',
       start_time: datetimeLocalToISO(startTime),
       end_time: hasEndTime && endTime ? datetimeLocalToISO(endTime) : undefined,
       status,
-      attribution_spec: attribution_spec.length ? attribution_spec : undefined,
+      // Atribuição é um conceito de conversão — não se aplica a curtidas.
+      attribution_spec: (!isEngagement && attribution_spec.length) ? attribution_spec : undefined,
     };
     if (bidStrategy === 'LOWEST_COST_WITH_BID_CAP' && bidCap !== '') {
       adset.bid_amount_cents = Math.round(Number(bidCap) * 100);
@@ -2193,7 +2219,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
     const campaign: any = {
       name: resolvedCampaignName,
-      objective: isDPA ? 'OUTCOME_SALES' : 'OUTCOME_SALES',
+      objective: isEngagement ? 'OUTCOME_ENGAGEMENT' : 'OUTCOME_SALES',
       status,
       special_ad_categories: specialCategory === 'NONE' ? [] : [specialCategory],
       buying_type: 'AUCTION',
@@ -2230,7 +2256,23 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       // (PBIA) na hora de criar o creative — não dá pra usar page_id direto aqui.
       const firstIgId = selectedPages[0]?.instagram_business_account?.id;
       const resolvedPsid = a.product_set_id || productSetId || undefined;
-      const creative: any = isDPA
+      const creative: any = isEngagement
+        ? {
+            // Anúncio de curtida da Página: só mídia + texto. Sem IG identity,
+            // sem link/headline/description/CTA — o server (page_like) monta o
+            // object_story_spec com LIKE_PAGE apontando pra própria Página.
+            name: baseName + ' — Creative',
+            page_id: firstPageId,
+            type: 'single',
+            page_like: true,
+            message: sharedCopy.message,
+            ...(a.drive_media
+              ? { media: { source: 'drive', file_id: a.drive_media.file_id, filename: a.drive_media.filename, mime: a.drive_media.mime } as CreativeMedia }
+              : a.media_kind === 'video'
+                ? { video_id: a.video_id, video_thumbnail_url: a.video_thumbnail_url }
+                : { image_hash: a.image_hash }),
+          }
+        : isDPA
         ? {
             name: baseName + ' — Creative',
             page_id: firstPageId,
@@ -2264,9 +2306,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             cta_type: sharedCopy.cta_type,
             cta_link: sharedCopy.cta_link || sharedCopy.link,
           };
-      // Toggles avançados — resolvidos em createAdCreative via creative_features_spec
-      if (Object.keys(advFeatures).length) creative.advantage_creative_features = advFeatures;
-      if (multiAdvertiser) creative.multi_advertiser = true;
+      // Toggles avançados — resolvidos em createAdCreative via creative_features_spec.
+      // Engagement (page_like) não usa nenhum: o server ignora o bundle visual.
+      if (!isEngagement && Object.keys(advFeatures).length) creative.advantage_creative_features = advFeatures;
+      if (!isEngagement && multiAdvertiser) creative.multi_advertiser = true;
       return { name: baseName, creative };
     });
 
@@ -2298,7 +2341,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           conta_apelido: account?.nickname || account?.account_name,
           conta_id: accountId,
           pixel: pixels.find(p => p.id === pixelId)?.name,
-          objetivo: isDPA ? 'DPA' : 'SALES',
+          objetivo: isEngagement ? 'ENGAJAMENTO' : isDPA ? 'DPA' : 'SALES',
           estrutura: `${campaignsPerCreative}x${adsetsPerCampaign}x${adsPerAdset}`,
           pagina: selectedPages.map(p => p.name).join('|'),
           catalogo_nome: catalogs.find(c => c.id === catalogId)?.name,
@@ -2401,8 +2444,26 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       <MainSection
         title="Configurações da Campanha"
         subtitle="Defina o objetivo e as configurações principais"
-        badge={<span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded">Vendas</span>}
+        badge={isEngagement
+          ? <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 px-2 py-0.5 rounded">Engajamento</span>
+          : <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded">Vendas</span>}
       >
+        {/* OBJETIVO (Campaign Goal) — decide tudo abaixo; default Vendas. */}
+        <SubBlock label="Objetivo da Campanha" hint="Vendas otimiza para conversões/tráfego. Engajamento otimiza para curtidas/seguidores de UMA Página do Facebook.">
+          <div className="grid grid-cols-2 gap-3">
+            <OptionCard<CampaignGoal>
+              value="SALES" selected={campaignGoal === 'SALES'} onClick={setCampaignGoal}
+              title="Vendas"
+              desc="Conversões, tráfego ou catálogo (DPA) — comportamento padrão"
+            />
+            <OptionCard<CampaignGoal>
+              value="ENGAGEMENT" selected={campaignGoal === 'ENGAGEMENT'} onClick={setCampaignGoal}
+              title="Engajamento"
+              desc="Curtidas/seguidores de uma Página do Facebook"
+            />
+          </div>
+        </SubBlock>
+
         {/* PRESETS */}
         <SubBlock label="Presets" hint="Salva/aplica configurações genéricas (modo, segmentação, posicionamentos, etc.). Conta, pixel, catálogo, páginas e criativos ficam intactos.">
           <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-end">
@@ -2518,7 +2579,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           </div>
         </SubBlock>
 
-        {/* CATÁLOGO (DPA) — independente de ABO/CBO */}
+        {/* CATÁLOGO (DPA) — independente de ABO/CBO; não se aplica a Engajamento */}
+        {!isEngagement && (
         <SubBlock label="Catálogo (DPA)" hint="Use catálogo de produtos. Combinável com ABO ou CBO.">
           <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/30 px-4 py-3 flex items-center justify-between">
             <div>
@@ -2528,6 +2590,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             <Toggle checked={useCatalog} onChange={setUseCatalog} />
           </div>
         </SubBlock>
+        )}
 
         {/* DPA sub-config */}
         {isDPA && (
@@ -3030,7 +3093,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         </SubBlock>
 
         {/* PIXEL DE CONVERSÃO — também aparece em DPA porque Meta exige pixel+evento
-            no promoted_object quando optimization_goal = OFFSITE_CONVERSIONS. */}
+            no promoted_object quando optimization_goal = OFFSITE_CONVERSIONS.
+            Engajamento (PAGE_LIKES) não usa pixel/evento/otimização de conversão. */}
+        {!isEngagement && (<>
         <SubBlock
           label="Pixel de Conversão"
           hint={isDPA
@@ -3091,6 +3156,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             </Field>
           </div>
         </SubBlock>
+        </>)}
 
         {/* PÚBLICO-ALVO */}
         <SubBlock>
@@ -3300,7 +3366,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       <MainSection title="Anúncios" subtitle="Defina textos, links, chamada para ação e páginas de distribuição">
         {/* PÁGINAS E DISTRIBUIÇÃO */}
         <SubBlock label="Páginas e Distribuição">
-          <Field label="Páginas do Facebook *" hint="Selecione 1 ou mais páginas. Os anúncios serão distribuídos em round-robin entre elas (ou conforme alocação manual abaixo). Escopo: perfil (todas BMs).">
+          <Field label="Páginas do Facebook *" hint={isEngagement
+            ? "Engajamento promove UMA Página: selecione exatamente uma — ela é curtida e também é a identidade dos anúncios. Escopo: perfil (todas BMs)."
+            : "Selecione 1 ou mais páginas. Os anúncios serão distribuídos em round-robin entre elas (ou conforme alocação manual abaixo). Escopo: perfil (todas BMs)."}>
             <ChipPicker
               options={pages.map(p => {
                 const avail = p.ad_limit == null
@@ -3317,7 +3385,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               noOptionsText="— nenhuma página acessível para este perfil —"
             />
           </Field>
-          {pageIds.length > 0 && (() => {
+          {!isEngagement && pageIds.length > 0 && (() => {
             const selPages = pages.filter(p => pageIds.includes(p.id));
             const totalAds = ads.length * Math.max(1, campaignsPerCreative) * Math.max(1, adsetsPerCampaign) * Math.max(1, adsPerAdset);
             const allocated = pageIds.reduce((s, id) => s + (pageAllocations[id] ?? 0), 0);
@@ -3445,6 +3513,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               onChange={e => updateSharedCopy({ message: e.target.value })}
               placeholder="O texto principal aparece acima da mídia do anúncio. Máximo recomendado: 125 caracteres." />
           </Field>
+          {isEngagement && (
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
+              Anúncio de curtida: só texto + mídia. O botão é <strong>Curtir Página</strong> e o destino é a própria Página — sem URL, título, descrição ou CTA.
+            </p>
+          )}
+          {!isEngagement && (<>
           <div className="grid grid-cols-2 gap-3 mt-3">
             <Field label="Título" hint="Aparece em destaque abaixo da mídia.">
               <input className={inputBase} value={sharedCopy.headline}
@@ -3495,6 +3569,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               </Field>
             </div>
           )}
+          </>)}
         </SubBlock>
 
         {/* CRIATIVOS (lista) */}
@@ -3525,7 +3600,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           </div>
         </SubBlock>
 
-        {/* CONFIGURAÇÕES AVANÇADAS DO ANÚNCIO */}
+        {/* CONFIGURAÇÕES AVANÇADAS DO ANÚNCIO — rastreamento/Advantage+/Multi-Advertiser
+            não se aplicam a anúncios de curtida da Página. */}
+        {!isEngagement && (
         <SubBlock label="Configurações Avançadas">
           {/* RASTREAMENTO — URL params */}
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3">
@@ -3604,6 +3681,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             <Toggle checked={multiAdvertiser} onChange={setMultiAdvertiser} />
           </div>
         </SubBlock>
+        )}
       </MainSection>
 
       {/* ───────── 4. Publicar ───────── */}
