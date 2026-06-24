@@ -279,7 +279,8 @@ export interface AdSetSpec {
   bid_amount_cents?: number;
   promoted_object: PromotedObject;
   targeting: Targeting;
-  destination_type?: 'WEBSITE' | 'APP' | 'MESSENGER' | 'WHATSAPP';
+  // ON_PAGE: exigido por campanhas de engajamento PAGE_LIKES (OUTCOME_ENGAGEMENT).
+  destination_type?: 'WEBSITE' | 'APP' | 'MESSENGER' | 'WHATSAPP' | 'ON_PAGE';
   /** ISO 8601 com timezone, ex: 2025-01-15T15:00:00-03:00 */
   start_time?: string;
   end_time?: string;
@@ -1213,6 +1214,13 @@ function buildObjectStorySpec(c: CreativeSpec) {
       call_to_action: c.cta_type
         ? { type: c.cta_type, value: { link: c.cta_link || c.template_link } }
         : undefined,
+      // Formato "Imagem única/Vídeo" com vídeo priorizado ("Priorizar vídeo" no Ads
+      // Manager). Sem isto a Meta defaulta para carrossel/coleção (e injeta
+      // asset_feed_spec ad_formats=[CAROUSEL,COLLECTION] + multi_share_end_card:true).
+      // Espelha o anúncio de referência BM118 (lido via API): format_option=single_video
+      // + multi_share_end_card=false, sem asset_feed_spec.
+      format_option: 'single_video',
+      multi_share_end_card: false,
     };
   } else if (c.type === 'carousel') {
     if (!c.child_attachments || c.child_attachments.length < 2) {
@@ -1319,21 +1327,18 @@ export async function createAdCreative(
     // Non-DPA (single/carousel/video): bundle Advantage+ Creative completo.
     params.degrees_of_freedom_spec = { creative_features_spec };
   } else {
-    // DPA: enviamos um `degrees_of_freedom_spec` MÍNIMO só com os recursos de
-    // catálogo (vídeo do produto + automação de mídia + ocultar preço). Sem o
-    // bundle visual (image_*), que disparava #100/1772103 "IG account missing".
+    // DPA Single Video: o vídeo é priorizado pelo FORMATO (template_data.format_option
+    // = 'single_video'), não por features de mídia dinâmica. O anúncio de referência
+    // BM118 (com "Priorizar vídeo" ON, lido via API) tem SÓ hide_price OPT_IN —
+    // media_type_automation e video_highlights ficam OPT_OUT (não fazem sentido quando
+    // o formato já força o vídeo). Espelhamos isso à risca.
     //
-    // HISTÓRICO: chegamos a remover o bloco inteiro por suspeita de que ele
-    // causava BM86/2061006 (`{{product.url}}` rejeitado). A causa real era o
-    // campo `template_data.link` receber `{{product.url}}` — corrigido em
-    // separado (validação + "URL base do site"). Com o link consertado,
-    // re-habilitamos o vídeo do produto. VALIDADO 2026-06-23 em campanha DPA
-    // real: o toggle "Permitir vídeo do produto" marca e o #100/1772103 NÃO
-    // reaparece. Se o #100 voltar no futuro, suspeitar deste bloco primeiro.
+    // HISTÓRICO: já mandamos video_highlights + media_type_automation aqui ("Mostrar
+    // vídeo", 2026-06-23) no formato carrossel. Ao trocar para single_video, removidos
+    // por divergirem da referência. Sem o bundle visual (image_*), que disparava
+    // #100/1772103 "IG account missing". Se o #100 voltar, suspeitar deste bloco.
     params.degrees_of_freedom_spec = {
       creative_features_spec: {
-        video_highlights: { enroll_status: 'OPT_IN' },
-        media_type_automation: { enroll_status: 'OPT_IN' },
         hide_price: { enroll_status: 'OPT_IN' },
       },
     };
@@ -1756,15 +1761,65 @@ async function graphMutationWithRetry<T>(fn: () => Promise<T>): Promise<T> {
   throw lastErr;
 }
 
+/**
+ * Grau de paralelismo das mutações Graph DENTRO de uma fase (campanhas, depois
+ * adsets, depois ads). Mantém ~N requests em voo para SATURAR o orçamento de
+ * ~5 req/s da Meta sem ficar ocioso esperando cada round-trip (o que tornava a
+ * criação latency-bound: 50 conjuntos levavam ~10 min puramente em espera).
+ *
+ * As fases continuam sequenciais entre si — adsets dependem de created[campKey]
+ * e ads de created[adsetKey] —, então só paralelizamos itens IRMÃOS, que são
+ * independentes. Erros transitórios / #4 (rate limit) ainda caem no
+ * graphMutationWithRetry; se o pool estourar o limite por um instante, o backoff
+ * absorve. Ajustável via env caso uma conta precise de ritmo mais conservador.
+ */
+const MUTATION_CONCURRENCY = Math.max(
+  1,
+  Math.floor(Number(process.env.CAMPAIGN_MUTATION_CONCURRENCY)) || 8
+);
+
+/**
+ * Roda `worker` sobre `items` com no máximo `limit` execuções simultâneas,
+ * preservando o índice original (necessário p/ a sequência de páginas por ad).
+ * O `worker` é responsável pelo próprio try/catch — uma rejeição inesperada
+ * propaga e aborta o pool (comportamento de "fail fast" para erros de programação;
+ * erros de API já são tratados dentro de cada worker e nunca chegam aqui).
+ */
+async function runPool<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<void>
+): Promise<void> {
+  let next = 0;
+  const lanes = Math.min(Math.max(1, limit), items.length);
+  const runners: Promise<void>[] = [];
+  for (let lane = 0; lane < lanes; lane++) {
+    runners.push(
+      (async () => {
+        for (;;) {
+          const idx = next;
+          next += 1;
+          if (idx >= items.length) return;
+          await worker(items[idx], idx);
+        }
+      })()
+    );
+  }
+  await Promise.all(runners);
+}
+
 
 /**
  * Orquestrador batch — aplica multiplicadores e round-robin de páginas.
  * Emite os mesmos eventos que createFullCampaign, mas com índices ampliados
  * (campaign_index, adset_index, ad_index) pra UI poder mostrar progresso.
  *
- * Sequencial por ora: APIs Meta marketing limitam ~5 req/s, então paralelismo
- * agressivo dispara (#4) rate limit. Se virar gargalo, dá pra paralelizar
- * por campanha (não por adset, que reusa creative).
+ * Paraleliza DENTRO de cada fase (campanhas → adsets → ads) com concorrência
+ * limitada (MUTATION_CONCURRENCY via runPool) — as fases permanecem sequenciais
+ * porque cada nível depende dos ids do nível acima. Isso satura o orçamento de
+ * ~5 req/s da Meta sem ficar ocioso esperando cada round-trip; um burst acima do
+ * limite cai no backoff de graphMutationWithRetry (#4/429/5xx). Reduza
+ * CAMPAIGN_MUTATION_CONCURRENCY se uma conta específica sofrer rate limit.
  */
 export async function createCampaignBatch(
   input: BatchCreateInput,
@@ -1909,10 +1964,15 @@ export async function createCampaignBatch(
   const created = runState.created;
   const failed = runState.failed;
 
-  // ── 1) CAMPANHAS ────────────────────────────────────────────────────────────
-  for (const pc of plan.campaigns) {
-    if (shouldAbort()) return { aborted: true, counts: tally() };
-    if (created[pc.key]) continue;
+  // Flag de abort cooperativo: workers param de reivindicar itens e drenam o que
+  // já está em voo; ao fim de cada fase verificamos e saímos com aborted:true,
+  // preservando a semântica do return-mid-loop da versão sequencial.
+  let aborted = false;
+
+  // ── 1) CAMPANHAS (irmãs em paralelo, fase com barreira antes dos adsets) ──────
+  await runPool(plan.campaigns, MUTATION_CONCURRENCY, async (pc) => {
+    if (shouldAbort()) { aborted = true; return; }
+    if (created[pc.key]) return;
 
     const creativeName = pc.creativeIdx === null ? null : creatives[pc.creativeIdx].name;
     const campSuffix = nCamp > 1 ? `_C${pad2(pc.campSuffixNum)}` : '';
@@ -1938,22 +1998,23 @@ export async function createCampaignBatch(
       counts.failed += 1;
       await onEvent({ kind: 'failed', key: pc.key, entity: 'campaign', name, error: msg, permanent: true });
     }
-  }
+  });
+  if (aborted) return { aborted: true, counts: tally() };
 
-  // ── 2) ADSETS ────────────────────────────────────────────────────────────────
-  for (const ps of plan.adsets) {
-    if (shouldAbort()) return { aborted: true, counts: tally() };
-    if (created[ps.key]) continue;
+  // ── 2) ADSETS (irmãos em paralelo; campanhas-pai já criadas pela fase 1) ──────
+  await runPool(plan.adsets, MUTATION_CONCURRENCY, async (ps) => {
+    if (shouldAbort()) { aborted = true; return; }
+    if (created[ps.key]) return;
     if (failed[ps.campKey]) {
       counts.skipped += 1;
       await onEvent({ kind: 'skipped', key: ps.key, reason: `campanha-pai falhou (${ps.campKey})` });
-      continue;
+      return;
     }
     const campId = created[ps.campKey];
     if (!campId) {
       counts.skipped += 1;
       await onEvent({ kind: 'skipped', key: ps.key, reason: `campanha-pai ausente (${ps.campKey})` });
-      continue;
+      return;
     }
 
     const creativeName = ps.creativeIdx === null ? null : creatives[ps.creativeIdx].name;
@@ -1961,7 +2022,14 @@ export async function createCampaignBatch(
     const baseTplName = adsetTpl.name || campaignTpl.name || creativeName || 'Conjunto';
     const name = resolveName(baseTplName, creativeName, setSuffix);
 
-    const overridePsid = ps.creativeIdx === null ? undefined : creatives[ps.creativeIdx].creative.product_set_id;
+    // Override do product_set por creative SÓ no DPA "Nível de Campanha", em que o
+    // conjunto é um adset de catálogo (template já traz product_set_id). No "Nível de
+    // Anúncio" o catálogo vive só no creative e o conjunto é conversão normal — então
+    // não re-injetamos product_set_id no adset (senão religaríamos o Advantage+).
+    const tplHasProductSet = adsetTpl.promoted_object?.product_set_id != null;
+    const overridePsid = (tplHasProductSet && ps.creativeIdx !== null)
+      ? creatives[ps.creativeIdx].creative.product_set_id
+      : undefined;
     const adsetSpec: AdSetSpec = {
       ...adsetTpl,
       name,
@@ -1984,13 +2052,15 @@ export async function createCampaignBatch(
       counts.failed += 1;
       await onEvent({ kind: 'failed', key: ps.key, entity: 'adset', name, error: msg, permanent: true });
     }
-  }
+  });
+  if (aborted) return { aborted: true, counts: tally() };
 
-  // ── 3) ADS (creative + ad) ────────────────────────────────────────────────────
-  for (let adOrdinal = 0; adOrdinal < plan.ads.length; adOrdinal++) {
-    const pa = plan.ads[adOrdinal];
-    if (shouldAbort()) return { aborted: true, counts: tally() };
-    if (created[pa.key]) continue;
+  // ── 3) ADS (creative + ad; irmãos em paralelo, conjuntos-pai já criados) ──────
+  // O índice do pool É o adOrdinal — pageSequence[adOrdinal] precisa da ordem
+  // original do plano, então runPool preserva o índice ao distribuir as lanes.
+  await runPool(plan.ads, MUTATION_CONCURRENCY, async (pa, adOrdinal) => {
+    if (shouldAbort()) { aborted = true; return; }
+    if (created[pa.key]) return;
 
     const adsetKey = pa.adsetKey;
     const campKey = level === 'campaign' ? `c:${pa.creativeIdx}:${pa.campIdx}` : `c:-:${pa.campIdx}`;
@@ -1998,13 +2068,13 @@ export async function createCampaignBatch(
       counts.skipped += 1;
       const why = failed[adsetKey] ? `conjunto-pai falhou (${adsetKey})` : `campanha-avo falhou (${campKey})`;
       await onEvent({ kind: 'skipped', key: pa.key, reason: why });
-      continue;
+      return;
     }
     const adsetId = created[adsetKey];
     if (!adsetId) {
       counts.skipped += 1;
       await onEvent({ kind: 'skipped', key: pa.key, reason: `conjunto-pai ausente (${adsetKey})` });
-      continue;
+      return;
     }
 
     const crv = creatives[pa.creativeIdx];
@@ -2089,7 +2159,8 @@ export async function createCampaignBatch(
       counts.failed += 1;
       await onEvent({ kind: 'failed', key: pa.key, entity: 'ad', name: adName, error: msg, permanent: true });
     }
-  }
+  });
+  if (aborted) return { aborted: true, counts: tally() };
 
   return { aborted: false, counts: tally() };
 }

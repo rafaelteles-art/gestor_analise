@@ -102,7 +102,7 @@ async function readNdjsonStream(res: Response, onLine: (line: LogLine) => void) 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Painel vturb
 // ═══════════════════════════════════════════════════════════════════════════════
-type VturbPeriod = 7 | 14 | 30 | 60 | 90 | 'yesterday' | 'range';
+type VturbPeriod = 7 | 14 | 30 | 60 | 90 | 'today' | 'yesterday' | 'range';
 
 export default function VturbSyncPanel() {
   const [period, setPeriod] = useState<VturbPeriod>(30);
@@ -122,6 +122,7 @@ export default function VturbSyncPanel() {
     setRunning(true); setDone(false); setLines([]);
     try {
       const payload =
+        period === 'today'     ? { mode: 'today' } :
         period === 'yesterday' ? { mode: 'yesterday' } :
         period === 'range'     ? { mode: 'range', dateFrom: rangeFrom, dateTo: rangeTo } :
                                  { days: period };
@@ -171,6 +172,11 @@ export default function VturbSyncPanel() {
                 }`}
               >{d}d</button>
             ))}
+            <button onClick={() => setPeriod('today')} disabled={running}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
+                period === 'today' ? 'bg-fuchsia-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+              }`}
+            >Hoje</button>
             <button onClick={() => setPeriod('yesterday')} disabled={running}
               className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
                 period === 'yesterday' ? 'bg-fuchsia-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
@@ -188,6 +194,7 @@ export default function VturbSyncPanel() {
             {running
               ? <><SpinIcon /> Importando...</>
               : <><UploadIcon /> {
+                  period === 'today'     ? 'Importar hoje' :
                   period === 'yesterday' ? 'Importar ontem' :
                   period === 'range'     ? 'Importar datas' :
                                            `Importar ${period} dias`

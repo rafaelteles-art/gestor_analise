@@ -49,3 +49,28 @@ body {
   50%  { transform: translateX(150%); }
   100% { transform: translateX(400%); }
 }
+
+/* Home console: faint blueprint grid, theme-aware */
+.console-grid {
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 41, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 41, 0.045) 1px, transparent 1px);
+  background-size: 38px 38px;
+}
+.dark .console-grid {
+  background-image:
+    linear-gradient(to right, rgba(123, 142, 173, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(123, 142, 173, 0.06) 1px, transparent 1px);
+}
+
+/* Home console: staggered station reveal */
+@keyframes station-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.station-anim {
+  animation: station-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .station-anim { animation: none; }
+}

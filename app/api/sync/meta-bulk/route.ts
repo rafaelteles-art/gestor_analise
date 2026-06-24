@@ -47,6 +47,10 @@ export async function POST(req: Request) {
     dateFrom = format(from, 'yyyy-MM-dd');
     dateTo   = format(to,   'yyyy-MM-dd');
     days     = span + 1;
+  } else if (mode === 'today') {
+    dateTo   = todayStr();
+    dateFrom = dateTo;
+    days     = 1;
   } else if (mode === 'yesterday') {
     dateTo   = daysAgoStr(1);
     dateFrom = dateTo;

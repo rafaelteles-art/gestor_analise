@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, CheckCircle2 } from 'lucide-react';
 import { todayStr, toDatetimeLocal, datetimeLocalToISO } from '@/lib/timezone';
 import {
   SearchableSelect as SSSelect,
@@ -204,6 +204,9 @@ interface AdDraft {
 // Constantes
 // ────────────────────────────────────────────────────────────────────────────
 
+// `key` = código ISO 3166-1 alpha-2, usado direto em geo_locations.countries da Meta.
+// Os mercados mais usados ficam no topo; o restante segue em ordem alfabética (PT-BR).
+// O seletor tem busca, então a lista pode ser ampla.
 const COUNTRIES = [
   { key: 'BR', label: 'Brasil' },
   { key: 'PT', label: 'Portugal' },
@@ -213,6 +216,60 @@ const COUNTRIES = [
   { key: 'CO', label: 'Colômbia' },
   { key: 'CL', label: 'Chile' },
   { key: 'ES', label: 'Espanha' },
+  { key: 'ZA', label: 'África do Sul' },
+  { key: 'DE', label: 'Alemanha' },
+  { key: 'AO', label: 'Angola' },
+  { key: 'SA', label: 'Arábia Saudita' },
+  { key: 'AU', label: 'Austrália' },
+  { key: 'AT', label: 'Áustria' },
+  { key: 'BE', label: 'Bélgica' },
+  { key: 'BO', label: 'Bolívia' },
+  { key: 'CA', label: 'Canadá' },
+  { key: 'KZ', label: 'Cazaquistão' },
+  { key: 'SG', label: 'Cingapura' },
+  { key: 'KR', label: 'Coreia do Sul' },
+  { key: 'CR', label: 'Costa Rica' },
+  { key: 'DK', label: 'Dinamarca' },
+  { key: 'EG', label: 'Egito' },
+  { key: 'SV', label: 'El Salvador' },
+  { key: 'AE', label: 'Emirados Árabes Unidos' },
+  { key: 'EC', label: 'Equador' },
+  { key: 'SK', label: 'Eslováquia' },
+  { key: 'FI', label: 'Finlândia' },
+  { key: 'FR', label: 'França' },
+  { key: 'GR', label: 'Grécia' },
+  { key: 'GT', label: 'Guatemala' },
+  { key: 'NL', label: 'Holanda' },
+  { key: 'HN', label: 'Honduras' },
+  { key: 'HU', label: 'Hungria' },
+  { key: 'IN', label: 'Índia' },
+  { key: 'ID', label: 'Indonésia' },
+  { key: 'IE', label: 'Irlanda' },
+  { key: 'IL', label: 'Israel' },
+  { key: 'IT', label: 'Itália' },
+  { key: 'JP', label: 'Japão' },
+  { key: 'MY', label: 'Malásia' },
+  { key: 'MA', label: 'Marrocos' },
+  { key: 'NG', label: 'Nigéria' },
+  { key: 'NO', label: 'Noruega' },
+  { key: 'NZ', label: 'Nova Zelândia' },
+  { key: 'PA', label: 'Panamá' },
+  { key: 'PK', label: 'Paquistão' },
+  { key: 'PY', label: 'Paraguai' },
+  { key: 'PE', label: 'Peru' },
+  { key: 'PL', label: 'Polônia' },
+  { key: 'GB', label: 'Reino Unido' },
+  { key: 'CZ', label: 'República Tcheca' },
+  { key: 'DO', label: 'República Dominicana' },
+  { key: 'RO', label: 'Romênia' },
+  { key: 'SE', label: 'Suécia' },
+  { key: 'CH', label: 'Suíça' },
+  { key: 'TH', label: 'Tailândia' },
+  { key: 'TR', label: 'Turquia' },
+  { key: 'UA', label: 'Ucrânia' },
+  { key: 'UY', label: 'Uruguai' },
+  { key: 'VE', label: 'Venezuela' },
+  { key: 'VN', label: 'Vietnã' },
 ];
 
 const CTA_OPTIONS: CTA[] = [
@@ -538,7 +595,7 @@ function Toggle({
       onClick={() => onChange(!checked)}
       className={cls(
         'group flex items-center gap-3 select-none outline-none',
-        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 rounded-full',
+        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 dark:focus-visible:ring-offset-gray-900 rounded-full',
         disabled && 'opacity-50 cursor-not-allowed'
       )}
     >
@@ -548,7 +605,7 @@ function Toggle({
           'shadow-inner overflow-hidden',
           checked
             ? 'bg-gradient-to-r from-emerald-400 to-emerald-600 border-emerald-700/30 shadow-emerald-900/20'
-            : 'bg-gradient-to-r from-slate-200 to-slate-300 border-slate-400/40',
+            : 'bg-gradient-to-r from-slate-200 to-slate-300 border-slate-400/40 dark:from-slate-600 dark:to-slate-700 dark:border-slate-500/40',
           !disabled && 'group-hover:brightness-110 group-active:scale-[0.96]'
         )}
       >
@@ -565,7 +622,7 @@ function Toggle({
         <span
           className={cls(
             'absolute right-2 text-[9px] font-bold tracking-wider transition-opacity duration-200',
-            !checked ? 'opacity-100 text-slate-500' : 'opacity-0'
+            !checked ? 'opacity-100 text-slate-500 dark:text-slate-200' : 'opacity-0'
           )}
         >
           OFF
@@ -573,9 +630,9 @@ function Toggle({
         {/* bolinha */}
         <span
           className={cls(
-            'absolute top-0.5 inline-block h-6 w-6 rounded-full bg-white shadow-lg ring-1 ring-black/10',
-            'transition-all duration-300 ease-out',
-            checked ? 'left-[34px]' : 'left-0.5'
+            'absolute top-1/2 -translate-y-1/2 inline-block h-6 w-6 rounded-full bg-white shadow-lg ring-1 ring-black/10',
+            'transition-[left] duration-300 ease-out',
+            checked ? 'left-[36px]' : 'left-0.5'
           )}
         />
       </span>
@@ -2008,6 +2065,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [queuedJobIds, setQueuedJobIds] = useState<number[]>([]);
   const [enqueueError, setEnqueueError] = useState<string | null>(null);
   const [showQueueWidget, setShowQueueWidget] = useState(false);
+  // Confirmação imediata após o 202: o QueueWidget só aparece quando o 1º poll
+  // resolve (kick + ~4s), então mostramos um banner verde assim que a fila
+  // aceita os jobs, garantindo feedback instantâneo ao clicar em Publicar.
+  const [enqueuedCount, setEnqueuedCount] = useState<number | null>(null);
   const queueRows = useQueuePolling(queuedJobIds);
   // Keep the last non-empty snapshot so the widget stays visible after polling
   // stops (the active=1 endpoint drops finished jobs, so queueRows becomes []
@@ -2129,7 +2190,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     })();
     const resolvedCampaignName = campaignName
       .replace(/\{\{\s*orcamento\s*\}\}/gi, campaignType)
-      .replace(/\{\{\s*estrutura\s*\}\}/gi, `${campaignsPerCreative}-${adsetsPerCampaign}-${adsPerAdset}`)
+      .replace(/\{\{\s*estrutura\s*\}\}/gi, `1-${adsetsPerCampaign}-${adsPerAdset}`)
       .replace(/\{\{\s*data\s*\}\}/gi,      startDate);
 
     // Targeting comum (compartilhado entre todos os conjuntos via template)
@@ -2173,16 +2234,26 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     const campaignBudgetCents = isCBO ? cents : undefined;
 
     // promoted_object do AD SET:
-    //  - DPA (catálogo na campanha): apenas product_set_id + pixel + evento — product_catalog_id
+    //  - DPA "Nível de Campanha": product_set_id + pixel + evento. O product_catalog_id
     //    NÃO vai no adset porque herda do campaign. Mandar gera erro 1815229
     //    ("product_catalog_id não aceito para WEBSITE_CONVERSIONS").
+    //  - DPA "Nível de Anúncio" (Advantage+ catalog ads DESLIGADO): o conjunto é uma
+    //    conversão normal — só pixel + evento, SEM product_set_id. O catálogo vive
+    //    exclusivamente no creative (product_set_id + template_data). Ver doc Meta:
+    //    com objective de conversão, product_catalog_id não é exigido na campanha.
     //  - Non-DPA: pixel + evento de conversão.
     //  - Engagement (PAGE_LIKES): apenas a Página promovida. Sem pixel/evento.
     const promotedObject: any = isEngagement
       ? { page_id: selectedPages[0]?.id }
-      : isDPA
+      : (isDPA && catalogLevel === 'campaign')
       ? {
           product_set_id: productSetId || undefined,
+          pixel_id: pixelId || undefined,
+          custom_event_type: pixelId ? (customEvent || 'PURCHASE') : undefined,
+        }
+      : isDPA
+      ? {
+          // Nível de Anúncio: sem product_set_id aqui (Advantage+ off).
           pixel_id: pixelId || undefined,
           custom_event_type: pixelId ? (customEvent || 'PURCHASE') : undefined,
         }
@@ -2198,8 +2269,16 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       [budgetKind === 'daily' ? 'daily_budget_cents' : 'lifetime_budget_cents']: adsetBudgetCents,
       promoted_object: promotedObject,
       targeting,
-      // Engagement não tem destino de site; DPA herda do catálogo; demais → WEBSITE.
-      destination_type: (isEngagement || isDPA) ? undefined : 'WEBSITE',
+      // Engagement (PAGE_LIKES) exige destination_type ON_PAGE — sem isso a Meta
+      // rejeita a meta de desempenho (erro 100 / subcode 2490408: "meta de desempenho
+      // não disponível"). Combo válido na tabela ODAX: OUTCOME_ENGAGEMENT + ON_PAGE +
+      // PAGE_LIKES + promoted_object.page_id. DPA "Nível de Campanha" herda do catálogo
+      // (undefined); DPA "Nível de Anúncio" e non-DPA → WEBSITE (conversão normal).
+      destination_type: isEngagement
+        ? 'ON_PAGE'
+        : (isDPA && catalogLevel === 'campaign')
+        ? undefined
+        : 'WEBSITE',
       start_time: datetimeLocalToISO(startTime),
       end_time: hasEndTime && endTime ? datetimeLocalToISO(endTime) : undefined,
       status,
@@ -2226,10 +2305,11 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       is_adset_budget_sharing_enabled: campaignType === 'ABO' && aboShare,
       [budgetKind === 'daily' ? 'daily_budget_cents' : 'lifetime_budget_cents']: campaignBudgetCents,
       bid_strategy: isCBO ? bidStrategy : undefined,
-      // Em DPA com OUTCOME_SALES (ODAX), product_catalog_id é OBRIGATÓRIO no campaign
-      // (independente do toggle catalogLevel) — sem isso a Meta trata como WEBSITE_CONVERSIONS
-      // normal e rejeita os campos de catálogo.
-      promoted_object: (isDPA && catalogId)
+      // product_catalog_id na campanha SÓ no "Nível de Campanha" — aí ele é obrigatório
+      // (sem ele a Meta trata como WEBSITE_CONVERSIONS e rejeita product_set_id no adset).
+      // No "Nível de Anúncio" a campanha é uma conversão normal (sem catálogo); o catálogo
+      // vive só no creative, então product_catalog_id NÃO vai aqui.
+      promoted_object: (isDPA && catalogLevel === 'campaign' && catalogId)
         ? { product_catalog_id: catalogId }
         : undefined,
     };
@@ -2342,7 +2422,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           conta_id: accountId,
           pixel: pixels.find(p => p.id === pixelId)?.name,
           objetivo: isEngagement ? 'ENGAJAMENTO' : isDPA ? 'DPA' : 'SALES',
-          estrutura: `${campaignsPerCreative}x${adsetsPerCampaign}x${adsPerAdset}`,
+          estrutura: `1-${adsetsPerCampaign}-${adsPerAdset}`,
           pagina: selectedPages.map(p => p.name).join('|'),
           catalogo_nome: catalogs.find(c => c.id === catalogId)?.name,
           conjunto_de_produtos: productSets.find(s => s.id === productSetId)?.name,
@@ -2357,6 +2437,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     // useQueuePolling). Em broadcast, vem um job por conta (broadcast_group_id
     // compartilhado).
     setEnqueueError(null);
+    setEnqueuedCount(null);
     try {
       const res = await fetch('/api/campaigns/create', {
         method: 'POST',
@@ -2382,6 +2463,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       lastQueueRowsRef.current = [];
       setQueuedJobIds(ids);
       setShowQueueWidget(true);
+      setEnqueuedCount(ids.length);
       // Falhas de autenticação parciais (contas sem token) voltam em failures.
       if (Array.isArray(data?.failures) && data.failures.length) {
         setEnqueueError(
@@ -2979,17 +3061,23 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             'relative rounded-xl border-2 px-5 py-4 flex items-center justify-between gap-4 transition-all duration-300',
             'shadow-sm hover:shadow-md',
             publishPaused
-              ? 'border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100/60'
-              : 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100/40'
+              ? 'border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100/60 dark:border-slate-700 dark:from-slate-800/70 dark:to-slate-900/40'
+              : 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100/40 dark:border-emerald-800/60 dark:from-emerald-950/70 dark:to-emerald-900/20'
           )}
         >
           <div className="flex items-center gap-3">
             <div
               className={cls(
-                'flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-300',
+                'relative flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-300',
                 publishPaused ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300' : 'bg-emerald-200 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-400'
               )}
             >
+              {!publishPaused && (
+                <span
+                  aria-hidden
+                  className="absolute inset-0 rounded-full ring-2 ring-emerald-400/70 dark:ring-emerald-400/50 animate-ping motion-reduce:hidden"
+                />
+              )}
               {publishPaused ? (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                   <rect x="6" y="5" width="4" height="14" rx="1" />
@@ -3710,6 +3798,23 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           </button>
         </div>
 
+        {/* Confirmação imediata de enfileiramento (antes do QueueWidget carregar) */}
+        {enqueuedCount != null && (
+          <div className="mt-3 flex items-start gap-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-emerald-800 dark:text-emerald-400">
+                Encaminhado para a fila ✓
+              </p>
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400/90 mt-0.5">
+                {enqueuedCount === 1
+                  ? '1 job criado. O worker está publicando em segundo plano — acompanhe o progresso abaixo.'
+                  : `${enqueuedCount} jobs criados. O worker está publicando em segundo plano — acompanhe o progresso abaixo.`}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Enqueue error (e.g. HTTP error, missing jobs in response, partial token failures) */}
         {enqueueError && (
           <div className="mt-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg p-3">
@@ -3742,7 +3847,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         vars={{
           conta: (() => { const a = accounts.find(x => x.account_id === accountId); return (a?.nickname || a?.account_name) ?? ''; })(),
           orcamento: campaignType,
-          estrutura: `${campaignsPerCreative}-${adsetsPerCampaign}-${adsPerAdset}`,
+          estrutura: `1-${adsetsPerCampaign}-${adsPerAdset}`,
           criativo: useCatalog
             ? (setName.trim() || ads[0]?.name || '')
             : (ads[0]?.name || ''),

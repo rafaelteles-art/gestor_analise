@@ -73,6 +73,7 @@ async function ensureVturbTable() {
  * NDJSON, no mesmo formato de /api/sync/meta-bulk.
  *
  * Body (opcional):
+ *   { mode: 'today' }                                  — hoje
  *   { mode: 'yesterday' }                              — ontem
  *   { days?: number }                                  — últimos N dias (1..90, padrão 30)
  *   { mode: 'range', dateFrom: 'YYYY-MM-DD', dateTo }  — intervalo específico (máx. 90 dias)
@@ -101,6 +102,10 @@ export async function POST(req: Request) {
     dateFrom = format(from, 'yyyy-MM-dd');
     dateTo   = format(to,   'yyyy-MM-dd');
     days     = span + 1;
+  } else if (mode === 'today') {
+    dateTo   = todayStr();
+    dateFrom = dateTo;
+    days     = 1;
   } else if (mode === 'yesterday') {
     dateTo   = daysAgoStr(1);
     dateFrom = dateTo;

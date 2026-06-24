@@ -151,7 +151,7 @@ async function readNdjsonStream(res: Response, onLine: (line: LogLine) => void) 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Painel Meta
 // ═══════════════════════════════════════════════════════════════════════════════
-type MetaPeriod = 7 | 14 | 30 | 60 | 90 | 'yesterday' | 'range';
+type MetaPeriod = 7 | 14 | 30 | 60 | 90 | 'today' | 'yesterday' | 'range';
 
 function MetaPanel() {
   const [period, setPeriod] = useState<MetaPeriod>(30);
@@ -171,6 +171,7 @@ function MetaPanel() {
     setRunning(true); setDone(false); setLines([]);
     try {
       const payload =
+        period === 'today'     ? { mode: 'today' } :
         period === 'yesterday' ? { mode: 'yesterday' } :
         period === 'range'     ? { mode: 'range', dateFrom: rangeFrom, dateTo: rangeTo } :
                                  { days: period };
@@ -210,6 +211,11 @@ function MetaPanel() {
               }`}
             >{d}d</button>
           ))}
+          <button onClick={() => setPeriod('today')} disabled={running}
+            className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
+              period === 'today' ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+            }`}
+          >Hoje</button>
           <button onClick={() => setPeriod('yesterday')} disabled={running}
             className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
               period === 'yesterday' ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
@@ -227,6 +233,7 @@ function MetaPanel() {
           {running
             ? <><SpinIcon /> Importando...</>
             : <><UploadIcon /> {
+                period === 'today'     ? 'Importar hoje' :
                 period === 'yesterday' ? 'Importar ontem' :
                 period === 'range'     ? 'Importar datas' :
                                          `Importar ${period} dias`
