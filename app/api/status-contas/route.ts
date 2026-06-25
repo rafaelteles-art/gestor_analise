@@ -18,6 +18,7 @@ async function ensureColumns() {
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS gestor TEXT[]`,
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS oferta TEXT[]`,
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS timezone VARCHAR(100)`,
+    `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS accessible_profiles TEXT[] DEFAULT '{}'`,
   ];
   for (const q of alterQueries) {
     await pool.query(q);
@@ -58,6 +59,7 @@ export async function GET() {
            FROM meta_account_offers mao WHERE mao.account_id = meta_ad_accounts.account_id),
           '{}'
         ) AS oferta_ids,
+        COALESCE(accessible_profiles, '{}') AS accessible_profiles,
         cartao,
         COALESCE(moeda, 'BRL') AS moeda,
         COALESCE(limite, 0) AS limite,

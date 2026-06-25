@@ -24,6 +24,7 @@ interface Account {
   account_status: string;
   timezone: string | null;
   nickname: string | null;
+  accessible_profiles: string[];
 }
 
 // ─── Nickname Cell ────────────────────────────────────────────────────────────
@@ -1082,6 +1083,9 @@ export default function ClientStatusContas({
                 const isExpanded = expandedGroups.has(group.name);
                 const groupGestor = group.accounts.find(a => a.gestor)?.gestor ?? null;
                 const groupPerfil = group.accounts.find(a => a.perfil)?.perfil ?? null;
+                const groupAccessProfiles = Array.from(
+                  new Set(group.accounts.flatMap(a => a.accessible_profiles ?? []))
+                ).sort();
                 const allGroupSelected = group.accounts.every(a => selectedAccounts.has(a.account_id));
 
                 return (
@@ -1116,6 +1120,21 @@ export default function ClientStatusContas({
                           )}
                           <span className="ml-1 text-xs text-console-muted font-medium">
                             ({group.accounts.length} {group.accounts.length === 1 ? 'conta' : 'contas'})
+                          </span>
+                          <span className="ml-2 flex items-center gap-1 text-xs text-console-muted font-medium" onClick={e => e.stopPropagation()}>
+                            <span className="opacity-70">Acesso:</span>
+                            {groupAccessProfiles.length === 0 ? (
+                              <span className="opacity-40">—</span>
+                            ) : (
+                              groupAccessProfiles.map(p => (
+                                <span
+                                  key={p}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-console-surface-2 text-console-muted border border-console-border"
+                                >
+                                  {p}
+                                </span>
+                              ))
+                            )}
                           </span>
                         </div>
                       </td>

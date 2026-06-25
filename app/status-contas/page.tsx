@@ -21,6 +21,7 @@ async function ensureColumns() {
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS timezone VARCHAR(100)`,
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS is_blacklisted BOOLEAN DEFAULT false`,
     `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS nickname TEXT`,
+    `ALTER TABLE meta_ad_accounts ADD COLUMN IF NOT EXISTS accessible_profiles TEXT[] DEFAULT '{}'`,
     `CREATE TABLE IF NOT EXISTS meta_bm_blacklist (
        bm_id VARCHAR(64) PRIMARY KEY,
        bm_name VARCHAR(255),
@@ -79,7 +80,8 @@ export default async function StatusContasPage() {
           perfil,
           COALESCE(account_status, 'ACTIVE') AS account_status,
           timezone,
-          nickname
+          nickname,
+          COALESCE(accessible_profiles, '{}') AS accessible_profiles
         FROM meta_ad_accounts
         WHERE COALESCE(is_blacklisted, false) = false
           AND bm_id NOT IN (SELECT bm_id FROM meta_bm_blacklist)
