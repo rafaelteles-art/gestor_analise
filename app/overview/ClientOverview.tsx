@@ -193,27 +193,27 @@ export default function ClientOverview({
 
   const hasSelection = selectedCampaigns.length > 0;
   const profitColor = (p: number) => (p >= 0 ? 'text-emerald-600' : 'text-rose-600');
-  const roasColor = (r: number) => (r >= 1.5 ? 'text-emerald-600' : r >= 1 ? 'text-amber-600' : r > 0 ? 'text-rose-600' : 'text-gray-400 dark:text-gray-500');
+  const roasColor = (r: number) => (r >= 1.5 ? 'text-emerald-600' : r >= 1 ? 'text-amber-600' : r > 0 ? 'text-rose-600' : 'text-console-muted');
 
   return (
     <div className="flex flex-col gap-5">
       {/* Header controles */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-sm px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-console-surface border border-console-border rounded px-5 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-bold">Data</span>
+            <span className="text-[10px] uppercase tracking-wider text-console-muted font-bold">Data</span>
             <input
               type="date"
               value={date}
               onChange={e => setDate(e.target.value)}
               max={todayStr()}
-              className="text-sm font-mono text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 outline-none focus:border-indigo-400"
+              className="text-sm font-mono text-foreground bg-console-surface-2 border border-console-border rounded px-2 py-1 outline-none focus:border-amber-500"
             />
           </div>
 
           <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-bold">Campanhas</span>
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{selectedCampaigns.length} selecionada(s)</span>
+            <span className="text-[10px] uppercase tracking-wider text-console-muted font-bold">Campanhas</span>
+            <span className="text-sm font-semibold text-foreground">{selectedCampaigns.length} selecionada(s)</span>
           </div>
 
           <OfferSelector offers={offers} current={currentOferta} />
@@ -223,7 +223,7 @@ export default function ClientOverview({
           <button
             onClick={loadFromDb}
             disabled={loading || syncing}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 transition disabled:opacity-40"
+            className="flex items-center gap-2 px-4 py-2 bg-console-surface border border-console-border hover:bg-console-surface-2 rounded text-xs font-semibold text-foreground transition disabled:opacity-40"
           >
             <Database className={`w-3.5 h-3.5 ${loading ? 'animate-pulse' : ''}`} />
             {loading ? 'Lendo...' : 'Sincronizar com o banco'}
@@ -232,7 +232,7 @@ export default function ClientOverview({
           <button
             onClick={syncFromApi}
             disabled={syncing || !hasSelection}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs font-semibold text-white transition disabled:opacity-40"
+            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded text-xs font-semibold text-white transition disabled:opacity-40"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Sincronizando...' : 'Sincronizar pela API'}
@@ -242,9 +242,9 @@ export default function ClientOverview({
 
       {/* Painel de log de sync (só visível durante/após sync) */}
       {(syncing || syncLogs.length > 0) && (
-        <div className="bg-gray-900 text-gray-100 rounded-xl p-4 text-xs font-mono max-h-64 overflow-auto shadow-inner">
+        <div className="bg-console-surface border border-console-border rounded p-4 text-xs font-mono max-h-64 overflow-auto">
           {syncProgress && (
-            <div className="text-indigo-300 mb-2 sticky top-0 bg-gray-900 pb-1 border-b border-gray-800 flex items-center gap-2">
+            <div className="text-amber-400 mb-2 sticky top-0 bg-console-surface pb-1 border-b border-console-border flex items-center gap-2">
               <RefreshCw className="w-3 h-3 animate-spin" />
               [{syncProgress.index}/{syncProgress.total}] {syncProgress.campaign}
             </div>
@@ -266,7 +266,7 @@ export default function ClientOverview({
 
       {/* Estados */}
       {!hasSelection && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-center">
+        <div className="bg-amber-500/10 border border-amber-500 rounded p-6 text-center">
           <AlertCircle className="w-6 h-6 mx-auto text-amber-500 mb-2" />
           <p className="text-sm text-amber-800 dark:text-amber-400 font-medium">Nenhuma campanha selecionada.</p>
           <p className="text-xs text-amber-700 dark:text-amber-500 mt-1">
@@ -276,17 +276,17 @@ export default function ClientOverview({
       )}
 
       {error && (
-        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl p-4 text-sm text-rose-700 dark:text-rose-400">
+        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded p-4 text-sm text-rose-700 dark:text-rose-400">
           <strong>Erro:</strong> {error}
         </div>
       )}
 
       {/* Tabela */}
       {hasSelection && rows.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-console-surface border border-console-border rounded overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wider">
+              <thead className="bg-console-surface-2 text-console-muted text-[10px] uppercase tracking-wider">
                 <tr>
                   <th className="px-3 py-3 text-left font-semibold w-8"></th>
                   <th className="px-3 py-3 text-left font-semibold">Campanha</th>
@@ -294,57 +294,57 @@ export default function ClientOverview({
                   <th className="px-3 py-3 text-right font-semibold">Total Revenue</th>
                   <th className="px-3 py-3 text-right font-semibold">ROAS</th>
                   <th className="px-3 py-3 text-right font-semibold">Profit</th>
-                  <th className="px-3 py-3 text-right font-semibold border-l border-gray-200 dark:border-gray-700">IC</th>
+                  <th className="px-3 py-3 text-right font-semibold border-l border-console-border">IC</th>
                   <th className="px-3 py-3 text-right font-semibold">Purchase</th>
-                  <th className="px-3 py-3 text-right font-semibold border-l border-gray-200 dark:border-gray-700">Up1</th>
+                  <th className="px-3 py-3 text-right font-semibold border-l border-console-border">Up1</th>
                   <th className="px-3 py-3 text-right font-semibold">Up2</th>
                   <th className="px-3 py-3 text-right font-semibold">Up3</th>
                   <th className="px-3 py-3 text-right font-semibold">Up4</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              <tbody className="divide-y divide-console-border">
                 {rows.map(r => {
                   const exp = expanded[r.campaign_id];
                   const isOpen = !!exp;
                   return (
                     <React.Fragment key={r.campaign_id}>
                       <tr
-                        className={`hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20 transition-colors cursor-pointer ${isOpen ? 'bg-indigo-50/30 dark:bg-indigo-950/10' : ''}`}
+                        className={`border-l-2 transition-colors cursor-pointer ${isOpen ? 'border-amber-500 bg-amber-500/5' : 'border-transparent hover:border-amber-500 hover:bg-console-surface-2'}`}
                         onClick={() => toggleAds(r.campaign_id)}
                       >
-                        <td className="px-3 py-2.5 text-gray-400 dark:text-gray-500">
+                        <td className="px-3 py-2.5 text-console-muted">
                           {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                         </td>
                         <td className="px-3 py-2.5">
-                          <div className="font-semibold text-gray-800 dark:text-gray-100 max-w-[480px] truncate" title={r.campaign_name}>
+                          <div className="font-semibold text-foreground max-w-[480px] truncate" title={r.campaign_name}>
                             {r.campaign_name}
                           </div>
                           {!r.has_data && (
-                            <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                            <div className="text-[10px] text-console-muted mt-0.5">
                               sem dados no banco para esta data — sincronize pela API
                             </div>
                           )}
                           {r.synced_at && (
-                            <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                            <div className="text-[10px] text-console-muted mt-0.5">
                               sync: {fmtDateTime(r.synced_at)}
                             </div>
                           )}
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono text-rose-500">{fmtBRL(r.cost)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-gray-800 dark:text-gray-100">{fmtBRL(r.total_revenue)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono text-foreground">{fmtBRL(r.total_revenue)}</td>
                         <td className={`px-3 py-2.5 text-right font-mono font-bold ${roasColor(r.roas)}`}>{fmtRoas(r.roas)}</td>
                         <td className={`px-3 py-2.5 text-right font-mono font-bold ${profitColor(r.profit)}`}>{fmtBRL(r.profit)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-gray-700 dark:text-gray-300 border-l border-gray-100 dark:border-gray-800">{fmtNum(r.ic_count)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-gray-700 dark:text-gray-300">{fmtNum(r.purchase_count)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-gray-700 dark:text-gray-300 border-l border-gray-100 dark:border-gray-800">{fmtNum(r.up1_count)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-gray-700 dark:text-gray-300">{fmtNum(r.up2_count)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-gray-700 dark:text-gray-300">{fmtNum(r.up3_count)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-gray-700 dark:text-gray-300">{fmtNum(r.up4_count)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono text-foreground border-l border-console-border">{fmtNum(r.ic_count)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono text-foreground">{fmtNum(r.purchase_count)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono text-foreground border-l border-console-border">{fmtNum(r.up1_count)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono text-foreground">{fmtNum(r.up2_count)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono text-foreground">{fmtNum(r.up3_count)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono text-foreground">{fmtNum(r.up4_count)}</td>
                       </tr>
 
                       {isOpen && (
-                        <tr className="bg-indigo-50/20 dark:bg-indigo-950/10">
-                          <td colSpan={12} className="px-6 py-4 border-b border-indigo-100 dark:border-indigo-900">
+                        <tr className="bg-amber-500/5">
+                          <td colSpan={12} className="px-6 py-4 border-b border-console-border">
                             <AdsPanel
                               state={exp}
                               onRefresh={() => toggleAds(r.campaign_id, true)}
@@ -358,20 +358,20 @@ export default function ClientOverview({
               </tbody>
 
               {totals && rows.length > 0 && (
-                <tfoot className="bg-gray-50/80 dark:bg-gray-800/80 border-t-2 border-gray-200 dark:border-gray-700 text-xs font-bold">
+                <tfoot className="bg-console-surface-2 border-t-2 border-console-border text-xs font-bold">
                   <tr>
                     <td className="px-3 py-3"></td>
-                    <td className="px-3 py-3 text-gray-700 dark:text-gray-300 uppercase tracking-wider text-[10px]">Total</td>
+                    <td className="px-3 py-3 text-foreground uppercase tracking-wider text-[10px]">Total</td>
                     <td className="px-3 py-3 text-right font-mono text-rose-600">{fmtBRL(totals.cost)}</td>
-                    <td className="px-3 py-3 text-right font-mono text-gray-900 dark:text-gray-100">{fmtBRL(totals.total_revenue)}</td>
+                    <td className="px-3 py-3 text-right font-mono text-foreground">{fmtBRL(totals.total_revenue)}</td>
                     <td className={`px-3 py-3 text-right font-mono ${roasColor(totals.roas)}`}>{fmtRoas(totals.roas)}</td>
                     <td className={`px-3 py-3 text-right font-mono ${profitColor(totals.profit)}`}>{fmtBRL(totals.profit)}</td>
-                    <td className="px-3 py-3 text-right font-mono text-gray-800 dark:text-gray-100 border-l border-gray-200 dark:border-gray-700">{fmtNum(totals.ic_count)}</td>
-                    <td className="px-3 py-3 text-right font-mono text-gray-800 dark:text-gray-100">{fmtNum(totals.purchase_count)}</td>
-                    <td className="px-3 py-3 text-right font-mono text-gray-800 dark:text-gray-100 border-l border-gray-200 dark:border-gray-700">{fmtNum(totals.up1_count)}</td>
-                    <td className="px-3 py-3 text-right font-mono text-gray-800 dark:text-gray-100">{fmtNum(totals.up2_count)}</td>
-                    <td className="px-3 py-3 text-right font-mono text-gray-800 dark:text-gray-100">{fmtNum(totals.up3_count)}</td>
-                    <td className="px-3 py-3 text-right font-mono text-gray-800 dark:text-gray-100">{fmtNum(totals.up4_count)}</td>
+                    <td className="px-3 py-3 text-right font-mono text-foreground border-l border-console-border">{fmtNum(totals.ic_count)}</td>
+                    <td className="px-3 py-3 text-right font-mono text-foreground">{fmtNum(totals.purchase_count)}</td>
+                    <td className="px-3 py-3 text-right font-mono text-foreground border-l border-console-border">{fmtNum(totals.up1_count)}</td>
+                    <td className="px-3 py-3 text-right font-mono text-foreground">{fmtNum(totals.up2_count)}</td>
+                    <td className="px-3 py-3 text-right font-mono text-foreground">{fmtNum(totals.up3_count)}</td>
+                    <td className="px-3 py-3 text-right font-mono text-foreground">{fmtNum(totals.up4_count)}</td>
                   </tr>
                 </tfoot>
               )}
@@ -381,7 +381,7 @@ export default function ClientOverview({
       )}
 
       {hasSelection && rows.length === 0 && !loading && !error && (
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-10 text-center text-sm text-gray-400 dark:text-gray-500">
+        <div className="bg-console-surface border border-console-border rounded p-10 text-center text-sm text-console-muted">
           Sem campanhas selecionadas com dados nesta data.
         </div>
       )}
@@ -400,7 +400,7 @@ function AdsPanel({
   onRefresh: () => void;
 }) {
   if (state.loading) {
-    return <div className="text-xs text-gray-500 dark:text-gray-400 italic py-2">Carregando criativos...</div>;
+    return <div className="text-xs text-console-muted italic py-2">Carregando criativos...</div>;
   }
   if (state.error) {
     return (
@@ -412,15 +412,15 @@ function AdsPanel({
   }
   const ads = (state.ads || []).filter(a => a.rt_ad && a.rt_ad !== '(sem rt_ad)' && (a.cost > 0 || a.total_revenue > 0 || a.clicks > 0));
   const profitColor = (p: number) => (p >= 0 ? 'text-emerald-600' : 'text-rose-600');
-  const roasColor = (r: number) => (r >= 1.5 ? 'text-emerald-600' : r >= 1 ? 'text-amber-600' : r > 0 ? 'text-rose-600' : 'text-gray-400 dark:text-gray-500');
+  const roasColor = (r: number) => (r >= 1.5 ? 'text-emerald-600' : r >= 1 ? 'text-amber-600' : r > 0 ? 'text-rose-600' : 'text-console-muted');
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[11px] text-gray-500 dark:text-gray-400">
+        <div className="text-[11px] text-console-muted">
           {ads.length} ad(s){' '}
           {state.source && (
-            <span className="text-gray-400 dark:text-gray-500">
+            <span className="text-console-muted">
               · fonte: {state.source === 'cache' ? 'cache' : 'API ao vivo'}
               {state.synced_at && ` · ${fmtDateTime(state.synced_at)}`}
             </span>
@@ -428,48 +428,48 @@ function AdsPanel({
         </div>
         <button
           onClick={onRefresh}
-          className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 rounded hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition"
+          className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-amber-400 bg-console-surface border border-amber-500 rounded hover:bg-amber-500/10 transition"
         >
           <RefreshCw className="w-3 h-3" /> Buscar da API
         </button>
       </div>
 
       {ads.length === 0 ? (
-        <div className="text-xs text-gray-400 dark:text-gray-500 italic py-4 text-center">Sem ads com tráfego nesta data.</div>
+        <div className="text-xs text-console-muted italic py-4 text-center">Sem ads com tráfego nesta data.</div>
       ) : (
-        <div className="overflow-x-auto bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="overflow-x-auto bg-console-surface rounded border border-console-border">
           <table className="w-full text-[11px]">
-            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[9px] uppercase tracking-wider">
+            <thead className="bg-console-surface-2 text-console-muted text-[9px] uppercase tracking-wider">
               <tr>
                 <th className="px-3 py-2 text-left font-semibold">rt_ad</th>
                 <th className="px-3 py-2 text-right font-semibold">Cost</th>
                 <th className="px-3 py-2 text-right font-semibold">Total Revenue</th>
                 <th className="px-3 py-2 text-right font-semibold">ROAS</th>
                 <th className="px-3 py-2 text-right font-semibold">Profit</th>
-                <th className="px-3 py-2 text-right font-semibold border-l border-gray-200 dark:border-gray-700">IC</th>
+                <th className="px-3 py-2 text-right font-semibold border-l border-console-border">IC</th>
                 <th className="px-3 py-2 text-right font-semibold">Purch</th>
-                <th className="px-3 py-2 text-right font-semibold border-l border-gray-200 dark:border-gray-700">Up1</th>
+                <th className="px-3 py-2 text-right font-semibold border-l border-console-border">Up1</th>
                 <th className="px-3 py-2 text-right font-semibold">Up2</th>
                 <th className="px-3 py-2 text-right font-semibold">Up3</th>
                 <th className="px-3 py-2 text-right font-semibold">Up4</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+            <tbody className="divide-y divide-console-border">
               {ads
                 .sort((a, b) => b.cost - a.cost)
                 .map((a, i) => (
-                  <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <td className="px-3 py-2 font-mono font-semibold text-gray-800 dark:text-gray-100">{a.rt_ad}</td>
+                  <tr key={i} className="border-l-2 border-transparent hover:border-amber-500 hover:bg-console-surface-2 transition-colors">
+                    <td className="px-3 py-2 font-mono font-semibold text-foreground">{a.rt_ad}</td>
                     <td className="px-3 py-2 text-right font-mono text-rose-500">{fmtBRL(a.cost)}</td>
-                    <td className="px-3 py-2 text-right font-mono text-gray-800 dark:text-gray-100">{fmtBRL(a.total_revenue)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-foreground">{fmtBRL(a.total_revenue)}</td>
                     <td className={`px-3 py-2 text-right font-mono font-bold ${roasColor(a.roas)}`}>{fmtRoas(a.roas)}</td>
                     <td className={`px-3 py-2 text-right font-mono font-bold ${profitColor(a.profit)}`}>{fmtBRL(a.profit)}</td>
-                    <td className="px-3 py-2 text-right font-mono text-gray-700 dark:text-gray-300 border-l border-gray-100 dark:border-gray-800">{fmtNum(a.ic_count)}</td>
-                    <td className="px-3 py-2 text-right font-mono text-gray-700 dark:text-gray-300">{fmtNum(a.purchase_count)}</td>
-                    <td className="px-3 py-2 text-right font-mono text-gray-700 dark:text-gray-300 border-l border-gray-100 dark:border-gray-800">{fmtNum(a.up1_count)}</td>
-                    <td className="px-3 py-2 text-right font-mono text-gray-700 dark:text-gray-300">{fmtNum(a.up2_count)}</td>
-                    <td className="px-3 py-2 text-right font-mono text-gray-700 dark:text-gray-300">{fmtNum(a.up3_count)}</td>
-                    <td className="px-3 py-2 text-right font-mono text-gray-700 dark:text-gray-300">{fmtNum(a.up4_count)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-foreground border-l border-console-border">{fmtNum(a.ic_count)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-foreground">{fmtNum(a.purchase_count)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-foreground border-l border-console-border">{fmtNum(a.up1_count)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-foreground">{fmtNum(a.up2_count)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-foreground">{fmtNum(a.up3_count)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-foreground">{fmtNum(a.up4_count)}</td>
                   </tr>
                 ))}
             </tbody>

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 export default function DataStudioPage() {
   return (
     <V2MediaLabLayout title="Data Studio">
-      <div className="w-full h-[calc(100vh-9rem)] bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden dark:bg-gray-900 dark:border-gray-700">
+      <div className="w-full h-[calc(100vh-9rem)] bg-console-surface border border-console-border rounded overflow-hidden">
         <iframe
           width="600"
           height="450"

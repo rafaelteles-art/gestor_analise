@@ -43,8 +43,8 @@ interface LogLine {
 // ── Helpers UI ────────────────────────────────────────────────────────────────
 function ProgressBar({ pct }: { pct: number }) {
   return (
-    <div className="w-full bg-gray-100 rounded-full h-1.5 dark:bg-gray-800">
-      <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+    <div className="w-full bg-console-surface-2 rounded-full h-1.5">
+      <div className="bg-amber-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -68,10 +68,10 @@ function StreamLog({ lines }: { lines: LogLine[] }) {
     if (el) el.scrollTop = el.scrollHeight;
   };
   return (
-    <div className="border border-gray-100 rounded-lg overflow-hidden dark:border-gray-800">
-      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between dark:bg-gray-800 dark:border-gray-700 dark:text-gray-500">
+    <div className="border border-console-border rounded overflow-hidden">
+      <div className="text-[10px] text-console-muted font-bold uppercase tracking-wider px-4 py-2 bg-console-surface-2 border-b border-console-border flex items-center justify-between">
         <span>Status</span>
-        <span className="text-gray-300 dark:text-gray-600">{lines.length} evento(s)</span>
+        <span className="text-console-muted">{lines.length} evento(s)</span>
       </div>
       <div ref={scrollRef} className="max-h-64 overflow-y-auto bg-gray-900 text-gray-100 font-mono text-[11px] leading-relaxed px-3 py-2 whitespace-pre-wrap">
         {lines.map((l, i) => {
@@ -94,9 +94,9 @@ function StreamLog({ lines }: { lines: LogLine[] }) {
 
 function SyncLog({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border border-gray-100 rounded-lg overflow-hidden dark:border-gray-800">
-      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-4 py-2 bg-gray-50 border-b border-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-500">Log</div>
-      <div className="divide-y divide-gray-50 max-h-56 overflow-y-auto dark:divide-gray-800">{children}</div>
+    <div className="border border-console-border rounded overflow-hidden">
+      <div className="text-[10px] text-console-muted font-bold uppercase tracking-wider px-4 py-2 bg-console-surface-2 border-b border-console-border">Log</div>
+      <div className="divide-y divide-console-border max-h-56 overflow-y-auto">{children}</div>
     </div>
   );
 }
@@ -104,7 +104,7 @@ function SyncLog({ children }: { children: React.ReactNode }) {
 function LogRow({ label, status, children }: { label: string; status?: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between px-4 py-2 text-xs">
-      <span className="text-gray-700 font-medium truncate max-w-[55%] dark:text-gray-300">{label}</span>
+      <span className="text-foreground font-medium truncate max-w-[55%]">{label}</span>
       <div className="flex items-center gap-2 shrink-0">
         {children}
         {status === 'ok'    && <span className="text-emerald-500 text-base leading-none">✓</span>}
@@ -202,33 +202,33 @@ function MetaPanel() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-xs text-gray-600 font-medium whitespace-nowrap dark:text-gray-300">Período:</span>
+        <span className="text-xs text-foreground font-medium whitespace-nowrap">Período:</span>
         <div className="flex gap-1 flex-wrap">
           {([7, 14, 30, 60, 90] as const).map(d => (
             <button key={d} onClick={() => setPeriod(d)} disabled={running}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-                period === d ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+              className={`px-3 py-1 text-xs font-semibold rounded transition-colors disabled:opacity-40 ${
+                period === d ? 'bg-amber-500 text-black' : 'border border-console-border text-foreground hover:bg-console-surface-2'
               }`}
             >{d}d</button>
           ))}
           <button onClick={() => setPeriod('today')} disabled={running}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-              period === 'today' ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+            className={`px-3 py-1 text-xs font-semibold rounded transition-colors disabled:opacity-40 ${
+              period === 'today' ? 'bg-amber-500 text-black' : 'border border-console-border text-foreground hover:bg-console-surface-2'
             }`}
           >Hoje</button>
           <button onClick={() => setPeriod('yesterday')} disabled={running}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-              period === 'yesterday' ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+            className={`px-3 py-1 text-xs font-semibold rounded transition-colors disabled:opacity-40 ${
+              period === 'yesterday' ? 'bg-amber-500 text-black' : 'border border-console-border text-foreground hover:bg-console-surface-2'
             }`}
           >Ontem</button>
           <button onClick={() => setPeriod('range')} disabled={running}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-              period === 'range' ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+            className={`px-3 py-1 text-xs font-semibold rounded transition-colors disabled:opacity-40 ${
+              period === 'range' ? 'bg-amber-500 text-black' : 'border border-console-border text-foreground hover:bg-console-surface-2'
             }`}
           >Datas específicas</button>
         </div>
         <button onClick={handleSync} disabled={running || !rangeValid}
-          className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded bg-amber-500 text-black hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {running
             ? <><SpinIcon /> Importando...</>
@@ -242,19 +242,19 @@ function MetaPanel() {
       </div>
 
       {period === 'range' && (
-        <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex-wrap dark:bg-gray-800 dark:border-gray-700">
+        <div className="flex items-center gap-3 bg-console-surface-2 border border-console-border rounded px-3 py-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <label className="text-[11px] text-gray-500 font-medium dark:text-gray-400">De</label>
+            <label className="text-[11px] text-console-muted font-medium">De</label>
             <input type="date" value={rangeFrom} max={todayStr}
               onChange={e => setRangeFrom(e.target.value)} disabled={running}
-              className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              className="text-xs px-2 py-1 rounded border border-console-border bg-background text-foreground focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none disabled:opacity-50"
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-[11px] text-gray-500 font-medium dark:text-gray-400">Até</label>
+            <label className="text-[11px] text-console-muted font-medium">Até</label>
             <input type="date" value={rangeTo} max={todayStr}
               onChange={e => setRangeTo(e.target.value)} disabled={running}
-              className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              className="text-xs px-2 py-1 rounded border border-console-border bg-background text-foreground focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none disabled:opacity-50"
             />
           </div>
           {!rangeValid && (
@@ -265,7 +265,7 @@ function MetaPanel() {
 
       {running && startLine && (
         <div>
-          <div className="flex justify-between text-[10px] text-gray-500 mb-1 dark:text-gray-400">
+          <div className="flex justify-between text-[10px] text-console-muted mb-1">
             <span>
               {batchStartLine
                 ? `Fila ${batchStartLine.batch}/${batchStartLine.totalBatches} (${batchStartLine.batchSize} contas) — ${progressLine?.account ?? 'processando...'}`
@@ -275,7 +275,7 @@ function MetaPanel() {
           </div>
           <ProgressBar pct={progressPct} />
           {batchStartLine && (
-            <div className="text-[10px] text-gray-400 mt-1 dark:text-gray-500">
+            <div className="text-[10px] text-console-muted mt-1">
               {batchDoneLines.length} de {batchStartLine.totalBatches} filas concluídas
             </div>
           )}
@@ -294,8 +294,8 @@ function MetaPanel() {
         <SyncLog>
           {accountLines.map((line, i) => (
             <LogRow key={i} label={line.account ?? ''} status={line.status}>
-              {line.status === 'ok'    && <span className="text-gray-500 dark:text-gray-400">{line.rows?.toLocaleString('pt-BR')} linhas</span>}
-              {line.status === 'empty' && <span className="text-gray-400 dark:text-gray-500">sem dados</span>}
+              {line.status === 'ok'    && <span className="text-console-muted">{line.rows?.toLocaleString('pt-BR')} linhas</span>}
+              {line.status === 'empty' && <span className="text-console-muted">sem dados</span>}
               {line.status === 'error' && <span className="text-rose-500 text-[10px] truncate max-w-[200px]" title={line.error}>erro: {line.error}</span>}
             </LogRow>
           ))}
@@ -404,13 +404,13 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       {/* ── Campanhas mapeadas + scan ── */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Campanhas mapeadas</p>
-          <p className="text-[11px] text-gray-400 mt-0.5 dark:text-gray-500">
+          <p className="text-xs font-semibold text-foreground">Campanhas mapeadas</p>
+          <p className="text-[11px] text-console-muted mt-0.5">
             {campaignCount} campanha(s) · vinculadas pelas Ofertas
           </p>
         </div>
         <button onClick={scanCampaigns} disabled={isScanningCamps}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded border border-console-border text-foreground hover:bg-console-surface-2 disabled:opacity-50 transition-colors"
         >
           <RefreshCw className={`w-3 h-3 ${isScanningCamps ? 'animate-spin' : ''}`} />
           {isScanningCamps ? 'Escaneando...' : 'Escanear'}
@@ -418,12 +418,12 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       </div>
 
       {/* ── Divisor ── */}
-      <div className="border-t border-gray-100 dark:border-gray-800" />
+      <div className="border-t border-console-border" />
 
       {/* ── Seletor de período + datas específicas ── */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs text-gray-600 font-medium whitespace-nowrap dark:text-gray-300">Período:</span>
+          <span className="text-xs text-foreground font-medium whitespace-nowrap">Período:</span>
           <div className="flex gap-1 flex-wrap">
             {([
               ['today',     'Hoje'],
@@ -433,33 +433,33 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
               ['range',     'Datas específicas'],
             ] as const).map(([p, label]) => (
               <button key={p} onClick={() => setPeriod(p)} disabled={running}
-                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 ${
-                  period === p ? 'bg-violet-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+                className={`px-3 py-1 text-xs font-semibold rounded transition-colors disabled:opacity-40 ${
+                  period === p ? 'bg-violet-600 text-white' : 'border border-console-border text-foreground hover:bg-console-surface-2'
                 }`}
               >{label}</button>
             ))}
           </div>
           <button onClick={handleSync} disabled={running || !rangeValid}
-            className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {running ? <><SpinIcon /> Sincronizando...</> : <><UploadIcon /> {buttonLabel}</>}
           </button>
         </div>
 
         {period === 'range' && (
-          <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-700">
+          <div className="flex items-center gap-3 bg-console-surface-2 border border-console-border rounded px-3 py-2">
             <div className="flex items-center gap-2">
-              <label className="text-[11px] text-gray-500 font-medium dark:text-gray-400">De</label>
+              <label className="text-[11px] text-console-muted font-medium">De</label>
               <input type="date" value={rangeFrom} max={todayStr}
                 onChange={e => setRangeFrom(e.target.value)} disabled={running}
-                className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                className="text-xs px-2 py-1 rounded border border-console-border bg-background text-foreground focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none disabled:opacity-50"
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-[11px] text-gray-500 font-medium dark:text-gray-400">Até</label>
+              <label className="text-[11px] text-console-muted font-medium">Até</label>
               <input type="date" value={rangeTo} max={todayStr}
                 onChange={e => setRangeTo(e.target.value)} disabled={running}
-                className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                className="text-xs px-2 py-1 rounded border border-console-border bg-background text-foreground focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none disabled:opacity-50"
               />
             </div>
             {!rangeValid && (
@@ -468,8 +468,8 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
           </div>
         )}
 
-        <p className="text-[11px] text-gray-500 dark:text-gray-400">
-          Sincroniza <span className="font-semibold text-gray-700 dark:text-gray-300">{
+        <p className="text-[11px] text-console-muted">
+          Sincroniza <span className="font-semibold text-foreground">{
             period === 'today' ? 'hoje' :
             period === 'yesterday' ? 'ontem' :
             period === 'days3' ? 'os últimos 3 dias' :
@@ -482,7 +482,7 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       {/* ── Progresso ── */}
       {(running || done) && syncStart && (
         <div>
-          <div className="flex justify-between text-[10px] text-gray-500 mb-1 dark:text-gray-400">
+          <div className="flex justify-between text-[10px] text-console-muted mb-1">
             <span>
               {done
                 ? `Concluído · ${syncStart.total} campanha(s)`
@@ -513,7 +513,7 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
         <SyncLog>
           {campLines.map((line, i) => (
             <LogRow key={i} label={line.campaign ?? ''} status={line.status}>
-              {line.status === 'ok' && <span className="text-gray-500 dark:text-gray-400">{line.rtAds} rt_ads · {line.rtCampaigns} rt_campaigns</span>}
+              {line.status === 'ok' && <span className="text-console-muted">{line.rtAds} rt_ads · {line.rtCampaigns} rt_campaigns</span>}
               {line.status === 'error' && <span className="text-rose-500 text-[10px] truncate max-w-[200px]" title={line.error}>erro: {line.error}</span>}
             </LogRow>
           ))}
@@ -531,10 +531,10 @@ export default function MetaSyncPanel({ initialRtCampaigns = [] }: { initialRtCa
     <div className="flex flex-col gap-4">
 
       {/* Meta */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
+      <div className="bg-console-surface border border-console-border rounded p-6">
         <div className="mb-4">
-          <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">Importar histórico — Meta Ads</h2>
-          <p className="text-xs text-gray-500 mt-1 dark:text-gray-400">
+          <h2 className="text-sm font-bold text-foreground">Importar histórico — Meta Ads</h2>
+          <p className="text-xs text-console-muted mt-1">
             Busca dados diários das contas vinculadas (via Ofertas / Status de Contas) e armazena no banco.
           </p>
         </div>
@@ -542,10 +542,10 @@ export default function MetaSyncPanel({ initialRtCampaigns = [] }: { initialRtCa
       </div>
 
       {/* RedTrack */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
+      <div className="bg-console-surface border border-console-border rounded p-6">
         <div className="mb-4">
-          <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">Importar histórico — RedTrack</h2>
-          <p className="text-xs text-gray-500 mt-1 dark:text-gray-400">
+          <h2 className="text-sm font-bold text-foreground">Importar histórico — RedTrack</h2>
+          <p className="text-xs text-console-muted mt-1">
             Sincroniza os dados das campanhas vinculadas (via Ofertas) no cache do banco.
           </p>
         </div>

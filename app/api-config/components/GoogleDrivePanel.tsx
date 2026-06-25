@@ -71,14 +71,14 @@ export default function GoogleDrivePanel() {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm dark:bg-gray-900 dark:border-gray-700">
-      <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center justify-between dark:bg-gray-800 dark:border-gray-800">
+    <div className="bg-console-surface border border-console-border rounded overflow-hidden">
+      <div className="p-6 border-b border-console-border bg-console-surface-2 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 dark:text-gray-100">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
             <HardDrive className="w-5 h-5 text-blue-500" />
             Google Drive
           </h2>
-          <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
+          <p className="text-sm text-console-muted mt-1">
             Conecte sua conta Google para usar arquivos do Drive como criativos de campanha.
           </p>
         </div>
@@ -86,7 +86,7 @@ export default function GoogleDrivePanel() {
 
       <div className="p-6">
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-2 text-sm text-console-muted">
             <Loader2 className="w-4 h-4 animate-spin" />
             Verificando conexão...
           </div>
@@ -106,7 +106,7 @@ export default function GoogleDrivePanel() {
                 type="button"
                 onClick={handleDisconnect}
                 disabled={disconnecting}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md border border-emerald-300 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition-colors dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/40"
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border border-emerald-300 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition-colors dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/40"
               >
                 {disconnecting
                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -127,12 +127,12 @@ export default function GoogleDrivePanel() {
             <div className="flex items-center gap-4">
               <a
                 href="/api/google/oauth/start"
-                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-lg shadow-sm transition-colors text-sm"
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded transition-colors text-sm"
               >
                 <ExternalLink className="w-4 h-4" />
                 Conectar Google Drive
               </a>
-              <span className="text-xs text-gray-400 dark:text-gray-500">
+              <span className="text-xs text-console-muted">
                 Acesso somente leitura ao seu Drive
               </span>
             </div>

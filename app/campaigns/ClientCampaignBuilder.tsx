@@ -353,11 +353,11 @@ function MainSection({
   title, subtitle, badge, children,
 }: { title: string; subtitle?: string; badge?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+    <section className="bg-console-surface border border-console-border rounded p-6">
       <header className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{title}</h2>
-          {subtitle && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
+          <h2 className="text-base font-bold text-foreground">{title}</h2>
+          {subtitle && <p className="text-xs text-console-muted mt-0.5">{subtitle}</p>}
         </div>
         {badge}
       </header>
@@ -374,11 +374,11 @@ function SubBlock({
     <div className="flex flex-col gap-2">
       {(label || badge) && (
         <div className="flex items-center justify-between">
-          {label && <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{label}</p>}
+          {label && <p className="text-[10px] font-bold text-console-muted uppercase tracking-wider">{label}</p>}
           {badge}
         </div>
       )}
-      {hint && <p className="text-[11px] text-gray-400 dark:text-gray-500 -mt-1">{hint}</p>}
+      {hint && <p className="text-[11px] text-console-muted -mt-1">{hint}</p>}
       {children}
     </div>
   );
@@ -387,14 +387,14 @@ function SubBlock({
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">{label}</span>
+      <span className="text-[11px] font-semibold text-console-muted">{label}</span>
       {children}
-      {hint && <span className="text-[10px] text-gray-400 dark:text-gray-500">{hint}</span>}
+      {hint && <span className="text-[10px] text-console-muted">{hint}</span>}
     </label>
   );
 }
 
-const inputBase = 'text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50';
+const inputBase = 'text-xs px-3 py-2 rounded border border-console-border bg-console-surface text-foreground focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none disabled:opacity-50';
 
 /**
  * Multi-select de contas agrupado por BM. Quando ≥2 contas marcadas, vira
@@ -486,42 +486,42 @@ function AccountMultiSelect({
         onClick={() => setExpanded(v => !v)}
         disabled={accounts.length === 0}
         className={cls(
-          'flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-md border bg-white dark:bg-gray-900 outline-none transition-colors',
+          'flex items-center justify-between gap-2 text-xs px-3 py-2 rounded border bg-console-surface outline-none transition-colors',
           'disabled:opacity-50',
           selected.length > 1
-            ? 'border-indigo-400 ring-1 ring-indigo-200 dark:ring-indigo-800'
-            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+            ? 'border-amber-500 ring-1 ring-amber-500/30'
+            : 'border-console-border hover:border-console-border'
         )}
       >
         <span className="truncate text-left flex-1">{summary}</span>
         <span className="flex items-center gap-2 shrink-0">
           {selected.length > 1 && (
-            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/50 px-2 py-0.5 rounded">
               broadcast: {selected.length}
             </span>
           )}
-          <span className="text-gray-400 dark:text-gray-500 text-[10px]">{expanded ? '▲' : '▼'}</span>
+          <span className="text-console-muted text-[10px]">{expanded ? '▲' : '▼'}</span>
         </span>
       </button>
 
       {expanded && (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 max-h-72 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+        <div className="border border-console-border rounded bg-console-surface max-h-72 overflow-y-auto divide-y divide-console-border">
           {accounts.length > 0 && (
-            <div className="px-2 py-1.5 sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 z-10">
+            <div className="px-2 py-1.5 sticky top-0 bg-console-surface border-b border-console-border z-10">
               <input
                 type="text"
                 value={acctFilter}
                 onChange={e => setAcctFilter(e.target.value)}
                 placeholder="Filtrar contas…"
-                className="w-full text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-indigo-400"
+                className="w-full text-xs px-2 py-1 rounded border border-console-border bg-console-surface text-foreground outline-none focus:border-amber-500"
               />
             </div>
           )}
           {accounts.length === 0 && (
-            <div className="px-3 py-3 text-[11px] text-gray-400 dark:text-gray-500">— nenhuma conta deste perfil —</div>
+            <div className="px-3 py-3 text-[11px] text-console-muted">— nenhuma conta deste perfil —</div>
           )}
           {grouped.length === 0 && acctFilter.trim() && (
-            <div className="px-3 py-3 text-[11px] text-gray-400 dark:text-gray-500 italic">Nenhum resultado para "{acctFilter}"</div>
+            <div className="px-3 py-3 text-[11px] text-console-muted italic">Nenhum resultado para "{acctFilter}"</div>
           )}
           {grouped.map(([bmName, list]) => {
             const ids = list.map(a => a.account_id);
@@ -529,16 +529,16 @@ function AccountMultiSelect({
             const someSel = ids.some(id => selectedSet.has(id));
             return (
               <div key={bmName} className="px-2 py-1.5">
-                <label className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                <label className="flex items-center gap-2 px-2 py-1 rounded hover:bg-console-surface-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={allSel}
                     ref={el => { if (el) el.indeterminate = !allSel && someSel; }}
                     onChange={() => toggleBM(bmName)}
-                    className="w-3.5 h-3.5 accent-indigo-600"
+                    className="w-3.5 h-3.5 accent-amber-500"
                   />
-                  <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex-1 truncate">{bmName}</span>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500">{list.length} conta(s)</span>
+                  <span className="text-[11px] font-semibold text-foreground flex-1 truncate">{bmName}</span>
+                  <span className="text-[10px] text-console-muted">{list.length} conta(s)</span>
                 </label>
                 <div className="ml-5 mt-0.5">
                   {list.map(a => {
@@ -546,26 +546,26 @@ function AccountMultiSelect({
                     return (
                       <label
                         key={a.account_id}
-                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-console-surface-2 cursor-pointer"
                       >
                         <input
                           type="checkbox"
                           checked={selectedSet.has(a.account_id)}
                           onChange={() => toggle(a.account_id)}
-                          className="w-3.5 h-3.5 accent-indigo-600"
+                          className="w-3.5 h-3.5 accent-amber-500"
                         />
-                        <span className="text-[11px] text-gray-700 dark:text-gray-300 flex-1 truncate">
+                        <span className="text-[11px] text-foreground flex-1 truncate">
                           {acctLabel(a)}
                           {a.nickname && (
-                            <span className="text-gray-400 dark:text-gray-500 ml-1 text-[10px]">({a.account_name})</span>
+                            <span className="text-console-muted ml-1 text-[10px]">({a.account_name})</span>
                           )}
-                          <span className="text-gray-400 dark:text-gray-500"> ({a.account_id})</span>
+                          <span className="text-console-muted"> ({a.account_id})</span>
                           {a.account_status && a.account_status !== 'ACTIVE' && (
                             <span className="text-amber-600 dark:text-amber-400"> · {a.account_status}</span>
                           )}
                         </span>
                         {isPrimary && selected.length > 1 && (
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
                             primária
                           </span>
                         )}
@@ -638,8 +638,8 @@ function Toggle({
       </span>
       {(label || hint) && (
         <span className="flex flex-col text-left">
-          {label && <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{label}</span>}
-          {hint && <span className="text-[10px] text-gray-400 dark:text-gray-500">{hint}</span>}
+          {label && <span className="text-[11px] font-semibold text-foreground">{label}</span>}
+          {hint && <span className="text-[10px] text-console-muted">{hint}</span>}
         </span>
       )}
     </button>
@@ -664,22 +664,22 @@ function OptionCard<T extends string>({
       onClick={() => !disabled && onClick(value)}
       disabled={disabled}
       className={cls(
-        'flex flex-col items-start gap-1 p-3 rounded-lg border text-left transition-all',
+        'flex flex-col items-start gap-1 p-3 rounded border text-left transition-all',
         selected
-          ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 ring-1 ring-indigo-500'
-          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600',
+          ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500'
+          : 'border-console-border bg-console-surface hover:border-console-border',
         disabled && 'opacity-50 cursor-not-allowed'
       )}
     >
       <div className="flex items-center gap-2 w-full">
         <span className={cls(
           'inline-block w-3 h-3 rounded-full border-2',
-          selected ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300 dark:border-gray-600'
+          selected ? 'border-amber-500 bg-amber-500' : 'border-console-border'
         )} />
-        <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">{title}</span>
+        <span className="text-[12px] font-semibold text-foreground">{title}</span>
         {badge && <span className="ml-auto">{badge}</span>}
       </div>
-      {desc && <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">{desc}</p>}
+      {desc && <p className="text-[10px] text-console-muted leading-tight">{desc}</p>}
     </button>
   );
 }
@@ -716,18 +716,18 @@ function AudiencePicker({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="min-h-[60px] border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 px-2 py-1.5 flex flex-wrap gap-1.5 content-start">
+      <div className="min-h-[60px] border border-console-border rounded bg-console-surface px-2 py-1.5 flex flex-wrap gap-1.5 content-start">
         {selectedIds.length === 0 && (
-          <span className="text-[11px] text-gray-400 dark:text-gray-500 italic px-1 py-1">{emptyText}</span>
+          <span className="text-[11px] text-console-muted italic px-1 py-1">{emptyText}</span>
         )}
         {selectedIds.map(id => {
           const a = byId.get(id);
           if (!a) {
             return (
-              <span key={id} className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-full px-2 py-0.5 text-[11px]">
+              <span key={id} className="inline-flex items-center gap-1 bg-console-surface-2 text-console-muted border border-console-border rounded-full px-2 py-0.5 text-[11px]">
                 <span className="truncate max-w-[220px]" title={id}>id: {id}</span>
                 <button type="button" onClick={() => remove(id)}
-                  className="text-gray-400 dark:text-gray-500 hover:text-rose-500 dark:hover:text-rose-400 leading-none text-sm font-bold"
+                  className="text-console-muted hover:text-rose-500 dark:hover:text-rose-400 leading-none text-sm font-bold"
                   aria-label="Remover">×</button>
               </span>
             );
@@ -735,10 +735,10 @@ function AudiencePicker({
           const label = a.subtype ? `[${a.subtype}] ${a.name}` : a.name;
           return (
             <span key={id}
-              className="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-full px-2 py-0.5 text-[11px] font-medium">
+              className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/50 rounded-full px-2 py-0.5 text-[11px] font-medium">
               <span className="truncate max-w-[220px]" title={label}>{label}</span>
               <button type="button" onClick={() => remove(id)}
-                className="text-indigo-400 dark:text-indigo-500 hover:text-rose-500 dark:hover:text-rose-400 leading-none text-sm font-bold"
+                className="text-amber-400/70 hover:text-rose-500 dark:hover:text-rose-400 leading-none text-sm font-bold"
                 aria-label="Remover">×</button>
             </span>
           );
@@ -789,8 +789,8 @@ function ChipPicker<T extends string | number>({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="min-h-[40px] border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 px-2 py-1.5 flex flex-wrap gap-1.5 content-start">
-        {selected.length === 0 && <span className="text-[11px] text-gray-400 dark:text-gray-500 italic px-1 py-1">{emptyText}</span>}
+      <div className="min-h-[40px] border border-console-border rounded bg-console-surface px-2 py-1.5 flex flex-wrap gap-1.5 content-start">
+        {selected.length === 0 && <span className="text-[11px] text-console-muted italic px-1 py-1">{emptyText}</span>}
         {selected.map(v => {
           const o = byVal.get(v);
           return (
@@ -992,14 +992,14 @@ function LookalikeBuilder({
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)}
-        className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold">
+        className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold">
         + Criar lookalike a partir de um público
       </button>
     );
   }
 
   return (
-    <div className="border border-indigo-100 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/30 rounded-lg p-3 flex flex-col gap-2">
+    <div className="border border-console-border bg-console-surface-2 rounded p-3 flex flex-col gap-2">
       <div className="grid grid-cols-2 gap-2">
         <Field label="Nome">
           <input className={inputBase} value={name} onChange={e => setName(e.target.value)} placeholder="LAL 1% BR — Compradores 90d" />
@@ -1032,11 +1032,11 @@ function LookalikeBuilder({
       {err && <p className="text-[11px] text-rose-600 dark:text-rose-400">{err}</p>}
       <div className="flex gap-2 justify-end">
         <button type="button" onClick={() => setOpen(false)} disabled={busy}
-          className="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800">
+          className="px-3 py-1.5 text-xs font-semibold rounded border border-console-border text-console-muted bg-console-surface hover:bg-console-surface-2">
           Cancelar
         </button>
         <button type="button" onClick={handleCreate} disabled={busy || !name || !seed}
-          className="px-3 py-1.5 text-xs font-semibold rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+          className="px-3 py-1.5 text-xs font-semibold rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">
           {busy ? 'Criando…' : 'Criar lookalike'}
         </button>
       </div>
@@ -1136,19 +1136,19 @@ function CampaignNameModal({
       aria-modal="true"
     >
       <div
-        className="w-full max-w-3xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
+        className="w-full max-w-3xl bg-console-surface rounded border border-console-border flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        <header className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <header className="px-5 py-4 border-b border-console-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-base">✨</span>
-            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Nomenclatura</h3>
-            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400">Campanha</span>
+            <h3 className="text-sm font-bold text-foreground">Nomenclatura</h3>
+            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-500/10 text-amber-400">Campanha</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl leading-none w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="text-console-muted hover:text-foreground text-2xl leading-none w-7 h-7 flex items-center justify-center rounded hover:bg-console-surface-2"
             aria-label="Fechar"
           >
             ×
@@ -1157,8 +1157,8 @@ function CampaignNameModal({
 
         <div className="grid grid-cols-[220px_1fr]">
           {/* Sidebar de variáveis */}
-          <aside className="border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-4 flex flex-col gap-3">
-            <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Variáveis</p>
+          <aside className="border-r border-console-border bg-console-surface-2 px-3 py-4 flex flex-col gap-3">
+            <p className="text-[10px] font-bold text-console-muted uppercase tracking-wider">Variáveis</p>
             <div className="flex flex-col gap-2">
               {chips.map(c => (
                 <button
@@ -1178,7 +1178,7 @@ function CampaignNameModal({
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 leading-snug">
+            <p className="text-[10px] text-console-muted mt-1 leading-snug">
               Clique para inserir a variável no template. Os valores ao lado são uma prévia do estado atual.
             </p>
           </aside>
@@ -1186,50 +1186,50 @@ function CampaignNameModal({
           {/* Editor + Preview */}
           <div className="px-5 py-4 flex flex-col gap-4 min-w-0">
             <div>
-              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Template</p>
+              <p className="text-[10px] font-bold text-console-muted uppercase tracking-wider mb-1">Template</p>
               <textarea
                 ref={inputRef}
                 value={tpl}
                 onChange={e => setTpl(e.target.value)}
                 rows={2}
-                className="w-full text-xs font-mono px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-y"
+                className="w-full text-xs font-mono px-3 py-2 rounded border border-console-border bg-console-surface text-foreground focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none resize-y"
                 placeholder="Ex.: [{{conta}}] {{orcamento}} - {{criativo}} - {{data}}"
               />
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+              <p className="text-[10px] text-console-muted mt-1">
                 Use chips ao lado ou digite manualmente. Variáveis disponíveis: <code>{'{{conta}}'}</code>, <code>{'{{orcamento}}'}</code>, <code>{'{{estrutura}}'}</code>, <code>{'{{criativo}}'}</code>, <code>{'{{data}}'}</code>.
               </p>
             </div>
 
             <div>
-              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Pré-visualização</p>
-              <div className="rounded-md border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/40 px-3 py-2 text-[12px] font-mono text-indigo-900 dark:text-indigo-300 break-all min-h-[36px]">
-                {preview || <span className="text-gray-400 dark:text-gray-500">—</span>}
+              <p className="text-[10px] font-bold text-console-muted uppercase tracking-wider mb-1">Pré-visualização</p>
+              <div className="rounded border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] font-mono text-amber-400 break-all min-h-[36px]">
+                {preview || <span className="text-console-muted">—</span>}
               </div>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{preview.length} caracteres</p>
+              <p className="text-[10px] text-console-muted mt-1">{preview.length} caracteres</p>
             </div>
           </div>
         </div>
 
-        <footer className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800">
+        <footer className="px-5 py-3 border-t border-console-border flex items-center justify-between gap-3 bg-console-surface-2">
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setTpl(DEFAULT_CAMPAIGN_NAME_TPL)}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="px-3 py-1.5 text-[11px] font-semibold rounded border border-console-border text-console-muted bg-console-surface hover:bg-console-surface-2"
             >
               Padrão
             </button>
             <button
               type="button"
               onClick={() => setTpl('')}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="px-3 py-1.5 text-[11px] font-semibold rounded border border-console-border text-console-muted bg-console-surface hover:bg-console-surface-2"
             >
               Limpar
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="px-3 py-1.5 text-[11px] font-semibold rounded border border-console-border text-console-muted bg-console-surface hover:bg-console-surface-2"
               title="Salvar template no navegador"
             >
               Salvar template
@@ -1239,7 +1239,7 @@ function CampaignNameModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="px-3 py-1.5 text-xs font-semibold rounded border border-console-border text-console-muted bg-console-surface hover:bg-console-surface-2"
             >
               Cancelar
             </button>
@@ -1247,7 +1247,7 @@ function CampaignNameModal({
               type="button"
               onClick={handleUse}
               disabled={!preview.trim()}
-              className="px-4 py-1.5 text-xs font-semibold rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 shadow"
+              className="px-4 py-1.5 text-xs font-semibold rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
             >
               Usar template
             </button>
@@ -2481,14 +2481,14 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   // ── Render guards ─────────────────────────────────────────────────────────
   if (accounts.length === 0) {
     return (
-      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-sm text-amber-800 dark:text-amber-400">
+      <div className="bg-amber-500/10 border border-amber-500/50 rounded p-6 text-sm text-amber-400">
         Nenhuma conta Meta selecionada com token válido. Vá em <a href="/settings" className="underline font-semibold">Contas de anúncios</a> para selecionar.
       </div>
     );
   }
   if (availableProfiles.length === 0) {
     return (
-      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-sm text-amber-800 dark:text-amber-400">
+      <div className="bg-amber-500/10 border border-amber-500/50 rounded p-6 text-sm text-amber-400">
         Nenhum perfil Meta configurado em <a href="/api-config" className="underline font-semibold">Configurações</a>, ou os tokens não batem com as contas selecionadas.
       </div>
     );
@@ -2509,16 +2509,16 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               })}
             </select>
           </Field>
-          <div className="flex items-end justify-between gap-3 text-[11px] text-gray-500 dark:text-gray-400">
+          <div className="flex items-end justify-between gap-3 text-[11px] text-console-muted">
             <span>{accountsForProfile.length} conta(s) deste perfil disponível(is) abaixo.</span>
             <button type="button" onClick={handleSyncAccounts} disabled={syncing}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded border border-console-border text-console-muted bg-console-surface hover:bg-console-surface-2 disabled:opacity-50">
               <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Sincronizando…' : 'Sincronizar contas'}
             </button>
           </div>
         </div>
-        {syncing && syncMsg && <p className="text-[11px] text-gray-400 dark:text-gray-500">{syncMsg}</p>}
+        {syncing && syncMsg && <p className="text-[11px] text-console-muted">{syncMsg}</p>}
         {syncError && <p className="text-[11px] text-rose-600 dark:text-rose-400">Erro ao sincronizar: {syncError}</p>}
       </MainSection>
 
@@ -2564,7 +2564,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               onClick={handleSavePreset}
               disabled={presetBusy}
               title="Salvar configuração atual como preset"
-              className="px-3 py-2 text-[11px] font-semibold rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50"
+              className="px-3 py-2 text-[11px] font-semibold rounded border border-amber-500/50 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 disabled:opacity-50"
             >
               Salvar
             </button>
@@ -2573,7 +2573,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               onClick={handleDeletePreset}
               disabled={presetBusy || !activePresetName}
               title={activePresetName ? `Excluir preset "${activePresetName}"` : 'Selecione um preset'}
-              className="px-3 py-2 text-[11px] font-semibold rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 disabled:opacity-50"
+              className="px-3 py-2 text-[11px] font-semibold rounded border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 disabled:opacity-50"
             >
               Excluir
             </button>
@@ -2603,7 +2603,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 onChange={setAccountIds}
               />
               {isBroadcast && (
-                <div className="mt-2 text-[11px] leading-relaxed bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 text-amber-800 dark:text-amber-400">
+                <div className="mt-2 text-[11px] leading-relaxed bg-amber-500/10 border border-amber-500/50 rounded px-3 py-2 text-amber-400">
                   <strong>Atenção — IDs account-scoped:</strong> pixels, públicos, catálogos e product sets exibidos são da conta primária
                   <span className="font-mono"> ({(account?.nickname || account?.account_name) ?? accountId})</span>. Em broadcast, esses IDs serão enviados <em>tal qual</em> para as demais contas — se não existirem
                   na conta destino, a chamada à Meta falha (erro #100). A criação segue nas demais contas e o resumo final mostra sucessos/falhas.
@@ -2625,7 +2625,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 <button
                   type="button"
                   onClick={() => setShowNameModal(true)}
-                  className="shrink-0 px-3 py-2 text-[11px] font-semibold rounded-md border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 inline-flex items-center gap-1"
+                  className="shrink-0 px-3 py-2 text-[11px] font-semibold rounded border border-amber-500/50 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 inline-flex items-center gap-1"
                   title="Gerar nome com variáveis"
                 >
                   <span>✨</span>
@@ -2664,7 +2664,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {/* CATÁLOGO (DPA) — independente de ABO/CBO; não se aplica a Engajamento */}
         {!isEngagement && (
         <SubBlock label="Catálogo (DPA)" hint="Use catálogo de produtos. Combinável com ABO ou CBO.">
-          <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/30 px-4 py-3 flex items-center justify-between">
+          <div className="rounded border border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/30 px-4 py-3 flex items-center justify-between">
             <div>
               <p className="text-[12px] font-semibold text-rose-800 dark:text-rose-400">Usar catálogo de produtos</p>
               <p className="text-[11px] text-rose-700 dark:text-rose-400">Dynamic Product Ads — funciona com qualquer modo de orçamento ({campaignType}).</p>
@@ -2713,7 +2713,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               </div>
 
               {catalogConfigMode === 'new' && !createdCatalog && (
-                <div className="border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/30 rounded-lg p-3 mt-2 flex flex-col gap-2">
+                <div className="border border-console-border bg-console-surface-2 rounded p-3 mt-2 flex flex-col gap-2">
                   <div className="grid grid-cols-2 gap-3">
                     <Field
                       label="Business Manager"
@@ -2738,7 +2738,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                             type="button"
                             onClick={() => setManualBmMode(false)}
                             disabled={creatingCatalog}
-                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                            className="px-2 py-1 text-[11px] font-semibold rounded border border-console-border bg-console-surface text-foreground hover:bg-console-surface-2"
                           >
                             Lista
                           </button>
@@ -2767,7 +2767,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                             onClick={loadBusinesses}
                             disabled={loadingBusinesses || creatingCatalog || !accountId}
                             title="Recarregar BMs"
-                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                            className="px-2 py-1 text-[11px] font-semibold rounded border border-console-border bg-console-surface text-foreground hover:bg-console-surface-2 disabled:opacity-50"
                           >
                             <RefreshCw className={cls('h-3.5 w-3.5', loadingBusinesses && 'animate-spin')} />
                           </button>
@@ -2776,7 +2776,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                             onClick={() => { setManualBmMode(true); setNewCatalogBmId(''); }}
                             disabled={creatingCatalog}
                             title="Digitar bm_id manualmente"
-                            className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                            className="px-2 py-1 text-[11px] font-semibold rounded border border-console-border bg-console-surface text-foreground hover:bg-console-surface-2 disabled:opacity-50"
                           >
                             ID
                           </button>
@@ -2803,7 +2803,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                       type="button"
                       onClick={handleCreateCatalog}
                       disabled={!newCatalogName.trim() || !accountId || !newCatalogBmId || creatingCatalog}
-                      className="px-4 py-2 text-xs font-semibold rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+                      className="px-4 py-2 text-xs font-semibold rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 whitespace-nowrap"
                     >
                       {creatingCatalog ? 'Criando…' : 'Criar agora'}
                     </button>
@@ -2814,14 +2814,14 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                   {createCatalogError && (
                     <p className="text-[11px] text-rose-600 dark:text-rose-400">{createCatalogError}</p>
                   )}
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                  <p className="text-[10px] text-console-muted">
                     O catálogo será criado com vertical <code>commerce</code> no BM selecionado. Você precisa ser admin desse BM.
                   </p>
                 </div>
               )}
 
               {catalogConfigMode === 'new' && createdCatalog && (
-                <div className="border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-lg p-3 mt-2 flex items-center justify-between">
+                <div className="border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30 rounded p-3 mt-2 flex items-center justify-between">
                   <div>
                     <p className="text-[12px] font-semibold text-emerald-800 dark:text-emerald-400">Catálogo criado ✓</p>
                     <p className="text-[11px] text-emerald-700 dark:text-emerald-400">{createdCatalog.name} <span className="text-emerald-600/70 dark:text-emerald-500">({createdCatalog.id})</span></p>
@@ -2907,7 +2907,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               })()}
 
               {catalogConfigMode === 'existing' && (
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-[10px] text-console-muted mt-1">
                   {catalogSourceCounts
                     ? `${catalogSourceCounts.total} catálogo(s) · sincronizado (DB): ${catalogSourceCounts.db} · API live: ${catalogSourceCounts.api}`
                     : null}
@@ -2915,7 +2915,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               )}
 
               {catalogConfigMode === 'existing' && !catalogId && (
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 mt-2">
+                <p className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/50 rounded px-3 py-2 mt-2">
                   {catalogs.length === 0
                     ? <>Nenhum catálogo visível para esse perfil. Rode o sync em <strong>/catalogo</strong> antes (esse fluxo captura também catálogos compartilhados via Partner).</>
                     : <>Escolha um catálogo acima para prosseguir.</>}
@@ -2924,7 +2924,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
               {/* Criar produto + conjunto inline — disponível assim que houver catalogId */}
               {catalogId && (
-                <div className="border border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/30 rounded-lg p-3 mt-3 flex flex-col gap-2">
+                <div className="border border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/30 rounded p-3 mt-3 flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <p className="text-[12px] font-semibold text-rose-800 dark:text-rose-400">Criar novo produto + conjunto</p>
                     {createdProduct && (
@@ -3058,8 +3058,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {/* STATUS DA CAMPANHA */}
         <div
           className={cls(
-            'relative rounded-xl border-2 px-5 py-4 flex items-center justify-between gap-4 transition-all duration-300',
-            'shadow-sm hover:shadow-md',
+            'relative rounded border-2 px-5 py-4 flex items-center justify-between gap-4 transition-all duration-300',
             publishPaused
               ? 'border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100/60 dark:border-slate-700 dark:from-slate-800/70 dark:to-slate-900/40'
               : 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100/40 dark:border-emerald-800/60 dark:from-emerald-950/70 dark:to-emerald-900/20'
@@ -3123,12 +3122,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 value={adsPerAdset} onChange={e => setAdsPerAdset(Math.max(1, Number(e.target.value) || 1))} />
             </Field>
           </div>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-[11px] text-console-muted mt-1">
             = <strong>{totals.camp}</strong> camp · <strong>{totals.sets}</strong> conj · <strong>{totals.ads}</strong> anúncios ({ads.length} criativo{ads.length === 1 ? '' : 's'} drafted)
           </p>
           {/* F7 — separation level: how creatives are fanned out across campaigns */}
           <div className="mt-3">
-            <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-2">Nível de separação de criativos</p>
+            <p className="text-[11px] font-semibold text-foreground mb-2">Nível de separação de criativos</p>
             <div className="grid grid-cols-3 gap-2">
               <OptionCard<SeparationLevel>
                 value="campaign"
@@ -3248,11 +3247,11 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
         {/* PÚBLICO-ALVO */}
         <SubBlock>
-          <div className="border border-indigo-100 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-lg p-4 flex flex-col gap-3">
+          <div className="border border-console-border bg-console-surface-2 rounded p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-[12px] font-bold text-gray-800 dark:text-gray-100">Público-Alvo</h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                <h3 className="text-[12px] font-bold text-foreground">Público-Alvo</h3>
+                <p className="text-[11px] text-console-muted">
                   {advantageAudience ? 'Advantage+ ativado: a I.A. do Meta otimizará seu público.' : 'Definição manual de público.'}
                 </p>
               </div>
@@ -3329,12 +3328,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               </Field>
               <div className="grid grid-cols-2 gap-3 mt-2">
                 <Field label="Gênero">
-                  <div className="grid grid-cols-3 gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-md">
+                  <div className="grid grid-cols-3 gap-1 bg-console-surface-2 p-1 rounded">
                     {(['all', 'male', 'female'] as const).map(g => (
                       <button key={g} type="button" onClick={() => setGender(g)}
                         className={cls(
                           'text-[11px] font-semibold py-1.5 rounded transition-colors',
-                          gender === g ? 'bg-indigo-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          gender === g ? 'bg-amber-500 text-white' : 'text-console-muted hover:bg-console-surface-2'
                         )}>
                         {g === 'all' ? 'Todos' : g === 'male' ? 'Masculino' : 'Feminino'}
                       </button>
@@ -3344,7 +3343,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 <Field label="Adicionar interesse ou comportamento">
                   <button type="button" disabled
                     className={cls(inputBase, 'flex items-center justify-between cursor-not-allowed')}>
-                    <span className="text-gray-400 dark:text-gray-500">+ Adicionar interesse</span>
+                    <span className="text-console-muted">+ Adicionar interesse</span>
                     <EmBreve />
                   </button>
                 </Field>
@@ -3359,7 +3358,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               </div>
             </SubBlock>
 
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-3">
+            <p className="text-[11px] text-console-muted flex items-center gap-3">
               <span>📍 1 local</span><span>👥 {advantageAudience ? `${ageMin}+` : `${ageMin}–${ageMax}`}</span><span>{gender === 'all' ? '⚥ Todos' : gender === 'male' ? '♂ Masc' : '♀ Fem'}</span><span>🗣 {locales.length || '0'} idioma(s)</span>
             </p>
           </div>
@@ -3368,31 +3367,31 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {/* CONFIGURAÇÕES AVANÇADAS */}
         <SubBlock label="Configurações Avançadas do Conjunto">
           {/* Posicionamentos */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3">
+          <div className="border border-console-border rounded p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-[12px] font-bold text-gray-800 dark:text-gray-100">Posicionamentos</h4>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Escolha onde seus anúncios serão exibidos</p>
+                <h4 className="text-[12px] font-bold text-foreground">Posicionamentos</h4>
+                <p className="text-[11px] text-console-muted">Escolha onde seus anúncios serão exibidos</p>
               </div>
               <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
                 {advantagePositioning ? 'Automático' : 'Manual'}
               </span>
             </div>
 
-            <div className="rounded-md border border-indigo-100 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/30 px-3 py-2 flex items-center justify-between">
+            <div className="rounded border border-console-border bg-console-surface-2 px-3 py-2 flex items-center justify-between">
               <div>
-                <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">✦ Advantage+ Posicionamentos</p>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400">Meta otimiza automaticamente onde seus anúncios aparecem</p>
+                <p className="text-[12px] font-semibold text-foreground">✦ Advantage+ Posicionamentos</p>
+                <p className="text-[10px] text-console-muted">Meta otimiza automaticamente onde seus anúncios aparecem</p>
               </div>
               <Toggle checked={advantagePositioning} onChange={setAdvantagePositioning} />
             </div>
 
             {!advantagePositioning && (
               <div>
-                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Plataformas</p>
+                <p className="text-[10px] font-bold text-console-muted uppercase tracking-wider mb-1">Plataformas</p>
                 <div className="flex gap-4 flex-wrap">
                   {(['facebook', 'instagram', 'audience_network', 'messenger'] as const).map(p => (
-                    <label key={p} className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+                    <label key={p} className="flex items-center gap-2 text-xs text-foreground">
                       <input type="checkbox" checked={platforms[p]}
                         onChange={e => setPlatforms(prev => ({ ...prev, [p]: e.target.checked }))} />
                       {p === 'audience_network' ? 'Audience Network' : p[0].toUpperCase() + p.slice(1)}
@@ -3403,14 +3402,14 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             )}
 
             <div>
-              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Dispositivos</p>
+              <p className="text-[10px] font-bold text-console-muted uppercase tracking-wider mb-1">Dispositivos</p>
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+                <label className="flex items-center gap-2 text-xs text-foreground">
                   <input type="checkbox" checked={devices.mobile}
                     onChange={e => setDevices(d => ({ ...d, mobile: e.target.checked }))} />
                   📱 Dispositivos Móveis
                 </label>
-                <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+                <label className="flex items-center gap-2 text-xs text-foreground">
                   <input type="checkbox" checked={devices.desktop}
                     onChange={e => setDevices(d => ({ ...d, desktop: e.target.checked }))} />
                   🖥 Desktop
@@ -3420,19 +3419,19 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">Apenas Wi-Fi</p>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500">Exibir anúncios apenas quando conectado ao Wi-Fi</p>
+                <p className="text-[12px] font-semibold text-foreground">Apenas Wi-Fi</p>
+                <p className="text-[10px] text-console-muted">Exibir anúncios apenas quando conectado ao Wi-Fi</p>
               </div>
               <Toggle checked={wifiOnly} onChange={setWifiOnly} />
             </div>
           </div>
 
           {/* Agendamento */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3 mt-3">
+          <div className="border border-console-border rounded p-4 flex flex-col gap-3 mt-3">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-[12px] font-bold text-gray-800 dark:text-gray-100">Agendamento</h4>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Defina quando seus anúncios começarão e terminarão de ser veiculados</p>
+                <h4 className="text-[12px] font-bold text-foreground">Agendamento</h4>
+                <p className="text-[11px] text-console-muted">Defina quando seus anúncios começarão e terminarão de ser veiculados</p>
               </div>
               <Toggle checked={hasEndTime} onChange={setHasEndTime} label="Data de término" />
             </div>
@@ -3481,27 +3480,27 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             const remaining = Math.max(0, totalAds - allocated);
             const perAuto = autoCount > 0 ? Math.floor(remaining / autoCount) : 0;
             return (
-              <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50/60 dark:bg-gray-800/60">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+              <div className="mt-2 border border-console-border rounded bg-console-surface-2">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-console-border">
                   <div>
-                    <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">Criativos por página</p>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                      Total de anúncios a criar: <span className="font-mono text-gray-700 dark:text-gray-300">{totalAds}</span>
-                      {' · '}Alocados manualmente: <span className="font-mono text-gray-700 dark:text-gray-300">{allocated}</span>
-                      {autoCount > 0 && <> · Auto (round-robin) p/ {autoCount} página{autoCount > 1 ? 's' : ''}: <span className="font-mono text-gray-700 dark:text-gray-300">{remaining}</span></>}
+                    <p className="text-[12px] font-semibold text-foreground">Criativos por página</p>
+                    <p className="text-[10px] text-console-muted">
+                      Total de anúncios a criar: <span className="font-mono text-foreground">{totalAds}</span>
+                      {' · '}Alocados manualmente: <span className="font-mono text-foreground">{allocated}</span>
+                      {autoCount > 0 && <> · Auto (round-robin) p/ {autoCount} página{autoCount > 1 ? 's' : ''}: <span className="font-mono text-foreground">{remaining}</span></>}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setPageAllocations({})}
-                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold"
+                    className="text-[10px] text-amber-400 hover:text-amber-300 font-semibold"
                   >
                     Resetar (tudo auto)
                   </button>
                 </div>
                 <div className="max-h-[220px] overflow-y-auto">
                   <table className="w-full text-[11px]">
-                    <thead className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    <thead className="bg-console-surface-2 text-console-muted">
                       <tr>
                         <th className="text-left px-3 py-1.5 font-semibold">Página</th>
                         <th className="text-right px-3 py-1.5 font-semibold">Disponíveis</th>
@@ -3526,12 +3525,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                           ? capByTotal
                           : Math.min(capByTotal, avail);
                         return (
-                          <tr key={p.id} className="border-t border-gray-200 dark:border-gray-700">
-                            <td className="px-3 py-1.5 text-gray-800 dark:text-gray-100">
+                          <tr key={p.id} className="border-t border-console-border">
+                            <td className="px-3 py-1.5 text-foreground">
                               {p.name}
                               {p.instagram_business_account && <span className="ml-1 text-rose-500 dark:text-rose-400">· IG</span>}
                             </td>
-                            <td className={cls('px-3 py-1.5 text-right font-mono', avail == null ? 'text-gray-400 dark:text-gray-500' : over ? 'text-rose-600 dark:text-rose-400' : 'text-gray-700 dark:text-gray-300')}>
+                            <td className={cls('px-3 py-1.5 text-right font-mono', avail == null ? 'text-console-muted' : over ? 'text-rose-600 dark:text-rose-400' : 'text-foreground')}>
                               {avail == null ? '∞' : avail}
                             </td>
                             <td className="px-3 py-1.5 text-right">
@@ -3556,8 +3555,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                                       return next;
                                     });
                                   }}
-                                  className={cls('w-[70px] text-right border rounded-md px-1.5 py-0.5 text-[11px] font-mono',
-                                    over ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900')}
+                                  className={cls('w-[70px] text-right border rounded px-1.5 py-0.5 text-[11px] font-mono',
+                                    over ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40' : 'border-console-border bg-console-surface')}
                                 />
                                 {!isAuto && (
                                   <button
@@ -3566,7 +3565,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                                     onClick={() => setPageAllocations(prev => {
                                       const next = { ...prev }; delete next[p.id]; return next;
                                     })}
-                                    className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm leading-none"
+                                    className="text-console-muted hover:text-foreground text-sm leading-none"
                                   >×</button>
                                 )}
                               </div>
@@ -3582,8 +3581,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           })()}
           <div className="flex items-center justify-between mt-2">
             <div>
-              <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">Auto retry de página</p>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500">Se um anúncio falhar na página selecionada, o sistema tentará automaticamente em outra página disponível.</p>
+              <p className="text-[12px] font-semibold text-foreground">Auto retry de página</p>
+              <p className="text-[10px] text-console-muted">Se um anúncio falhar na página selecionada, o sistema tentará automaticamente em outra página disponível.</p>
             </div>
             <Toggle checked={autoRetryPage} onChange={setAutoRetryPage} />
           </div>
@@ -3602,7 +3601,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               placeholder="O texto principal aparece acima da mídia do anúncio. Máximo recomendado: 125 caracteres." />
           </Field>
           {isEngagement && (
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
+            <p className="text-[11px] text-console-muted mt-3">
               Anúncio de curtida: só texto + mídia. O botão é <strong>Curtir Página</strong> e o destino é a própria Página — sem URL, título, descrição ou CTA.
             </p>
           )}
@@ -3619,8 +3618,8 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           </div>
           {isDPA ? (
             <>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
-                Nome, descrição, preço e imagem vêm do catálogo automaticamente e cada clique vai direto para a página do produto. A URL abaixo é só a base/fallback exigida pela Meta — <strong>não</strong> use <code className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1 rounded">{'{{product.url}}'}</code> aqui (a Meta rejeita com erro BM86).
+              <p className="text-[11px] text-console-muted mt-3">
+                Nome, descrição, preço e imagem vêm do catálogo automaticamente e cada clique vai direto para a página do produto. A URL abaixo é só a base/fallback exigida pela Meta — <strong>não</strong> use <code className="bg-console-surface-2 text-foreground px-1 rounded">{'{{product.url}}'}</code> aqui (a Meta rejeita com erro BM86).
               </p>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <Field label="URL base do site *" hint="Ex.: https://seusite.com — a Meta roteia cada clique para o produto do catálogo automaticamente.">
@@ -3682,7 +3681,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               />
             ))}
             <button type="button" onClick={addAd}
-              className="self-start text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold">
+              className="self-start text-[11px] text-amber-400 hover:text-amber-300 font-semibold">
               + Adicionar outro criativo
             </button>
           </div>
@@ -3693,78 +3692,78 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {!isEngagement && (
         <SubBlock label="Configurações Avançadas">
           {/* RASTREAMENTO — URL params */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3">
-            <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rastreamento</p>
+          <div className="border border-console-border rounded p-4 flex flex-col gap-3">
+            <p className="text-[10px] font-bold text-console-muted uppercase tracking-wider">Rastreamento</p>
             <Field label="Parâmetros de URL">
               <textarea className={cls(inputBase, 'font-mono min-h-[50px]')} value={urlTagsTpl}
                 onChange={e => setUrlTagsTpl(e.target.value)}
                 placeholder="utm_source=FB&utm_campaign={{campaign.id}}" />
             </Field>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">
+            <p className="text-[10px] text-console-muted">
               Parâmetros adicionados à URL de destino. Variáveis suportadas (Facebook + DirectAds) são substituídas automaticamente; o restante é enviado como está.
             </p>
           </div>
 
           {/* ADVANTAGE+ CREATIVE */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3 mt-3">
+          <div className="border border-console-border rounded p-4 flex flex-col gap-3 mt-3">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-[12px] font-bold text-gray-800 dark:text-gray-100">✦ Advantage+ Creative</h4>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Configurações de aprimoramentos automáticos de criativos para seus anúncios</p>
+                <h4 className="text-[12px] font-bold text-foreground">✦ Advantage+ Creative</h4>
+                <p className="text-[11px] text-console-muted">Configurações de aprimoramentos automáticos de criativos para seus anúncios</p>
               </div>
             </div>
-            <div className="rounded-md border border-indigo-100 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/30 px-3 py-2 flex items-center justify-between">
+            <div className="rounded border border-console-border bg-console-surface-2 px-3 py-2 flex items-center justify-between">
               <div>
-                <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">⚙ Todas as Otimizações</p>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400">Ativa todas as melhorias automáticas de IA</p>
+                <p className="text-[12px] font-semibold text-foreground">⚙ Todas as Otimizações</p>
+                <p className="text-[10px] text-console-muted">Ativa todas as melhorias automáticas de IA</p>
               </div>
               <Toggle checked={adv.all} onChange={v => setAdv(prev => ({ ...prev, all: v }))} />
             </div>
 
-            <details className="border border-gray-100 dark:border-gray-800 rounded-md">
-              <summary className="cursor-pointer px-3 py-2 text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                <span className="text-gray-400 dark:text-gray-500">▸</span> Preview Avançado
-                <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">0/6</span>
+            <details className="border border-console-border rounded">
+              <summary className="cursor-pointer px-3 py-2 text-[11px] font-semibold text-foreground flex items-center gap-2">
+                <span className="text-console-muted">▸</span> Preview Avançado
+                <span className="ml-auto text-[10px] text-console-muted">0/6</span>
               </summary>
-              <div className="px-3 py-2 text-[10px] text-gray-400 dark:text-gray-500">Previews variantes do criativo após otimizações (carregado sob demanda).</div>
+              <div className="px-3 py-2 text-[10px] text-console-muted">Previews variantes do criativo após otimizações (carregado sob demanda).</div>
             </details>
 
-            <div className="border border-gray-100 dark:border-gray-800 rounded-md">
-              <div className="px-3 py-2 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
-                <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">✨ Melhorias Essenciais</p>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+            <div className="border border-console-border rounded">
+              <div className="px-3 py-2 flex items-center justify-between border-b border-console-border">
+                <p className="text-[11px] font-semibold text-foreground">✨ Melhorias Essenciais</p>
+                <span className="text-[10px] text-console-muted">
                   {[adv.site_extensions, adv.relevant_comments, adv.cta_optimization].filter(Boolean).length}/3
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 px-3 py-2">
-                <div className="rounded-md border border-gray-100 dark:border-gray-800 px-2 py-1.5 flex items-center justify-between">
-                  <span className="text-[11px] text-gray-700 dark:text-gray-300">🌐 Extensões do Site</span>
+                <div className="rounded border border-console-border px-2 py-1.5 flex items-center justify-between">
+                  <span className="text-[11px] text-foreground">🌐 Extensões do Site</span>
                   <Toggle checked={adv.all || adv.site_extensions} onChange={v => setAdv(prev => ({ ...prev, site_extensions: v }))} />
                 </div>
-                <div className="rounded-md border border-gray-100 dark:border-gray-800 px-2 py-1.5 flex items-center justify-between">
-                  <span className="text-[11px] text-gray-700 dark:text-gray-300">💬 Comentários Relevantes</span>
+                <div className="rounded border border-console-border px-2 py-1.5 flex items-center justify-between">
+                  <span className="text-[11px] text-foreground">💬 Comentários Relevantes</span>
                   <Toggle checked={adv.all || adv.relevant_comments} onChange={v => setAdv(prev => ({ ...prev, relevant_comments: v }))} />
                 </div>
-                <div className="rounded-md border border-gray-100 dark:border-gray-800 px-2 py-1.5 flex items-center justify-between col-span-2">
-                  <span className="text-[11px] text-gray-700 dark:text-gray-300">📝 Melhorar CTA</span>
+                <div className="rounded border border-console-border px-2 py-1.5 flex items-center justify-between col-span-2">
+                  <span className="text-[11px] text-foreground">📝 Melhorar CTA</span>
                   <Toggle checked={adv.all || adv.cta_optimization} onChange={v => setAdv(prev => ({ ...prev, cta_optimization: v }))} />
                 </div>
               </div>
             </div>
 
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">
+            <p className="text-[10px] text-console-muted">
               <span className="font-semibold">Recomendação:</span> Mantenha tudo desativado para controle total dos criativos.
             </p>
           </div>
 
           {/* MULTI-ADVERTISER ADS */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between mt-3">
+          <div className="border border-console-border rounded p-4 flex items-center justify-between mt-3">
             <div>
-              <h4 className="text-[12px] font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              <h4 className="text-[12px] font-bold text-foreground flex items-center gap-2">
                 Multi-Advertiser Ads
-                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">Opcional</span>
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-console-surface-2 text-console-muted border border-console-border">Opcional</span>
               </h4>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">Permite que seu anúncio apareça ao lado de anúncios de outras marcas em carrosséis personalizados.</p>
+              <p className="text-[11px] text-console-muted">Permite que seu anúncio apareça ao lado de anúncios de outras marcas em carrosséis personalizados.</p>
             </div>
             <Toggle checked={multiAdvertiser} onChange={setMultiAdvertiser} />
           </div>
@@ -3775,7 +3774,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       {/* ───────── 4. Publicar ───────── */}
       <MainSection title="Publicar" subtitle={publishPaused ? 'Campanha sobe PAUSED (conjuntos e ads ATIVOS) — revise no Ads Manager.' : 'Campanha ATIVA — vai entrar em leilão imediatamente.'}>
         {errors.length > 0 && (
-          <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg p-3">
+          <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded p-3">
             <p className="text-xs font-bold text-rose-700 dark:text-rose-400 mb-1">Corrija antes de publicar:</p>
             <ul className="text-[11px] text-rose-700 dark:text-rose-400 list-disc list-inside space-y-0.5">
               {errors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
@@ -3787,7 +3786,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         <div className="flex gap-2 items-center">
           <button type="button" onClick={submit} disabled={!canSubmit}
             className={cls(
-              'px-4 py-2 text-xs font-semibold rounded-lg text-white disabled:opacity-50',
+              'px-4 py-2 text-xs font-semibold rounded text-white disabled:opacity-50',
               publishPaused ? 'bg-gray-700 hover:bg-gray-800' : 'bg-emerald-600 hover:bg-emerald-700'
             )}>
             {running
@@ -3800,7 +3799,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
         {/* Confirmação imediata de enfileiramento (antes do QueueWidget carregar) */}
         {enqueuedCount != null && (
-          <div className="mt-3 flex items-start gap-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3">
+          <div className="mt-3 flex items-start gap-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded p-3">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
             <div>
               <p className="text-xs font-bold text-emerald-800 dark:text-emerald-400">
@@ -3817,7 +3816,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
         {/* Enqueue error (e.g. HTTP error, missing jobs in response, partial token failures) */}
         {enqueueError && (
-          <div className="mt-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg p-3">
+          <div className="mt-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded p-3">
             <p className="text-xs font-bold text-rose-800 dark:text-rose-400">Erro ao enfileirar</p>
             <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-1">{enqueueError}</p>
           </div>
@@ -3940,10 +3939,10 @@ function AdEditor({
   };
 
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-800/50">
+    <div className="border border-console-border rounded p-4 bg-console-surface-2">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Criativo #{index + 1}</span>
+          <span className="text-[10px] font-bold text-console-muted uppercase tracking-wider">Criativo #{index + 1}</span>
           <input className={cls(inputBase, 'min-w-[200px]')} value={ad.name}
             onChange={e => onChange({ name: e.target.value })} placeholder="Nome do criativo" />
           {isDPA && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">DPA</span>}
@@ -3961,7 +3960,7 @@ function AdEditor({
             <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleSingleUpload(f); }} />
             <button type="button" onClick={() => fileRef.current?.click()}
-              className="text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-50"
+              className="text-xs px-3 py-2 rounded border border-console-border bg-console-surface hover:bg-console-surface-2 text-foreground disabled:opacity-50"
               disabled={uploading}>
               {uploading
                 ? (ad.media_kind === 'video' ? 'Enviando vídeo…' : 'Enviando…')
@@ -3998,17 +3997,17 @@ function AdEditor({
               </span>
             )}
             {ad.media_kind === 'video' && ad.video_thumbnail_url ? (
-              <img src={ad.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" />
+              <img src={ad.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 object-cover rounded border border-console-border" />
             ) : ad.image_preview && (
               ad.media_kind === 'video'
-                ? <video src={ad.image_preview} className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" muted />
-                : <img src={ad.image_preview} alt="" className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700" />
+                ? <video src={ad.image_preview} className="h-12 w-12 object-cover rounded border border-console-border" muted />
+                : <img src={ad.image_preview} alt="" className="h-12 w-12 object-cover rounded border border-console-border" />
             )}
             {ad.media_kind === 'video' && ad.video_id && (
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">vid {ad.video_id.slice(0, 12)}…</span>
+              <span className="text-[10px] text-console-muted font-mono">vid {ad.video_id.slice(0, 12)}…</span>
             )}
             {ad.media_kind === 'image' && ad.image_hash && (
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{ad.image_hash.slice(0, 12)}…</span>
+              <span className="text-[10px] text-console-muted font-mono">{ad.image_hash.slice(0, 12)}…</span>
             )}
             {ad.media_kind === 'video' && (
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800">vídeo</span>

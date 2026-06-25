@@ -141,14 +141,14 @@ export default function ApiTokenForm() {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm dark:bg-gray-900 dark:border-gray-700">
-      <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center justify-between dark:bg-gray-800 dark:border-gray-800">
+    <div className="bg-console-surface border border-console-border rounded overflow-hidden">
+      <div className="p-6 border-b border-console-border bg-console-surface-2 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 dark:text-gray-100">
-            <Key className="w-5 h-5 text-indigo-500" />
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <Key className="w-5 h-5 text-amber-400" />
             Tokens de Integração API
           </h2>
-          <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
+          <p className="text-sm text-console-muted mt-1">
             Configure suas chaves de API globais para sincronização de diversas contas.
           </p>
         </div>
@@ -159,22 +159,22 @@ export default function ApiTokenForm() {
         {/* ─────────────────────────── Meta ─────────────────────────── */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Meta Ads (System User Tokens)</label>
+            <label className="block text-sm font-bold text-foreground">Meta Ads (System User Tokens)</label>
             <button
               type="button"
               onClick={addProfile}
-              className="flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md font-medium transition-colors dark:bg-indigo-900/40 dark:text-indigo-400 dark:hover:bg-indigo-900/60"
+              className="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded font-medium transition-colors"
             >
               <Plus className="w-3.5 h-3.5" /> Adicionar Perfil
             </button>
           </div>
 
           {/* Bloco de ajuda colapsável */}
-          <div className="mb-4 border border-indigo-100 rounded-lg overflow-hidden dark:border-indigo-800">
+          <div className="mb-4 border border-amber-500/30 rounded overflow-hidden">
             <button
               type="button"
               onClick={() => setShowHelp((s) => !s)}
-              className="w-full flex items-center justify-between px-4 py-2 bg-indigo-50/50 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40"
+              className="w-full flex items-center justify-between px-4 py-2 bg-amber-500/10 text-xs font-semibold text-amber-400 hover:bg-amber-500/15"
             >
               <span className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4" />
@@ -183,19 +183,19 @@ export default function ApiTokenForm() {
               {showHelp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
             {showHelp && (
-              <div className="px-4 py-3 text-[12px] text-gray-700 leading-relaxed bg-white border-t border-indigo-100 space-y-2 dark:bg-gray-900 dark:border-indigo-800 dark:text-gray-300">
+              <div className="px-4 py-3 text-[12px] text-foreground leading-relaxed bg-console-surface border-t border-amber-500/30 space-y-2">
                 <ol className="list-decimal list-inside space-y-1.5">
-                  <li>Abra o <a className="text-indigo-600 underline" href="https://business.facebook.com/settings/system-users" target="_blank" rel="noreferrer">Business Settings → System Users</a> do BM dono das contas.</li>
+                  <li>Abra o <a className="text-amber-400 underline" href="https://business.facebook.com/settings/system-users" target="_blank" rel="noreferrer">Business Settings → System Users</a> do BM dono das contas.</li>
                   <li>Clique <strong>Add</strong> → escolha um nome (ex: <em>v2-media-lab-publisher</em>) → role <strong>Admin</strong>.</li>
                   <li>No System User criado, clique <strong>Add Assets</strong> e atribua: <em>Ad Accounts</em> (Manage), <em>Pages</em> (Create Content + Manage Page) e <em>Pixels</em> (Manage).</li>
                   <li>Clique <strong>Generate New Token</strong>. Selecione o seu App, marque <strong>nunca expira</strong>, e marque as permissões:
-                    <div className="bg-gray-50 border border-gray-200 rounded p-2 mt-1 font-mono text-[11px] text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
+                    <div className="bg-console-surface-2 border border-console-border rounded p-2 mt-1 font-mono text-[11px] text-foreground">
                       ads_management · pages_show_list · pages_read_engagement · business_management · instagram_basic
                     </div>
                   </li>
                   <li>Copie o token gerado e cole no campo abaixo. Use <strong>Validar token</strong> pra conferir as permissões.</li>
                 </ol>
-                <p className="text-[11px] text-gray-500 pt-2 border-t border-gray-100 dark:text-gray-400 dark:border-gray-800">
+                <p className="text-[11px] text-console-muted pt-2 border-t border-console-border">
                   Tokens de System User são permanentes — não expiram a cada 60 dias como tokens de usuário comum.
                 </p>
               </div>
@@ -204,13 +204,13 @@ export default function ApiTokenForm() {
 
           <div className="space-y-4">
             {profiles.map((profile, idx) => (
-              <div key={idx} className="bg-gray-50 p-4 border border-gray-100 rounded-lg space-y-3 dark:bg-gray-800 dark:border-gray-700">
+              <div key={idx} className="bg-console-surface-2 p-4 border border-console-border rounded space-y-3">
                 <div className="flex gap-3 items-start">
                   <div className="flex-1 space-y-3">
                     <input
                       type="text"
                       required
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 outline-none focus:border-indigo-500 transition-all font-medium placeholder:font-normal placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+                      className="w-full px-4 py-2 border border-console-border rounded bg-background text-foreground outline-none focus:border-amber-500 transition-all font-medium placeholder:font-normal placeholder:text-console-muted"
                       placeholder="Nome do Perfil (ex: BM Cliente X)"
                       value={profile.name}
                       onChange={(e) => updateProfile(idx, 'name', e.target.value)}
@@ -218,7 +218,7 @@ export default function ApiTokenForm() {
                     <input
                       type="password"
                       required
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 outline-none focus:border-indigo-500 transition-all font-mono placeholder:font-sans placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:placeholder-gray-500"
+                      className="w-full px-4 py-2 border border-console-border rounded bg-background text-console-muted outline-none focus:border-amber-500 transition-all font-mono placeholder:font-sans placeholder:text-console-muted"
                       placeholder="System User Access Token..."
                       value={profile.token}
                       onChange={(e) => updateProfile(idx, 'token', e.target.value)}
@@ -229,7 +229,7 @@ export default function ApiTokenForm() {
                       <button
                         type="button"
                         onClick={() => removeProfile(idx)}
-                        className="p-2 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors dark:text-gray-500 dark:hover:bg-rose-950/40"
+                        className="p-2 text-console-muted hover:text-rose-500 hover:bg-rose-50 rounded transition-colors dark:hover:bg-rose-950/40"
                         title="Remover perfil"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -239,7 +239,7 @@ export default function ApiTokenForm() {
                       type="button"
                       onClick={() => validateOne(idx)}
                       disabled={profile.inspecting || !profile.token.trim()}
-                      className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 text-gray-600 hover:bg-white disabled:opacity-50 flex items-center gap-1.5 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                      className="px-3 py-1.5 text-[11px] font-semibold rounded border border-console-border text-console-muted hover:bg-console-surface-2 disabled:opacity-50 flex items-center gap-1.5"
                     >
                       {profile.inspecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
                       Validar
@@ -252,46 +252,46 @@ export default function ApiTokenForm() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">
+          <p className="text-xs text-console-muted mt-3">
             Você pode cadastrar tokens de vários perfis/Business Managers. O token é validado automaticamente ao salvar.
           </p>
         </div>
 
-        <hr className="border-gray-100 dark:border-gray-800" />
+        <hr className="border-console-border" />
 
         {/* RedTrack */}
         <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2 dark:text-gray-300">RedTrack (API Key)</label>
+          <label className="block text-sm font-bold text-foreground mb-2">RedTrack (API Key)</label>
           <input
             type="password"
-            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-mono placeholder:font-sans placeholder:text-gray-400 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+            className="w-full px-4 py-3 bg-background border border-console-border rounded text-sm text-foreground outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all font-mono placeholder:font-sans placeholder:text-console-muted"
             placeholder="Cole sua API Key do RedTrack..."
             value={redtrackKey}
             onChange={(e) => setRedtrackKey(e.target.value)}
           />
-          <p className="text-xs text-gray-400 mt-2 dark:text-gray-500">Encontrada no seu painel principal do RedTrack, em Perfil &gt; Integração API.</p>
+          <p className="text-xs text-console-muted mt-2">Encontrada no seu painel principal do RedTrack, em Perfil &gt; Integração API.</p>
         </div>
 
-        <hr className="border-gray-100 dark:border-gray-800" />
+        <hr className="border-console-border" />
 
         {/* vturb */}
         <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2 dark:text-gray-300">vturb Analytics (API Token)</label>
+          <label className="block text-sm font-bold text-foreground mb-2">vturb Analytics (API Token)</label>
           <input
             type="password"
-            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-mono placeholder:font-sans placeholder:text-gray-400 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+            className="w-full px-4 py-3 bg-background border border-console-border rounded text-sm text-foreground outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all font-mono placeholder:font-sans placeholder:text-console-muted"
             placeholder="Cole seu X-Api-Token do vturb..."
             value={vturbToken}
             onChange={(e) => setVturbToken(e.target.value)}
           />
-          <p className="text-xs text-gray-400 mt-2 dark:text-gray-500">Dashboard vturb &gt; Configurações de API Key. Enviado no header X-Api-Token em cada chamada.</p>
+          <p className="text-xs text-console-muted mt-2">Dashboard vturb &gt; Configurações de API Key. Enviado no header X-Api-Token em cada chamada.</p>
         </div>
 
-        <div className="pt-4 border-t border-gray-100 flex items-center gap-4 dark:border-gray-800">
+        <div className="pt-4 border-t border-console-border flex items-center gap-4">
           <button
             type="submit"
             disabled={isSaving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium rounded-lg shadow-sm transition-colors text-sm disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-black font-medium rounded transition-colors text-sm disabled:opacity-50"
           >
             {isSaving ? <Loader2 className="animate-spin h-4 w-4 text-white" /> : <Save className="w-4 h-4" />}
             Salvar Configurações
@@ -311,7 +311,7 @@ export default function ApiTokenForm() {
 function InspectionPanel({ ins }: { ins: Inspection }) {
   if (!ins.valid) {
     return (
-      <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 flex gap-2 items-start dark:bg-rose-950/40 dark:border-rose-800">
+      <div className="bg-rose-50 border border-rose-200 rounded p-3 flex gap-2 items-start dark:bg-rose-950/40 dark:border-rose-800">
         <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
         <div className="text-[12px] text-rose-700 dark:text-rose-400">
           <p className="font-semibold">Token inválido</p>
@@ -322,13 +322,13 @@ function InspectionPanel({ ins }: { ins: Inspection }) {
   }
 
   return (
-    <div className={`border rounded-lg p-3 ${ins.canPublish ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/40' : 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/40'}`}>
+    <div className={`border rounded p-3 ${ins.canPublish ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/40' : 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/40'}`}>
       <div className="flex items-center justify-between gap-3">
-        <div className="text-[12px] text-gray-700 dark:text-gray-300">
+        <div className="text-[12px] text-foreground">
           <span className="font-semibold">{ins.user?.name ?? 'Usuário desconhecido'}</span>
-          {ins.user?.id && <span className="text-gray-400 font-mono ml-1 dark:text-gray-500">({ins.user.id})</span>}
+          {ins.user?.id && <span className="text-console-muted font-mono ml-1">({ins.user.id})</span>}
           {typeof ins.businessesCount === 'number' && (
-            <span className="text-gray-500 ml-2 dark:text-gray-400">· {ins.businessesCount} BM(s) acessíveis</span>
+            <span className="text-console-muted ml-2">· {ins.businessesCount} BM(s) acessíveis</span>
           )}
           {ins.neverExpires && (
             <span className="text-emerald-700 ml-2 text-[11px]">· token permanente</span>
@@ -351,7 +351,7 @@ function InspectionPanel({ ins }: { ins: Inspection }) {
       </div>
 
       {ins.missingOptional.length > 0 && (
-        <p className="mt-2 text-[10px] text-gray-500 dark:text-gray-400">
+        <p className="mt-2 text-[10px] text-console-muted">
           Opcionais ausentes: <span className="font-mono">{ins.missingOptional.join(', ')}</span>
         </p>
       )}

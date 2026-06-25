@@ -73,13 +73,13 @@ const STATUS_COLORS: Record<string, string> = {
     'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
   error: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
   cancelled:
-    'bg-gray-100 text-gray-600 dark:bg-gray-700/40 dark:text-gray-400',
+    'bg-console-surface-2 text-console-muted',
 };
 
 function StatusChip({ status }: { status: string }) {
   const color =
     STATUS_COLORS[status] ??
-    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+    'bg-console-surface-2 text-console-muted';
   return (
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}
@@ -123,7 +123,7 @@ function CountsDisplay({
 }) {
   const { created, failed, skipped, total } = counts;
   if (total === 0 && created === 0 && failed === 0) {
-    return <span className="text-gray-400 dark:text-gray-500 text-xs">—</span>;
+    return <span className="text-console-muted text-xs">—</span>;
   }
   return (
     <span className="text-xs font-mono space-x-1">
@@ -134,10 +134,10 @@ function CountsDisplay({
         <span className="text-red-600 dark:text-red-400">{failed}✗</span>
       )}
       {skipped > 0 && (
-        <span className="text-gray-500 dark:text-gray-400">{skipped}↷</span>
+        <span className="text-console-muted">{skipped}↷</span>
       )}
       {total > 0 && (
-        <span className="text-gray-400 dark:text-gray-500">/{total}</span>
+        <span className="text-console-muted">/{total}</span>
       )}
     </span>
   );
@@ -154,13 +154,13 @@ const EVENT_KIND_LABELS: Record<string, string> = {
 const EVENT_KIND_COLORS: Record<string, string> = {
   created: 'text-green-700 dark:text-green-400',
   failed: 'text-red-600 dark:text-red-400',
-  skipped: 'text-gray-500 dark:text-gray-400',
+  skipped: 'text-console-muted',
 };
 
 function EventLog({ events }: { events: BatchEvent[] }) {
   if (!events || events.length === 0) {
     return (
-      <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+      <p className="text-xs text-console-muted italic">
         Nenhum evento registrado ainda.
       </p>
     );
@@ -171,7 +171,7 @@ function EventLog({ events }: { events: BatchEvent[] }) {
       {events.map((ev, i) => {
         const kindLabel = EVENT_KIND_LABELS[ev.kind] ?? ev.kind;
         const kindColor =
-          EVENT_KIND_COLORS[ev.kind] ?? 'text-gray-600 dark:text-gray-300';
+          EVENT_KIND_COLORS[ev.kind] ?? 'text-foreground';
 
         // Use proper discriminated-union narrowing — no `as any` casts.
         // BatchEvent is discriminated on `kind`; after each branch TypeScript
@@ -192,15 +192,15 @@ function EventLog({ events }: { events: BatchEvent[] }) {
         return (
           <div
             key={i}
-            className="flex items-start gap-2 text-xs font-mono border-b border-gray-100 dark:border-gray-700 pb-1 last:border-0"
+            className="flex items-start gap-2 text-xs font-mono border-b border-console-border pb-1 last:border-0"
           >
             <span className={`shrink-0 w-14 font-semibold ${kindColor}`}>
               {kindLabel}
             </span>
-            <span className="text-gray-500 dark:text-gray-400 shrink-0 w-8">
+            <span className="text-console-muted shrink-0 w-8">
               {entitySlug}
             </span>
-            <span className="text-gray-700 dark:text-gray-300 break-all">
+            <span className="text-foreground break-all">
               {description}
             </span>
           </div>
@@ -358,7 +358,7 @@ function JobDetailRow({
 
   if (loading) {
     return (
-      <div className="py-4 px-6 text-sm text-gray-400 dark:text-gray-500 animate-pulse">
+      <div className="py-4 px-6 text-sm text-console-muted animate-pulse">
         Carregando detalhes…
       </div>
     );
@@ -378,10 +378,10 @@ function JobDetailRow({
   const provenance = job.payload?.reenqueue_of;
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-800/50 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+    <div className="bg-console-surface-2 px-6 py-4 border-b border-console-border">
       {/* Proveniência */}
       {provenance && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        <p className="text-xs text-console-muted mb-3">
           Re-enfileirado a partir do job{' '}
           <span className="font-mono font-semibold">#{provenance}</span>
         </p>
@@ -396,7 +396,7 @@ function JobDetailRow({
 
       {/* Log de eventos */}
       <div className="mb-4">
-        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+        <p className="text-xs font-semibold text-console-muted uppercase tracking-wider mb-2">
           Eventos ({job.events?.length ?? 0})
         </p>
         <EventLog events={job.events ?? []} />
@@ -408,7 +408,7 @@ function JobDetailRow({
           <button
             onClick={handleCancel}
             disabled={cancelling}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-50 transition-colors"
           >
             {cancelling ? 'Cancelando…' : 'Cancelar job'}
           </button>
@@ -423,7 +423,7 @@ function JobDetailRow({
         <button
           onClick={handleReenqueue}
           disabled={reenqueueing}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
         >
           {reenqueueing ? 'Re-enfileirando…' : 'Re-enfileirar'}
         </button>
@@ -493,19 +493,19 @@ function BroadcastGroupRow({
       {/* Cabeçalho do grupo (só mostra se houver mais de 1 job) */}
       {jobs.length > 1 && (
         <tr
-          className="bg-indigo-50/60 dark:bg-indigo-950/20 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors"
+          className="bg-amber-500/10 cursor-pointer hover:bg-amber-500/15 transition-colors"
           onClick={() => setCollapsed((c) => !c)}
         >
           <td className="px-4 py-2" colSpan={7}>
-            <div className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-300 font-semibold">
-              <span className="text-indigo-400 dark:text-indigo-500">
+            <div className="flex items-center gap-2 text-xs text-amber-400 font-semibold">
+              <span className="text-amber-500/60">
                 {collapsed ? '▶' : '▼'}
               </span>
               <span>Broadcast</span>
-              <span className="font-mono text-indigo-400 dark:text-indigo-500">
+              <span className="font-mono text-amber-500/60">
                 #{shortGroupId}
               </span>
-              <span className="text-indigo-400 dark:text-indigo-500">
+              <span className="text-amber-500/60">
                 — {jobs.length} contas
               </span>
               <StatusChip status={aggregateStatus} />
@@ -557,12 +557,12 @@ function JobRow({
   return (
     <>
       <tr
-        className={`border-b border-gray-200 dark:border-gray-700 cursor-pointer transition-colors ${
+        className={`border-b border-console-border border-l-2 border-l-transparent hover:border-l-amber-500 cursor-pointer transition-colors ${
           expanded
-            ? 'bg-indigo-50 dark:bg-indigo-950/20'
+            ? 'bg-amber-500/10'
             : activeRow
             ? 'bg-blue-50/40 dark:bg-blue-950/10 hover:bg-blue-50 dark:hover:bg-blue-950/20'
-            : 'bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+            : 'bg-console-surface hover:bg-console-surface-2'
         }`}
         onClick={onToggle}
       >
@@ -570,21 +570,21 @@ function JobRow({
         <td className="px-4 py-3 whitespace-nowrap">
           <div className="flex items-center gap-2">
             {indent && (
-              <span className="w-3 shrink-0 text-gray-300 dark:text-gray-600 text-xs select-none">
+              <span className="w-3 shrink-0 text-console-muted text-xs select-none">
                 └
               </span>
             )}
-            <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+            <span className="text-xs text-console-muted font-mono">
               #{job.id}
             </span>
-            <span className="text-gray-400 dark:text-gray-500 text-xs">
+            <span className="text-console-muted text-xs">
               {expanded ? '▾' : '▸'}
             </span>
           </div>
         </td>
 
         {/* Data de criação (GMT-3) */}
-        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-foreground">
           {fmtDateTime(job.created_at, {
             day: '2-digit',
             month: '2-digit',
@@ -595,14 +595,14 @@ function JobRow({
 
         {/* Perfil */}
         <td className="px-4 py-3 whitespace-nowrap">
-          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-xs font-medium text-foreground">
             {job.profile_name}
           </span>
         </td>
 
         {/* Conta */}
         <td className="px-4 py-3">
-          <span className="text-xs text-gray-700 dark:text-gray-300 break-all">
+          <span className="text-xs text-foreground break-all">
             {displayName}
           </span>
         </td>
@@ -623,7 +623,7 @@ function JobRow({
         </td>
 
         {/* Duração */}
-        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 font-mono">
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-console-muted font-mono">
           {durationStr(job.created_at, job.started_at, job.finished_at)}
         </td>
       </tr>
@@ -901,10 +901,10 @@ export default function ClientFila() {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-xl font-bold text-foreground">
             Fila de campanhas
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-sm text-console-muted mt-0.5">
             Histórico de jobs de criação — mais recentes primeiro
           </p>
         </div>
@@ -915,7 +915,7 @@ export default function ClientFila() {
             fetchJobs(true);
           }}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded text-sm font-semibold bg-console-surface border border-console-border text-foreground hover:bg-console-surface-2 disabled:opacity-50 transition-colors"
         >
           <svg
             className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
@@ -935,17 +935,17 @@ export default function ClientFila() {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+      <div className="bg-console-surface border border-console-border rounded p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Perfil */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-semibold text-console-muted uppercase tracking-wider mb-1">
               Perfil
             </label>
             <select
               value={filters.profile}
               onChange={(e) => handleFilterChange('profile', e.target.value)}
-              className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded border border-console-border bg-background text-foreground text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
               <option value="">Todos os perfis</option>
               {profiles.map((p) => (
@@ -958,13 +958,13 @@ export default function ClientFila() {
 
           {/* Status */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-semibold text-console-muted uppercase tracking-wider mb-1">
               Status
             </label>
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded border border-console-border bg-background text-foreground text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
               <option value="">Todos os status</option>
               {ALL_STATUSES.map((s) => (
@@ -977,42 +977,42 @@ export default function ClientFila() {
 
           {/* Data início */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-semibold text-console-muted uppercase tracking-wider mb-1">
               De
             </label>
             <input
               type="date"
               value={filters.dateFrom}
               onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-              className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded border border-console-border bg-background text-foreground text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
           </div>
 
           {/* Data fim */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-semibold text-console-muted uppercase tracking-wider mb-1">
               Até
             </label>
             <input
               type="date"
               value={filters.dateTo}
               onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-              className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded border border-console-border bg-background text-foreground text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
           </div>
         </div>
 
         {/* Chips de status rápido */}
         <div className="flex items-center gap-2 mt-3 flex-wrap">
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-console-muted">
             Filtro rápido:
           </span>
           <button
             onClick={() => handleFilterChange('status', '')}
             className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
               filters.status === ''
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-amber-500 text-white'
+                : 'bg-console-surface-2 text-console-muted hover:bg-console-surface-2'
             }`}
           >
             Todos
@@ -1026,8 +1026,8 @@ export default function ClientFila() {
                 }
                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                   filters.status === s
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-console-surface-2 text-console-muted hover:bg-console-surface-2'
                 }`}
               >
                 {STATUS_LABELS[s]}
@@ -1047,36 +1047,36 @@ export default function ClientFila() {
 
       {/* Erro */}
       {error && (
-        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
+        <div className="p-4 rounded bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
           Erro ao carregar jobs: {error}
         </div>
       )}
 
       {/* Tabela */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-console-surface border border-console-border rounded overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
+              <tr className="bg-console-surface-2 border-b border-console-border">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-console-muted uppercase tracking-wider whitespace-nowrap">
                   Job
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-console-muted uppercase tracking-wider whitespace-nowrap">
                   Criado (GMT-3)
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-console-muted uppercase tracking-wider whitespace-nowrap">
                   Perfil
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-console-muted uppercase tracking-wider whitespace-nowrap">
                   Conta
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-console-muted uppercase tracking-wider whitespace-nowrap">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-console-muted uppercase tracking-wider whitespace-nowrap">
                   Entidades
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-console-muted uppercase tracking-wider whitespace-nowrap">
                   Duração
                 </th>
               </tr>
@@ -1086,7 +1086,7 @@ export default function ClientFila() {
                 <tr>
                   <td
                     colSpan={7}
-                    className="px-4 py-12 text-center text-sm text-gray-400 dark:text-gray-500"
+                    className="px-4 py-12 text-center text-sm text-console-muted"
                   >
                     <span className="animate-pulse">Carregando…</span>
                   </td>
@@ -1095,7 +1095,7 @@ export default function ClientFila() {
                 <tr>
                   <td
                     colSpan={7}
-                    className="px-4 py-12 text-center text-sm text-gray-400 dark:text-gray-500"
+                    className="px-4 py-12 text-center text-sm text-console-muted"
                   >
                     Nenhum job encontrado para os filtros selecionados.
                     {(filters.dateFrom || filters.dateTo) && hasMore && (
@@ -1125,11 +1125,11 @@ export default function ClientFila() {
 
         {/* Rodapé: paginação */}
         {(hasMore || loading) && (
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-center">
+          <div className="px-4 py-3 border-t border-console-border flex justify-center">
             <button
               onClick={handleLoadMore}
               disabled={loading}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 rounded text-sm font-medium bg-console-surface-2 text-foreground hover:bg-console-surface-2 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Carregando…' : 'Carregar mais'}
             </button>
@@ -1138,7 +1138,7 @@ export default function ClientFila() {
       </div>
 
       {/* Legenda */}
-      <p className="text-xs text-gray-400 dark:text-gray-500">
+      <p className="text-xs text-console-muted">
         ✓ criado · ✗ falhou · ↷ ignorado (ancestral falhou) · Clique em uma
         linha para ver detalhes e ações.
       </p>

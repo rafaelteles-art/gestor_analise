@@ -33,8 +33,8 @@ const ROLE_LABEL: Record<Role, string> = {
 
 const ROLE_BADGE: Record<Role, string> = {
   super_admin: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-400 dark:border-purple-800',
-  admin: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-400 dark:border-indigo-800',
-  user: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
+  admin: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  user: 'bg-console-surface-2 text-foreground border-console-border',
 };
 
 export default function UsersClient({ rows, pages, currentUserEmail, currentUserRole }: Props) {
@@ -61,15 +61,15 @@ export default function UsersClient({ rows, pages, currentUserEmail, currentUser
   return (
     <div className="max-w-6xl flex flex-col gap-6">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm dark:bg-red-950/40 dark:border-red-800 dark:text-red-400">
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded px-4 py-3 text-sm dark:bg-red-950/40 dark:border-red-800 dark:text-red-400">
           {error}
         </div>
       )}
 
       {/* Adicionar usuário */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
-        <h3 className="text-base font-bold text-gray-800 mb-1 dark:text-gray-100">Adicionar usuário</h3>
-        <p className="text-xs text-gray-500 mb-4 dark:text-gray-400">
+      <div className="bg-console-surface border border-console-border rounded p-6">
+        <h3 className="text-base font-bold text-foreground mb-1">Adicionar usuário</h3>
+        <p className="text-xs text-console-muted mb-4">
           Apenas e-mails @v2globalteam.com. O usuário precisa fazer login ao menos uma vez para conseguir acessar — se quiser antecipar, cadastre aqui.
         </p>
         <div className="flex flex-col md:flex-row gap-3">
@@ -78,14 +78,14 @@ export default function UsersClient({ rows, pages, currentUserEmail, currentUser
             placeholder="email@v2globalteam.com"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+            className="flex-1 border border-console-border rounded bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 placeholder:text-console-muted"
           />
           <input
             type="text"
             placeholder="Nome (opcional)"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+            className="flex-1 border border-console-border rounded bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 placeholder:text-console-muted"
           />
           <button
             disabled={isPending || !newEmail.trim()}
@@ -96,7 +96,7 @@ export default function UsersClient({ rows, pages, currentUserEmail, currentUser
                 setNewName('');
               })
             }
-            className="bg-indigo-600 text-white text-sm font-semibold rounded-lg px-5 py-2 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="bg-amber-500 text-black text-sm font-semibold rounded px-5 py-2 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Adicionar
           </button>
@@ -104,11 +104,11 @@ export default function UsersClient({ rows, pages, currentUserEmail, currentUser
       </div>
 
       {/* Lista de usuários */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden dark:bg-gray-900 dark:border-gray-700">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between dark:border-gray-800">
+      <div className="bg-console-surface border border-console-border rounded overflow-hidden">
+        <div className="px-6 py-4 border-b border-console-border flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">Usuários ({rows.length})</h3>
-            <p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">
+            <h3 className="text-base font-bold text-foreground">Usuários ({rows.length})</h3>
+            <p className="text-xs text-console-muted mt-0.5">
               Marque as páginas que cada usuário pode acessar. Super admins acessam tudo automaticamente.
             </p>
           </div>
@@ -116,7 +116,7 @@ export default function UsersClient({ rows, pages, currentUserEmail, currentUser
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-500 tracking-wide dark:bg-gray-800 dark:text-gray-400">
+            <thead className="bg-console-surface-2 text-xs uppercase text-console-muted tracking-wide">
               <tr>
                 <th className="text-left px-6 py-3 font-semibold">Usuário</th>
                 <th className="text-left px-6 py-3 font-semibold">Nível</th>
@@ -128,17 +128,17 @@ export default function UsersClient({ rows, pages, currentUserEmail, currentUser
                 <th className="text-right px-6 py-3 font-semibold">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+            <tbody className="divide-y divide-console-border">
               {rows.map((u) => {
                 const isSelf = u.email === currentUserEmail;
                 const isSuperRow = u.role === 'super_admin';
                 const pageSet = new Set(u.pages);
 
                 return (
-                  <tr key={u.email} className="hover:bg-gray-50/60 dark:hover:bg-gray-800">
+                  <tr key={u.email} className="hover:bg-console-surface-2">
                     <td className="px-6 py-3">
-                      <div className="font-medium text-gray-800 dark:text-gray-100">{u.name || u.email.split('@')[0]}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{u.email}</div>
+                      <div className="font-medium text-foreground">{u.name || u.email.split('@')[0]}</div>
+                      <div className="text-xs text-console-muted">{u.email}</div>
                     </td>
                     <td className="px-6 py-3">
                       {isSuper && !isSelf ? (
@@ -174,7 +174,7 @@ export default function UsersClient({ rows, pages, currentUserEmail, currentUser
                             onChange={(e) =>
                               run(() => togglePageAccess(u.email, p.key, e.target.checked))
                             }
-                            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800"
+                            className="w-4 h-4 rounded border-console-border text-amber-500 focus:ring-amber-500 disabled:opacity-60"
                           />
                         </td>
                       );
@@ -193,7 +193,7 @@ export default function UsersClient({ rows, pages, currentUserEmail, currentUser
                           Remover
                         </button>
                       ) : (
-                        <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                        <span className="text-xs text-console-muted">—</span>
                       )}
                     </td>
                   </tr>
@@ -201,7 +201,7 @@ export default function UsersClient({ rows, pages, currentUserEmail, currentUser
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={pages.length + 3} className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colSpan={pages.length + 3} className="px-6 py-10 text-center text-sm text-console-muted">
                     Nenhum usuário cadastrado ainda.
                   </td>
                 </tr>

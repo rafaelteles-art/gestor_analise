@@ -974,16 +974,16 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
   return (
     <div className="flex flex-col gap-6">
       {/* Header / actions */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-console-surface border border-console-border rounded p-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+          <div className="w-10 h-10 rounded bg-amber-500/10 text-amber-400 flex items-center justify-center">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
           <div>
-            <h1 className="text-base font-bold text-gray-900 dark:text-gray-100">Catálogos do Facebook</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <h1 className="text-base font-bold text-foreground">Catálogos do Facebook</h1>
+            <p className="text-xs text-console-muted">
               {syncing
                 ? 'Sincronizando com a Meta…'
                 : loading
@@ -995,13 +995,13 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
         <div className="flex items-center gap-2">
           <div className="relative">
-            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-console-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
               placeholder="Filtrar BM ou catálogo..."
-              className="pl-9 pr-4 py-1.5 border border-gray-200 dark:border-gray-700 rounded-md text-xs w-64 outline-none focus:border-indigo-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+              className="pl-9 pr-4 py-1.5 border border-console-border rounded text-xs w-64 outline-none focus:border-amber-500 bg-background text-foreground placeholder:text-console-muted"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -1010,7 +1010,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             onClick={reloadFromDB}
             disabled={loading || syncing}
             title="Recarregar do banco de dados"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-indigo-300 hover:text-indigo-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded border border-console-border text-foreground hover:bg-console-surface-2 hover:border-amber-500 hover:text-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <svg className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1021,7 +1021,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             onClick={() => openCreateCatalogModal()}
             disabled={syncing}
             title="Criar um novo catálogo em um Business Manager"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-amber-500 text-black hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -1044,12 +1044,12 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
       </div>
 
       {error && (
-        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded-xl p-4 text-sm">
+        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded p-4 text-sm">
           {error}
         </div>
       )}
       {info && !error && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 rounded-xl p-3 text-xs">
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 rounded p-3 text-xs">
           {info}
         </div>
       )}
@@ -1070,18 +1070,18 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
         });
 
         return (
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-console-surface border border-console-border rounded overflow-hidden">
             <button
               onClick={() => setDiagOpen((v) => !v)}
-              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
+              className="w-full px-4 py-3 flex items-center justify-between hover:bg-console-surface-2 transition-colors text-left"
             >
               <div className="flex items-center gap-3">
-                <svg className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${diagOpen ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                <svg className={`w-4 h-4 text-console-muted transition-transform ${diagOpen ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
                 <div>
-                  <div className="text-sm font-bold text-gray-800 dark:text-gray-100">Diagnóstico do último sync</div>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                  <div className="text-sm font-bold text-foreground">Diagnóstico do último sync</div>
+                  <div className="text-[11px] text-console-muted">
                     {diagnostics.length} BMs varridas · {withCatalogs} com catálogos · {withoutAny} sem catálogos · {withAnyError} com erro de permissão/API
                   </div>
                 </div>
@@ -1091,7 +1091,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   <button
                     key={f}
                     onClick={() => setDiagFilter(f)}
-                    className={`px-2 py-1 rounded ${diagFilter === f ? 'bg-indigo-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                    className={`px-2 py-1 rounded ${diagFilter === f ? 'bg-amber-500 text-black' : 'text-console-muted hover:bg-console-surface-2'}`}
                   >
                     {f === 'all' ? 'Todas' : f === 'empty' ? 'Sem catálogos' : 'Com erro'}
                   </button>
@@ -1100,9 +1100,9 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             </button>
 
             {diagOpen && (
-              <div className="border-t border-gray-100 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800 max-h-[480px] overflow-y-auto">
+              <div className="border-t border-console-border divide-y divide-console-border max-h-[480px] overflow-y-auto">
                 {filtered.length === 0 ? (
-                  <div className="p-6 text-center text-gray-400 dark:text-gray-500 text-xs">
+                  <div className="p-6 text-center text-console-muted text-xs">
                     Nada pra mostrar com este filtro.
                   </div>
                 ) : (
@@ -1111,26 +1111,26 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                     return (
                       <div key={d.bm_id} className="px-5 py-3 text-xs">
                         <div className="flex items-center gap-3 mb-2">
-                          <span className="font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[320px]" title={d.bm_name}>{d.bm_name}</span>
-                          <span className="font-mono text-[10px] text-gray-400 dark:text-gray-500">BM {d.bm_id}</span>
+                          <span className="font-semibold text-foreground truncate max-w-[320px]" title={d.bm_name}>{d.bm_name}</span>
+                          <span className="font-mono text-[10px] text-console-muted">BM {d.bm_id}</span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                             d.total_catalogs > 0
                               ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
                               : anyError
                               ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                              : 'bg-console-surface-2 text-console-muted'
                           }`}>
                             {d.total_catalogs > 0
                               ? `${d.total_catalogs} catálogo(s)`
                               : anyError ? 'Erro de permissão/API' : 'Sem catálogos'}
                           </span>
                         </div>
-                        <div className="space-y-1 pl-2 border-l-2 border-gray-100 dark:border-gray-800">
+                        <div className="space-y-1 pl-2 border-l-2 border-console-border">
                           {d.attempts.map((a, idx) => (
                             <div key={idx} className="flex flex-wrap items-start gap-2 py-1">
-                              <div className="text-[11px] text-gray-600 dark:text-gray-300 font-medium min-w-[140px]">
+                              <div className="text-[11px] text-foreground font-medium min-w-[140px]">
                                 {a.profile_name}
-                                <span className="text-gray-400 dark:text-gray-500 font-mono ml-1">[{a.token_preview}]</span>
+                                <span className="text-console-muted font-mono ml-1">[{a.token_preview}]</span>
                               </div>
                               <div className="flex flex-wrap gap-1.5">
                                 {a.endpoints.map((e, eidx) => (
@@ -1140,7 +1140,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                                       e.status === 'ok'
                                         ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
                                         : e.status === 'empty'
-                                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                                        ? 'bg-console-surface-2 text-console-muted'
                                         : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400'
                                     }`}
                                     title={e.error_message ?? ''}
@@ -1170,7 +1170,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
       })()}
 
       {!loading && !syncing && !error && filtered.length === 0 && (
-        <div className="bg-white dark:bg-gray-900 border border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-12 text-center text-gray-400 dark:text-gray-500 text-sm">
+        <div className="bg-console-surface border border-dashed border-console-border rounded p-12 text-center text-console-muted text-sm">
           {groups.length === 0
             ? 'Nenhum catálogo no banco. Clique em "Sincronizar Meta" para buscar.'
             : 'Nenhum catálogo encontrado para o filtro atual.'}
@@ -1181,45 +1181,45 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
         const isOpen = expanded.has(g.bm_id);
         const bmProductTotal = g.catalogs.reduce((s, c) => s + (c.product_count ?? 0), 0);
         return (
-          <div key={g.bm_id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
+          <div key={g.bm_id} className="bg-console-surface border border-console-border rounded overflow-hidden">
             {/* BM Header */}
             <div
               onClick={() => toggle(g.bm_id)}
-              className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-indigo-50/40 dark:from-indigo-950/20 to-transparent flex flex-wrap items-center gap-x-6 gap-y-2 cursor-pointer hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30 transition-colors"
+              className="px-5 py-3 border-b border-console-border bg-console-surface-2 flex flex-wrap items-center gap-x-6 gap-y-2 cursor-pointer hover:bg-console-surface-2 transition-colors"
             >
-              <div className={`w-5 h-5 flex items-center justify-center rounded bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 transition-transform ${isOpen ? 'rotate-90' : ''}`}>
+              <div className={`w-5 h-5 flex items-center justify-center rounded bg-console-surface text-console-muted transition-transform ${isOpen ? 'rotate-90' : ''}`}>
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
               </div>
-              <div className="w-1.5 h-6 bg-indigo-500 rounded-sm" />
+              <div className="w-1.5 h-6 bg-amber-500" />
               <div className="min-w-0">
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider uppercase">Business Manager</div>
-                <div className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate max-w-[420px]" title={g.bm_name}>
+                <div className="text-[10px] text-console-muted font-bold tracking-wider uppercase">Business Manager</div>
+                <div className="text-sm font-bold text-foreground truncate max-w-[420px]" title={g.bm_name}>
                   {g.bm_name}
                 </div>
               </div>
-              <div className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">BM {g.bm_id}</div>
+              <div className="text-[10px] text-console-muted font-mono">BM {g.bm_id}</div>
 
               <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs ml-auto">
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Catálogos</span>
-                  <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{g.catalogs.length}</span>
+                  <span className="text-[9px] text-console-muted font-bold uppercase tracking-wider">Catálogos</span>
+                  <span className="font-mono font-bold text-foreground">{g.catalogs.length}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Produtos</span>
-                  <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{formatNumber(bmProductTotal)}</span>
+                  <span className="text-[9px] text-console-muted font-bold uppercase tracking-wider">Produtos</span>
+                  <span className="font-mono font-semibold text-foreground">{formatNumber(bmProductTotal)}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">Perfis</span>
-                  <span className="font-mono text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={g.accessible_profiles.join(', ')}>
+                  <span className="text-[9px] text-console-muted font-bold uppercase tracking-wider">Perfis</span>
+                  <span className="font-mono text-console-muted truncate max-w-[200px]" title={g.accessible_profiles.join(', ')}>
                     {g.accessible_profiles.join(', ') || '—'}
                   </span>
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); openCreateCatalogModal(g); }}
                   title="Criar um novo catálogo nesta BM"
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-md border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:border-indigo-400 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-amber-500 text-amber-400 hover:bg-amber-500/10 transition-colors whitespace-nowrap"
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -1233,12 +1233,12 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             {isOpen && (
               <>
                 {g.catalogs.length === 0 ? (
-                  <div className="p-6 text-center text-gray-400 dark:text-gray-500 text-xs">
+                  <div className="p-6 text-center text-console-muted text-xs">
                     Nenhum catálogo nesta BM.
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-12 bg-gray-50 dark:bg-gray-800 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                    <div className="grid grid-cols-12 bg-console-surface-2 text-[10px] text-console-muted font-bold uppercase tracking-wider border-b border-console-border">
                       <div className="col-span-4 px-6 py-3">Catálogo</div>
                       <div className="col-span-3 px-4 py-3">ID</div>
                       <div className="col-span-2 px-4 py-3 text-right">Produtos</div>
@@ -1246,19 +1246,19 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                       <div className="col-span-1 px-4 py-3">Acesso</div>
                       <div className="col-span-1 px-4 py-3" />
                     </div>
-                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                    <div className="divide-y divide-console-border">
                       {g.catalogs.map((c) => (
-                        <div key={c.id} className="grid grid-cols-12 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors items-center">
-                          <div className="col-span-4 px-6 py-3 font-semibold text-gray-800 dark:text-gray-100 break-words">{c.name}</div>
-                          <div className="col-span-3 px-4 py-3 font-mono text-gray-400 dark:text-gray-500 text-[11px]">{c.id}</div>
-                          <div className="col-span-2 px-4 py-3 text-right font-mono text-gray-700 dark:text-gray-300">
+                        <div key={c.id} className="grid grid-cols-12 text-xs border-l-2 border-transparent hover:border-amber-500 hover:bg-console-surface-2 transition-colors items-center">
+                          <div className="col-span-4 px-6 py-3 font-semibold text-foreground break-words">{c.name}</div>
+                          <div className="col-span-3 px-4 py-3 font-mono text-console-muted text-[11px]">{c.id}</div>
+                          <div className="col-span-2 px-4 py-3 text-right font-mono text-foreground">
                             {c.product_count != null ? formatNumber(c.product_count) : '—'}
                           </div>
-                          <div className="col-span-1 px-4 py-3 text-gray-500 dark:text-gray-400">{c.vertical ?? '—'}</div>
+                          <div className="col-span-1 px-4 py-3 text-console-muted">{c.vertical ?? '—'}</div>
                           <div className="col-span-1 px-4 py-3">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                               c.relationship === 'owned'
-                                ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
+                                ? 'bg-amber-500/10 text-amber-400'
                                 : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
                             }`}>
                               {c.relationship === 'owned' ? 'Owned' : 'Client'}
@@ -1268,7 +1268,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                             <button
                               onClick={() => openCreateModal(c, g)}
                               title="Criar produto + conjunto neste catálogo"
-                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:border-indigo-400 transition-colors whitespace-nowrap"
+                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded border border-amber-500 text-amber-400 hover:bg-amber-500/10 transition-colors whitespace-nowrap"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -1312,20 +1312,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
           className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-6"
         >
           <div
-            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl my-8"
+            className="bg-console-surface border border-console-border rounded w-full max-w-2xl my-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-console-border flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">Adicionar produto</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[480px]">
+                <h2 className="text-base font-bold text-foreground">Adicionar produto</h2>
+                <p className="text-xs text-console-muted truncate max-w-[480px]">
                   {modalCatalog.catalog.name}
-                  <span className="text-gray-400 dark:text-gray-500 font-mono ml-2">ID {modalCatalog.catalog.id}</span>
+                  <span className="text-console-muted font-mono ml-2">ID {modalCatalog.catalog.id}</span>
                 </p>
               </div>
               <button
                 onClick={closeCreateModal}
-                className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                className="text-console-muted hover:text-foreground transition-colors"
                 title="Fechar"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -1337,7 +1337,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             <div className="px-6 py-4 space-y-4">
               {batchResult ? (
                 <div className="space-y-3">
-                  <div className={`rounded-lg p-4 space-y-2 border ${
+                  <div className={`rounded p-4 space-y-2 border ${
                     batchResult.failures.length === 0
                       ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800'
                       : batchResult.successes.length === 0
@@ -1356,7 +1356,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   </div>
 
                   {batchResult.successes.length > 0 && (
-                    <div className="border border-emerald-200 dark:border-emerald-800 rounded-lg overflow-hidden">
+                    <div className="border border-emerald-200 dark:border-emerald-800 rounded overflow-hidden">
                       <div className="bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                         Criados ({batchResult.successes.length})
                       </div>
@@ -1364,8 +1364,8 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                         {batchResult.successes.map((s) => (
                           <div key={s.product_id} className="px-3 py-2 text-[11px] flex flex-wrap gap-x-3 gap-y-0.5">
                             <span className="font-mono text-emerald-700 dark:text-emerald-400">{s.retailer_id}</span>
-                            <span className="text-gray-500 dark:text-gray-400">prod {s.product_id}</span>
-                            <span className="text-gray-500 dark:text-gray-400">set {s.product_set_id}</span>
+                            <span className="text-console-muted">prod {s.product_id}</span>
+                            <span className="text-console-muted">set {s.product_set_id}</span>
                           </div>
                         ))}
                       </div>
@@ -1373,7 +1373,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   )}
 
                   {batchResult.failures.length > 0 && (
-                    <div className="border border-rose-200 dark:border-rose-800 rounded-lg overflow-hidden">
+                    <div className="border border-rose-200 dark:border-rose-800 rounded overflow-hidden">
                       <div className="bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
                         Falhas ({batchResult.failures.length})
                       </div>
@@ -1389,7 +1389,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   )}
 
                   {historySaveWarning && (
-                    <div className="rounded-lg p-3 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-[11px] text-amber-700 dark:text-amber-400">
+                    <div className="rounded p-3 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-[11px] text-amber-700 dark:text-amber-400">
                       Conjuntos criados na Meta normalmente, mas não consegui salvar no histórico: {historySaveWarning}
                     </div>
                   )}
@@ -1408,13 +1408,13 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                         setBatchResult(null);
                         setHistorySaveWarning(null);
                       }}
-                      className="px-3 py-1.5 text-xs font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                      className="px-3 py-1.5 text-xs font-semibold rounded border border-amber-500 text-amber-400 hover:bg-amber-500/10 transition-colors"
                     >
                       {batchResult.failures.length > 0 ? 'Tentar novamente as falhas' : 'Criar mais'}
                     </button>
                     <button
                       onClick={closeCreateModal}
-                      className="px-3 py-1.5 text-xs font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      className="px-3 py-1.5 text-xs font-semibold rounded border border-console-border text-foreground hover:bg-console-surface-2 transition-colors"
                     >
                       Fechar
                     </button>
@@ -1424,20 +1424,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 <>
                   {/* Linha: nomes dos anúncios (uma linha = um produto) */}
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
-                      Nomes dos anúncios <span className="text-gray-400 dark:text-gray-500 font-normal normal-case tracking-normal">(uma linha = um produto · gera o ID)</span>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">
+                      Nomes dos anúncios <span className="text-console-muted font-normal normal-case tracking-normal">(uma linha = um produto · gera o ID)</span>
                     </label>
                     <textarea
                       value={adNames}
                       onChange={(e) => setAdNames(e.target.value)}
                       rows={4}
                       placeholder={'Ex:\nLT1100\nLT1101\nLT129.150'}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 font-mono dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                      className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 font-mono bg-background text-foreground placeholder:text-console-muted"
                     />
                     {retailerIdPreviews.length > 0 && (
-                      <div className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                      <div className="mt-1.5 text-[11px] text-console-muted">
                         {retailerIdPreviews.length} produto(s) · IDs:{' '}
-                        <span className="font-mono text-gray-700 dark:text-gray-300">
+                        <span className="font-mono text-foreground">
                           {retailerIdPreviews.slice(0, 3).join(', ')}
                           {retailerIdPreviews.length > 3 ? `, … (+${retailerIdPreviews.length - 3})` : ''}
                         </span>
@@ -1447,7 +1447,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
                   {/* Linha: título do produto (obrigatório) */}
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">
                       Título do produto
                     </label>
                     <input
@@ -1455,20 +1455,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                       value={productTitle}
                       onChange={(e) => setProductTitle(e.target.value)}
                       placeholder="Digite o título do produto"
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                      className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground placeholder:text-console-muted"
                     />
                   </div>
 
                   {/* Linha: preset selector */}
                   <div className="flex items-end gap-2">
                     <div className="flex-1">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">
                         Preset
                       </label>
                       <select
                         value={selectedPresetName}
                         onChange={(e) => applyPreset(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 bg-white dark:bg-gray-800 dark:text-gray-100"
+                        className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground"
                       >
                         <option value="">— Sem preset —</option>
                         {presets.map((p) => (
@@ -1480,7 +1480,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                       type="button"
                       onClick={saveCurrentAsPreset}
                       title="Salvar configuração atual como preset"
-                      className="px-3 py-2 text-xs font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors whitespace-nowrap"
+                      className="px-3 py-2 text-xs font-semibold rounded border border-amber-500 text-amber-400 hover:bg-amber-500/10 transition-colors whitespace-nowrap"
                     >
                       Salvar
                     </button>
@@ -1497,70 +1497,70 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   {/* Grid: campos do preset */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Descrição</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">Descrição</label>
                       <textarea
                         value={presetConfig.description}
                         onChange={(e) => setPresetConfig({ ...presetConfig, description: e.target.value })}
                         rows={2}
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                        className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground placeholder:text-console-muted"
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Link (URL do produto)</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">Link (URL do produto)</label>
                       <input
                         type="url"
                         value={presetConfig.link}
                         onChange={(e) => setPresetConfig({ ...presetConfig, link: e.target.value })}
                         placeholder="https://..."
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                        className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground placeholder:text-console-muted"
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Image URL</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">Image URL</label>
                       <input
                         type="url"
                         value={presetConfig.image_url}
                         onChange={(e) => setPresetConfig({ ...presetConfig, image_url: e.target.value })}
                         placeholder="https://..."
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                        className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground placeholder:text-console-muted"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Preço</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">Preço</label>
                       <input
                         type="text"
                         value={presetConfig.price}
                         onChange={(e) => setPresetConfig({ ...presetConfig, price: e.target.value })}
                         placeholder="97.00"
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                        className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground placeholder:text-console-muted"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Moeda</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">Moeda</label>
                       <input
                         type="text"
                         value={presetConfig.currency}
                         onChange={(e) => setPresetConfig({ ...presetConfig, currency: e.target.value.toUpperCase() })}
                         placeholder="BRL"
                         maxLength={3}
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 font-mono uppercase dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                        className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 font-mono uppercase bg-background text-foreground placeholder:text-console-muted"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Marca</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">Marca</label>
                       <input
                         type="text"
                         value={presetConfig.brand}
                         onChange={(e) => setPresetConfig({ ...presetConfig, brand: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100"
+                        className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Disponibilidade</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">Disponibilidade</label>
                       <select
                         value={presetConfig.availability}
                         onChange={(e) => setPresetConfig({ ...presetConfig, availability: e.target.value as Availability })}
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 bg-white dark:bg-gray-800 dark:text-gray-100"
+                        className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground"
                       >
                         {AVAILABILITIES.map((v) => (
                           <option key={v} value={v}>{v}</option>
@@ -1568,11 +1568,11 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Condição</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">Condição</label>
                       <select
                         value={presetConfig.condition}
                         onChange={(e) => setPresetConfig({ ...presetConfig, condition: e.target.value as Condition })}
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 bg-white dark:bg-gray-800 dark:text-gray-100"
+                        className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground"
                       >
                         {CONDITIONS.map((v) => (
                           <option key={v} value={v}>{v}</option>
@@ -1582,7 +1582,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   </div>
 
                   {modalError && (
-                    <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded-lg p-3 text-xs">
+                    <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded p-3 text-xs">
                       {modalError}
                     </div>
                   )}
@@ -1591,18 +1591,18 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
             </div>
 
             {!batchResult && (
-              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-end gap-2 rounded-b-xl">
+              <div className="px-6 py-4 border-t border-console-border bg-console-surface-2 flex items-center justify-end gap-2 rounded-b">
                 <button
                   onClick={closeCreateModal}
                   disabled={creating}
-                  className="px-4 py-2 text-xs font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-colors disabled:opacity-40"
+                  className="px-4 py-2 text-xs font-semibold rounded border border-console-border text-foreground hover:bg-console-surface transition-colors disabled:opacity-40"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleCreateProduct}
                   disabled={creating || parsedAdNames.length === 0 || !productTitle.trim()}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded bg-amber-500 text-black hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {creating && (
                     <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -1625,15 +1625,15 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
           className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-6"
         >
           <div
-            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-3xl my-8"
+            className="bg-console-surface border border-console-border rounded w-full max-w-3xl my-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4">
+            <div className="px-6 py-4 border-b border-console-border flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">URLs de vídeo</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                <h2 className="text-base font-bold text-foreground">URLs de vídeo</h2>
+                <p className="text-xs text-console-muted truncate">
                   {videoModalCatalog.catalog.name}
-                  <span className="text-gray-400 dark:text-gray-500 font-mono ml-2">ID {videoModalCatalog.catalog.id}</span>
+                  <span className="text-console-muted font-mono ml-2">ID {videoModalCatalog.catalog.id}</span>
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1642,7 +1642,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                     onClick={handleOpenSheetImport}
                     disabled={!!importBusy || videoSyncing || videoLoading}
                     title="Escolher uma planilha do Drive e puxar os links de vídeo pelo nome do criativo"
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:border-indigo-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded border border-amber-500 text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2a4 4 0 014-4h3m0 0l-3-3m3 3l-3 3M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v1" />
@@ -1663,7 +1663,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 </button>
                 <button
                   onClick={closeVideoModal}
-                  className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                  className="text-console-muted hover:text-foreground transition-colors"
                   title="Fechar"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -1675,27 +1675,27 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
             {/* Stats */}
             {videoStats && (
-              <div className="px-6 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 text-[11px] text-gray-600 dark:text-gray-300">
-                <span><span className="font-bold text-gray-800 dark:text-gray-100">{videoStats.total}</span> sincronizados</span>
-                <span className="text-gray-300 dark:text-gray-600">·</span>
+              <div className="px-6 py-2 bg-console-surface-2 border-b border-console-border flex items-center gap-3 text-[11px] text-foreground">
+                <span><span className="font-bold text-foreground">{videoStats.total}</span> sincronizados</span>
+                <span className="text-console-muted">·</span>
                 <span><span className="font-bold text-emerald-700 dark:text-emerald-400">{videoStats.with_video}</span> com vídeo</span>
-                <span className="text-gray-300 dark:text-gray-600">·</span>
+                <span className="text-console-muted">·</span>
                 <span><span className="font-bold text-purple-700 dark:text-purple-400">{videoStats.without_video}</span> sem vídeo</span>
-                <span className="text-gray-300 dark:text-gray-600">·</span>
-                <span><span className="font-bold text-gray-700 dark:text-gray-300">{videoStats.ignored}</span> ignorados</span>
+                <span className="text-console-muted">·</span>
+                <span><span className="font-bold text-foreground">{videoStats.ignored}</span> ignorados</span>
               </div>
             )}
 
             {/* Tabs */}
-            <div className="px-6 pt-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-1">
+            <div className="px-6 pt-3 border-b border-console-border flex items-center gap-1">
               {(['missing', 'ignored'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setVideoTab(t)}
-                  className={`px-3 py-2 text-xs font-bold rounded-t-md border-b-2 transition-colors ${
+                  className={`px-3 py-2 text-xs font-bold rounded-t border-b-2 transition-colors ${
                     videoTab === t
                       ? 'border-purple-500 text-purple-700 dark:text-purple-400 bg-purple-50/40 dark:bg-purple-950/20'
-                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                      : 'border-transparent text-console-muted hover:text-foreground hover:bg-console-surface-2'
                   }`}
                 >
                   {t === 'missing'
@@ -1707,7 +1707,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
             <div className="px-6 py-4">
               {videoSyncDiag && (
-                <div className="mb-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg p-3 text-[11px] font-mono space-y-0.5">
+                <div className="mb-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded p-3 text-[11px] font-mono space-y-0.5">
                   <div><b>Último sync:</b> {videoSyncDiag.raw_count} produtos · {videoSyncDiag.page_count} página(s)</div>
                   <div><b>Perfil:</b> {videoSyncDiag.profile_used}</div>
                   <div><b>Chaves da 1ª resposta:</b> [{videoSyncDiag.first_page_keys.join(', ') || '—'}]</div>
@@ -1721,14 +1721,14 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 </div>
               )}
               {videoError && (
-                <div className="mb-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded-lg p-3 text-xs">
+                <div className="mb-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded p-3 text-xs">
                   {videoError}
                 </div>
               )}
 
               {/* Resultado do último commit do import */}
               {importResult && (
-                <div className={`mb-3 rounded-lg p-3 text-xs border ${
+                <div className={`mb-3 rounded p-3 text-xs border ${
                   importResult.failed.length === 0
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
                     : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400'
@@ -1750,24 +1750,24 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
               {/* Pré-visualização do import (dry-run, antes de gravar) */}
               {importPreview && (
-                <div className="mb-3 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20 p-3 text-xs space-y-2">
+                <div className="mb-3 rounded border border-amber-500 bg-amber-500/5 p-3 text-xs space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="font-bold text-indigo-700 dark:text-indigo-300 truncate">
+                    <div className="font-bold text-amber-400 truncate">
                       Pré-visualização · {importPreview.filename}
-                      <span className="font-normal text-gray-500 dark:text-gray-400 ml-1">(aba {importPreview.tab})</span>
+                      <span className="font-normal text-console-muted ml-1">(aba {importPreview.tab})</span>
                     </div>
                     <button
                       onClick={() => setImportPreview(null)}
                       disabled={importBusy === 'committing'}
-                      className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-[11px] disabled:opacity-40"
+                      className="text-console-muted hover:text-foreground text-[11px] disabled:opacity-40"
                     >
                       cancelar
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-600 dark:text-gray-300">
-                    <span><b className="text-indigo-700 dark:text-indigo-300">{importPreview.plan.to_fill.length}</b> produto(s) receberão vídeo</span>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground">
+                    <span><b className="text-amber-400">{importPreview.plan.to_fill.length}</b> produto(s) receberão vídeo</span>
                     <span><b className="text-purple-700 dark:text-purple-400">{importPreview.plan.products_without_link.length}</b> sem link na planilha</span>
-                    <span className="text-gray-400 dark:text-gray-500">{importPreview.sheet_link_rows} linha(s) com link · {importPreview.plan.unmatched_sheet_keys.length} sem produto neste catálogo</span>
+                    <span className="text-console-muted">{importPreview.sheet_link_rows} linha(s) com link · {importPreview.plan.unmatched_sheet_keys.length} sem produto neste catálogo</span>
                   </div>
 
                   {importPreview.plan.duplicate_sheet_keys.length > 0 && (
@@ -1777,16 +1777,16 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   )}
 
                   {importPreview.plan.to_fill.length > 0 ? (
-                    <div className="border border-indigo-100 dark:border-indigo-900 rounded max-h-48 overflow-y-auto divide-y divide-indigo-50 dark:divide-indigo-950 bg-white dark:bg-gray-900">
+                    <div className="border border-console-border rounded max-h-48 overflow-y-auto divide-y divide-console-border bg-console-surface">
                       {importPreview.plan.to_fill.map((f) => (
                         <div key={f.product_id} className="px-2 py-1 flex items-center gap-2 text-[10px]">
-                          <span className="font-mono text-gray-700 dark:text-gray-300 truncate flex-shrink-0 max-w-[160px]" title={f.retailer_id}>{f.retailer_id}</span>
-                          <span className="text-gray-400 dark:text-gray-500 truncate flex-1" title={f.link}>{f.link}</span>
+                          <span className="font-mono text-foreground truncate flex-shrink-0 max-w-[160px]" title={f.retailer_id}>{f.retailer_id}</span>
+                          <span className="text-console-muted truncate flex-1" title={f.link}>{f.link}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                    <div className="text-[11px] text-console-muted">
                       Nenhum produto sem vídeo casou com a planilha. Verifique a aba/nomes ou rode "Sincronizar Meta".
                     </div>
                   )}
@@ -1795,7 +1795,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                     <button
                       onClick={handleCommitImport}
                       disabled={importBusy === 'committing' || importPreview.plan.to_fill.length === 0}
-                      className="px-3 py-1.5 text-[11px] font-bold rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 text-[11px] font-bold rounded bg-amber-500 text-black hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {importBusy === 'committing' ? 'Gravando na Meta…' : `Gravar ${importPreview.plan.to_fill.length} vídeo(s)`}
                     </button>
@@ -1804,10 +1804,10 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
               )}
 
               {videoLoading ? (
-                <div className="py-10 text-center text-gray-400 dark:text-gray-500 text-sm">Carregando produtos…</div>
+                <div className="py-10 text-center text-console-muted text-sm">Carregando produtos…</div>
               ) : videoTab === 'missing' ? (
                 videoProducts.length === 0 ? (
-                  <div className="py-10 text-center text-gray-400 dark:text-gray-500 text-sm space-y-1">
+                  <div className="py-10 text-center text-console-muted text-sm space-y-1">
                     {videoStats && videoStats.total === 0 ? (
                       <>
                         <div>Snapshot vazio para este catálogo.</div>
@@ -1822,27 +1822,27 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                     )}
                   </div>
                 ) : (
-                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] overflow-y-auto">
+                  <div className="border border-console-border rounded divide-y divide-console-border max-h-[60vh] overflow-y-auto">
                     {videoProducts.map((p) => {
                       const busy = videoRowBusy[p.product_id];
                       const draft = videoUrlDrafts[p.product_id] ?? '';
                       return (
-                        <div key={p.product_id} className="px-4 py-3 flex items-start gap-3">
+                        <div key={p.product_id} className="px-4 py-3 flex items-start gap-3 border-l-2 border-transparent hover:border-amber-500 transition-colors">
                           {p.image_url ? (
                             <img
                               src={p.image_url}
                               alt=""
-                              className="w-12 h-12 rounded object-cover bg-gray-100 dark:bg-gray-800 flex-shrink-0"
+                              className="w-12 h-12 rounded object-cover bg-console-surface-2 flex-shrink-0"
                               onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded bg-gray-100 dark:bg-gray-800 flex-shrink-0" />
+                            <div className="w-12 h-12 rounded bg-console-surface-2 flex-shrink-0" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate" title={p.name ?? p.product_id}>
-                              {p.name ?? <span className="text-gray-400 dark:text-gray-500 italic">sem nome</span>}
+                            <div className="text-xs font-semibold text-foreground truncate" title={p.name ?? p.product_id}>
+                              {p.name ?? <span className="text-console-muted italic">sem nome</span>}
                             </div>
-                            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">
+                            <div className="text-[10px] text-console-muted font-mono mt-0.5">
                               {p.retailer_id || '—'} · prod {p.product_id}
                             </div>
                             <div className="mt-2 flex gap-2">
@@ -1854,7 +1854,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                                 }
                                 placeholder="https://… (URL do vídeo)"
                                 disabled={!!busy}
-                                className="flex-1 px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded outline-none focus:border-purple-500 font-mono disabled:bg-gray-50 dark:disabled:bg-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                                className="flex-1 px-2 py-1 text-xs border border-console-border rounded outline-none focus:border-purple-500 font-mono bg-background text-foreground placeholder:text-console-muted disabled:opacity-50"
                               />
                               <button
                                 onClick={() => handleSaveVideo(p)}
@@ -1867,7 +1867,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                                 onClick={() => handleIgnoreProduct(p)}
                                 disabled={!!busy}
                                 title="Não cobrar esse produto na próxima abertura"
-                                className="px-3 py-1 text-[11px] font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                className="px-3 py-1 text-[11px] font-semibold rounded border border-console-border text-foreground hover:bg-console-surface-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                               >
                                 {busy === 'ignoring' ? 'Ignorando...' : 'Ignorar'}
                               </button>
@@ -1880,20 +1880,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 )
               ) : (
                 videoIgnored.length === 0 ? (
-                  <div className="py-10 text-center text-gray-400 dark:text-gray-500 text-sm">
+                  <div className="py-10 text-center text-console-muted text-sm">
                     Nenhum produto ignorado neste catálogo.
                   </div>
                 ) : (
-                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] overflow-y-auto">
+                  <div className="border border-console-border rounded divide-y divide-console-border max-h-[60vh] overflow-y-auto">
                     {videoIgnored.map((p) => {
                       const busy = videoRowBusy[p.product_id];
                       return (
-                        <div key={p.product_id} className="px-4 py-3 flex items-center gap-3">
+                        <div key={p.product_id} className="px-4 py-3 flex items-center gap-3 border-l-2 border-transparent hover:border-amber-500 transition-colors">
                           <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate" title={p.name ?? p.product_id}>
-                              {p.name ?? <span className="text-gray-400 dark:text-gray-500 italic">sem nome</span>}
+                            <div className="text-xs font-semibold text-foreground truncate" title={p.name ?? p.product_id}>
+                              {p.name ?? <span className="text-console-muted italic">sem nome</span>}
                             </div>
-                            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">
+                            <div className="text-[10px] text-console-muted font-mono mt-0.5">
                               {p.retailer_id || '—'} · prod {p.product_id} · ignorado em{' '}
                               {new Date(p.ignored_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                             </div>
@@ -1901,7 +1901,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                           <button
                             onClick={() => handleUnignoreProduct(p)}
                             disabled={!!busy}
-                            className="px-3 py-1 text-[11px] font-semibold rounded border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:border-indigo-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                            className="px-3 py-1 text-[11px] font-semibold rounded border border-amber-500 text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                           >
                             {busy === 'unignoring' ? 'Desfazendo...' : 'Desfazer ignorar'}
                           </button>
@@ -1922,19 +1922,19 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
           className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-6"
         >
           <div
-            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md my-8"
+            className="bg-console-surface border border-console-border rounded w-full max-w-md my-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-console-border flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">Criar catálogo</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <h2 className="text-base font-bold text-foreground">Criar catálogo</h2>
+                <p className="text-xs text-console-muted">
                   {lockedBm ? `em ${lockedBm.bm_name}` : 'Escolha o Business Manager e o nome'}
                 </p>
               </div>
               <button
                 onClick={closeCreateCatalogModal}
-                className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                className="text-console-muted hover:text-foreground transition-colors"
                 title="Fechar"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -1945,20 +1945,20 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
             <div className="px-6 py-4 space-y-4">
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">
                   Business Manager
                 </label>
                 {lockedBm ? (
-                  <div className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 flex items-center justify-between">
+                  <div className="w-full px-3 py-2 border border-console-border rounded text-sm bg-console-surface-2 text-foreground flex items-center justify-between">
                     <span className="truncate" title={lockedBm.bm_name}>{lockedBm.bm_name}</span>
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono ml-2">BM {lockedBm.bm_id}</span>
+                    <span className="text-[10px] text-console-muted font-mono ml-2">BM {lockedBm.bm_id}</span>
                   </div>
                 ) : (
                   <select
                     value={selectedBmId}
                     onChange={(e) => setSelectedBmId(e.target.value)}
                     disabled={bmOptionsLoading}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 bg-white dark:bg-gray-800 dark:text-gray-100 disabled:opacity-60"
+                    className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground disabled:opacity-60"
                   >
                     <option value="">{bmOptionsLoading ? 'Carregando BMs…' : '— Selecione uma BM —'}</option>
                     {bmOptions.map((b) => (
@@ -1969,7 +1969,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-console-muted mb-1">
                   Nome do catálogo
                 </label>
                 <input
@@ -1979,30 +1979,30 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   onKeyDown={(e) => { if (e.key === 'Enter' && !creatingCatalog) handleCreateCatalog(); }}
                   placeholder="Ex: Catálogo Principal"
                   autoFocus
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                  className="w-full px-3 py-2 border border-console-border rounded text-sm outline-none focus:border-amber-500 bg-background text-foreground placeholder:text-console-muted"
                 />
-                <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Vertical: commerce (e-commerce padrão).</p>
+                <p className="mt-1 text-[11px] text-console-muted">Vertical: commerce (e-commerce padrão).</p>
               </div>
 
               {createCatalogError && (
-                <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded-lg p-3 text-xs">
+                <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded p-3 text-xs">
                   {createCatalogError}
                 </div>
               )}
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-end gap-2 rounded-b-xl">
+            <div className="px-6 py-4 border-t border-console-border bg-console-surface-2 flex items-center justify-end gap-2 rounded-b">
               <button
                 onClick={closeCreateCatalogModal}
                 disabled={creatingCatalog}
-                className="px-4 py-2 text-xs font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-colors disabled:opacity-40"
+                className="px-4 py-2 text-xs font-semibold rounded border border-console-border text-foreground hover:bg-console-surface transition-colors disabled:opacity-40"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateCatalog}
                 disabled={creatingCatalog || !selectedBmId || !newCatalogName.trim()}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded bg-amber-500 text-black hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {creatingCatalog && (
                   <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -2019,19 +2019,19 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
       {historyCatalog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div
-            className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-gray-200 dark:border-gray-800"
+            className="bg-console-surface border border-console-border rounded max-w-2xl w-full max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+            <div className="flex items-start justify-between px-5 py-4 border-b border-console-border">
               <div>
-                <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">Histórico de conjuntos</h2>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                <h2 className="text-sm font-bold text-foreground">Histórico de conjuntos</h2>
+                <p className="text-[11px] text-console-muted mt-0.5">
                   {historyCatalog.catalog.name} · <span className="font-mono">{historyCatalog.catalog.id}</span>
                 </p>
               </div>
               <button
                 onClick={closeHistoryModal}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                className="text-console-muted hover:text-foreground transition-colors"
                 aria-label="Fechar"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -2042,17 +2042,17 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
 
             <div className="flex-1 overflow-y-auto p-5 space-y-3">
               {historyError && (
-                <div className="rounded-lg p-3 border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-[11px] text-rose-700 dark:text-rose-400">
+                <div className="rounded p-3 border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-[11px] text-rose-700 dark:text-rose-400">
                   {historyError}
                 </div>
               )}
 
               {historyLoading && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 py-8 text-center">Carregando…</div>
+                <div className="text-xs text-console-muted py-8 text-center">Carregando…</div>
               )}
 
               {!historyLoading && historySessions && historySessions.length === 0 && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 py-8 text-center">
+                <div className="text-xs text-console-muted py-8 text-center">
                   Nenhuma sessão ainda. Crie produtos + conjuntos neste catálogo e o lote aparece aqui.
                 </div>
               )}
@@ -2062,14 +2062,14 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 const idsKey = `${s.session_id}:ids`;
                 const idNameKey = `${s.session_id}:idname`;
                 return (
-                  <div key={s.id} className="border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
+                  <div key={s.id} className="border border-console-border rounded overflow-hidden">
                     <button
                       onClick={() => toggleSession(s.id)}
-                      className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-console-surface-2 transition-colors"
                     >
                       <span className="flex items-center gap-2 text-[12px]">
                         <svg
-                          className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
+                          className={`w-3.5 h-3.5 text-console-muted transition-transform ${open ? 'rotate-90' : ''}`}
                           fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -2077,16 +2077,16 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                         <span className="font-bold text-emerald-700 dark:text-emerald-400">
                           {s.items.length} conjunto{s.items.length === 1 ? '' : 's'}
                         </span>
-                        <span className="text-gray-500 dark:text-gray-400">· {fmtDateTimeBR(s.created_at)}</span>
+                        <span className="text-console-muted">· {fmtDateTimeBR(s.created_at)}</span>
                         {s.created_by && (
-                          <span className="text-gray-400 dark:text-gray-500">· {s.created_by}</span>
+                          <span className="text-console-muted">· {s.created_by}</span>
                         )}
                       </span>
                     </button>
 
                     {open && (
-                      <div className="border-t border-gray-100 dark:border-gray-800">
-                        <div className="flex flex-wrap gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/40">
+                      <div className="border-t border-console-border">
+                        <div className="flex flex-wrap gap-2 px-3 py-2 bg-console-surface-2">
                           <button
                             onClick={() => copyText(copyIdsText(s.items), idsKey)}
                             className="px-2.5 py-1 text-[11px] font-semibold rounded border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
@@ -2095,7 +2095,7 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                           </button>
                           <button
                             onClick={() => copyText(copyIdNameText(s.items), idNameKey)}
-                            className="px-2.5 py-1 text-[11px] font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            className="px-2.5 py-1 text-[11px] font-semibold rounded border border-console-border text-foreground hover:bg-console-surface transition-colors"
                           >
                             {copiedSessionId === idNameKey ? 'Copiado!' : 'Copiar ID+nome'}
                           </button>
@@ -2106,12 +2106,12 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                             Excluir
                           </button>
                         </div>
-                        <div className="max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+                        <div className="max-h-60 overflow-y-auto divide-y divide-console-border">
                           {s.items.map((it) => (
                             <div key={`${it.orderIndex}-${it.product_set_id}`} className="px-3 py-2 text-[11px] flex flex-wrap gap-x-3 gap-y-0.5">
-                              <span className="text-gray-400 dark:text-gray-500 w-6 tabular-nums">{it.orderIndex + 1}</span>
+                              <span className="text-console-muted w-6 tabular-nums">{it.orderIndex + 1}</span>
                               <span className="font-mono text-emerald-700 dark:text-emerald-400">{it.product_set_id}</span>
-                              <span className="text-gray-600 dark:text-gray-300">{it.ad_name}</span>
+                              <span className="text-foreground">{it.ad_name}</span>
                             </div>
                           ))}
                         </div>
@@ -2122,10 +2122,10 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
               })}
             </div>
 
-            <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-800 flex justify-end">
+            <div className="px-5 py-3 border-t border-console-border flex justify-end">
               <button
                 onClick={closeHistoryModal}
-                className="px-3 py-1.5 text-xs font-semibold rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="px-3 py-1.5 text-xs font-semibold rounded border border-console-border text-foreground hover:bg-console-surface-2 transition-colors"
               >
                 Fechar
               </button>

@@ -7,6 +7,12 @@
   --background: #ffffff;
   --foreground: #171717;
 
+  /* Console design tokens (light) */
+  --console-surface: #f4f4f5;
+  --console-surface-2: #e4e4e7;
+  --console-border: #d4d4d8;
+  --console-muted: #71717a;
+
   /* react-select theming (light) */
   --rs-bg: #f9fafb;
   --rs-border: #e5e7eb;
@@ -21,6 +27,12 @@
   --background: #0a0a0a;
   --foreground: #ededed;
 
+  /* Console design tokens (dark) */
+  --console-surface: #111111;
+  --console-surface-2: #1a1a1a;
+  --console-border: #2a2a2a;
+  --console-muted: #6b7280;
+
   /* react-select theming (dark) */
   --rs-bg: #1f2937;       /* gray-800 */
   --rs-border: #374151;   /* gray-700 */
@@ -34,6 +46,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-console-surface: var(--console-surface);
+  --color-console-surface-2: var(--console-surface-2);
+  --color-console-border: var(--console-border);
+  --color-console-muted: var(--console-muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
