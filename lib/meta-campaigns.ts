@@ -1110,35 +1110,44 @@ async function resolvePageBackedInstagram(pageId: string, token: string): Promis
     );
   }
 
-  // 2) PBIA existente? (é EDGE plural, NÃO campo — Meta retorna lista)
+  // 2+3) PBIA existente? (edge plural, NÃO campo — Meta retorna lista). Se não
+  // existir, cria. Tudo embrulhado em graphMutationWithRetry porque a criação é
+  // ASSÍNCRONA: o POST pode devolver (#100/2238011) "perfil sendo criado, tente
+  // mais tarde". Esse subcode é classificado como transitório (ver
+  // TRANSIENT_FB_SUBCODES), então o backoff 2s/8s/30s re-executa este bloco — o
+  // re-GET pega a PBIA assim que ela termina de ser provisionada, e o POST é
+  // idempotente caso ainda não. Sem o retry, a criação assíncrona virava falha
+  // permanente e abortava a campanha.
   let igId: string | undefined;
   try {
-    const existing = await getGraph<{ data?: { id: string }[] }>(
-      `${pageId}/page_backed_instagram_accounts`,
-      pageToken
-    );
-    igId = existing.data?.[0]?.id;
-  } catch (err) {
-    console.warn('[resolvePageBackedInstagram] GET /page_backed_instagram_accounts falhou:', (err as Error).message);
-  }
-
-  // 3) Cria se não existir
-  if (!igId) {
-    try {
+    igId = await graphMutationWithRetry(async () => {
+      // a) PBIA já pronta?
+      try {
+        const existing = await getGraph<{ data?: { id: string }[] }>(
+          `${pageId}/page_backed_instagram_accounts`,
+          pageToken
+        );
+        const found = existing.data?.[0]?.id;
+        if (found) return found;
+      } catch (err) {
+        console.warn('[resolvePageBackedInstagram] GET /page_backed_instagram_accounts falhou:', (err as Error).message);
+      }
+      // b) Cria (idempotente). Pode lançar 2238011 enquanto a Meta provisiona —
+      //    graphMutationWithRetry reentra neste bloco após o backoff.
       const created = await postGraph<{ id: string }>(
         `${pageId}/page_backed_instagram_accounts`,
         {},
         pageToken,
         'createPageBackedInstagram'
       );
-      igId = created.id;
-    } catch (err) {
-      throw new MetaApiError(
-        'resolvePageBackedInstagram',
-        undefined,
-        `Página ${pageId} não tem IG conectado e a criação da Page-Backed Instagram Account falhou. Detalhe: ${(err as Error).message}`
-      );
-    }
+      return created.id;
+    });
+  } catch (err) {
+    throw new MetaApiError(
+      'resolvePageBackedInstagram',
+      undefined,
+      `Página ${pageId} não tem IG conectado e a criação da Page-Backed Instagram Account falhou. Detalhe: ${(err as Error).message}`
+    );
   }
 
   if (!igId) {
@@ -1675,11 +1684,26 @@ export function expandBatch(
 const TRANSIENT_FB_CODES = new Set([1, 2, 4, 17, 341, 368, 80004]);
 const RETRY_BACKOFFS_MS = [2000, 8000, 30000];
 
+/**
+ * Subcodes que chegam com um `code` "permanente" (tipicamente 100) mas são, na
+ * prática, transitórios — a operação foi iniciada de forma assíncrona pela Meta
+ * e termina sozinha. Sem isto o backoff nunca os absorve, porque o classificador
+ * só olha o `code` de topo.
+ *
+ * - 2238011: "O perfil do Instagram associado a uma Página está sendo criado.
+ *   Tente novamente mais tarde." Disparado pelo POST que cria a PBIA quando a
+ *   Meta provisiona a conta-sombra de forma assíncrona. O POST é idempotente:
+ *   ao tentar de novo após o backoff, retorna a mesma PBIA já pronta.
+ */
+const TRANSIENT_FB_SUBCODES = new Set([2238011]);
+
 function isTransientError(err: unknown): boolean {
   if (err instanceof MetaApiError) {
     if (err.fbCode !== undefined && TRANSIENT_FB_CODES.has(err.fbCode)) return true;
     if (err.httpStatus === 429) return true;
     if (err.httpStatus !== undefined && err.httpStatus >= 500 && err.httpStatus <= 599) return true;
+    const sc = errorSubcode(err);
+    if (sc !== undefined && TRANSIENT_FB_SUBCODES.has(sc)) return true;
   }
   return false;
 }
