@@ -18,7 +18,6 @@ interface Account {
   oferta_ids: number[];
   cartao: string | null;
   moeda: string;
-  limite: number;
   gasto_total: number;
   perfil: string | null;
   account_status: string;
@@ -1061,7 +1060,6 @@ export default function ClientStatusContas({
                 <th className="px-4 py-3">ID Meta</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Gasto Total</th>
-                <th className="px-4 py-3 text-right">Limite Diário</th>
                 <th className="px-4 py-3">Moeda</th>
                 <th className="px-4 py-3">Etapa</th>
                 <th className="px-4 py-3">Oferta</th>
@@ -1174,11 +1172,6 @@ export default function ClientStatusContas({
                           <td className="px-4 py-3 text-right font-mono text-foreground">
                             {Number(acc.gasto_total) > 0
                               ? formatCurrency(Number(acc.gasto_total), acc.moeda)
-                              : <span className="text-console-muted">{zeroCurrencyLabel(acc.moeda)}</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono text-console-muted">
-                            {Number(acc.limite) > 0
-                              ? formatCurrency(Number(acc.limite), acc.moeda)
                               : <span className="text-console-muted">{zeroCurrencyLabel(acc.moeda)}</span>}
                           </td>
                           <td className="px-4 py-3 text-foreground font-medium">{acc.moeda}</td>

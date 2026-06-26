@@ -75,7 +75,6 @@ export default async function StatusContasPage() {
           ) AS oferta_ids,
           cartao,
           COALESCE(moeda, 'BRL') AS moeda,
-          COALESCE(limite, 0) AS limite,
           COALESCE(gasto_total, 0) AS gasto_total,
           perfil,
           COALESCE(account_status, 'ACTIVE') AS account_status,

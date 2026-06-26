@@ -73,9 +73,14 @@ export async function GET() {
               message: `Buscando status na Meta (${processed + 1}–${processed + batch.length} de ${total})…`,
             });
 
+            // NOTE: `adtrust_dsl` (daily spend limit) was removed from the Graph API.
+            // Requesting it returned error #100 ("nonexisting field") which failed the
+            // ENTIRE field request — so amount_spent never came back and gasto_total
+            // never updated. Do NOT add fields here without verifying they still exist:
+            // one invalid field poisons the whole call.
             const batchRequests = batch.map(accountId => ({
               method: 'GET',
-              relative_url: `${accountId}?fields=account_status,amount_spent,adtrust_dsl,timezone_name`,
+              relative_url: `${accountId}?fields=account_status,amount_spent,timezone_name`,
             }));
 
             let res: Response;
@@ -127,17 +132,15 @@ export async function GET() {
 
               const newStatus = mapMetaStatus(body.account_status);
               const gastoTotal = body.amount_spent != null ? Number(body.amount_spent) / 100 : null;
-              const limite     = body.adtrust_dsl  != null ? Number(body.adtrust_dsl)  / 100 : null;
               const timezone   = body.timezone_name ?? null;
 
               await pool.query(
                 `UPDATE meta_ad_accounts
                  SET account_status = $1,
                      gasto_total    = COALESCE($3, gasto_total),
-                     limite         = COALESCE($4, limite),
-                     timezone       = COALESCE($5, timezone)
+                     timezone       = COALESCE($4, timezone)
                  WHERE account_id = $2`,
-                [newStatus, accountId, gastoTotal, limite, timezone]
+                [newStatus, accountId, gastoTotal, timezone]
               );
 
               updatedCount++;

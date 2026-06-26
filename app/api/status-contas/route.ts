@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { ensureOfferLinkSchema } from '@/lib/offer-links';
 
-const ALLOWED_FIELDS = ['etapa', 'gestor', 'cartao', 'moeda', 'limite', 'gasto_total', 'perfil', 'account_status'];
+const ALLOWED_FIELDS = ['etapa', 'gestor', 'cartao', 'moeda', 'gasto_total', 'perfil', 'account_status'];
 
 async function ensureColumns() {
   const alterQueries = [
@@ -62,7 +62,6 @@ export async function GET() {
         COALESCE(accessible_profiles, '{}') AS accessible_profiles,
         cartao,
         COALESCE(moeda, 'BRL') AS moeda,
-        COALESCE(limite, 0) AS limite,
         COALESCE(gasto_total, 0) AS gasto_total,
         perfil,
         COALESCE(account_status, 'ACTIVE') AS account_status,
