@@ -156,7 +156,7 @@ export default function V2MediaLabLayout({ children, title }: { children: React.
       {/* Sidebar */}
       <aside className="w-64 bg-console-surface border-r border-console-border flex flex-col hidden md:flex min-h-screen">
         <div className="p-6">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <Image
               src="/v2medialab-logo.jpeg"
               alt="V2 Media Lab"
@@ -168,7 +168,7 @@ export default function V2MediaLabLayout({ children, title }: { children: React.
               <p className="text-sm font-bold text-foreground leading-tight">V2 Media Lab</p>
               <p className="text-[10px] text-console-muted font-medium tracking-wider uppercase">Analytics</p>
             </div>
-          </div>
+          </Link>
         </div>
         <nav className="flex-1 px-4 space-y-1">
           {visibleNav.map((item) => {
