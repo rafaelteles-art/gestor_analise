@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { setCatalogVideoSheet, clearCatalogVideoSheet } from '@/lib/meta-catalogs';
+import { setCatalogVideoSheet, clearCatalogVideoSheet, getCatalogVideoSheet } from '@/lib/meta-catalogs';
+import { listCatalogProducts } from '@/lib/meta-product-catalogs';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -36,6 +37,30 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('DELETE /api/catalogs/video-sheet error:', error);
+    return NextResponse.json({ success: false, error: error?.message ?? String(error) }, { status: 500 });
+  }
+}
+
+// GET ?catalog_id=… — is a Video Sheet linked? (+ name and today's missing-video count,
+// for the builder's arm toggle/confirmation). See docs/adr/0008.
+export async function GET(req: NextRequest) {
+  try {
+    const catalog_id = (req.nextUrl.searchParams.get('catalog_id') ?? '').trim();
+    if (!catalog_id) return NextResponse.json({ success: false, error: 'catalog_id obrigatório' }, { status: 400 });
+    const sheet = await getCatalogVideoSheet(catalog_id);
+    let missing_video_count = 0;
+    if (sheet) {
+      const missing = await listCatalogProducts(catalog_id, { missingVideo: true });
+      missing_video_count = missing.length;
+    }
+    return NextResponse.json({
+      success: true,
+      linked: !!sheet,
+      catalog_name: sheet?.catalog_name ?? null,
+      sheet: sheet ? { spreadsheet_id: sheet.spreadsheet_id, filename: sheet.filename, tab: sheet.tab } : null,
+      missing_video_count,
+    });
+  } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message ?? String(error) }, { status: 500 });
   }
 }
