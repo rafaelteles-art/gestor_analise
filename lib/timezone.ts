@@ -100,3 +100,25 @@ export function fmtTime(
 ): string {
   return new Date(value).toLocaleTimeString('pt-BR', { timeZone: APP_TIMEZONE, ...opts });
 }
+
+/**
+ * The first `hour:minute` (app timezone) strictly after `after`. Returns the exact
+ * UTC instant plus its app-tz calendar date (YYYY-MM-DD). Used to schedule a
+ * Scheduled Video Fill for the next 08:30 GMT-3 (docs/adr/0008). Deterministic —
+ * relies only on the fixed -03:00 offset (no DST), so it is unit-testable.
+ */
+export function nextDailyRunAfter(
+  after: Date,
+  hour: number,
+  minute: number,
+): { fireAt: Date; fireDate: string } {
+  const hh = String(hour).padStart(2, '0');
+  const mm = String(minute).padStart(2, '0');
+  let dateStr = todayStr(after);
+  let fireAt = new Date(datetimeLocalToISO(`${dateStr}T${hh}:${mm}`));
+  if (fireAt.getTime() <= after.getTime()) {
+    dateStr = daysAgoStr(-1, after); // one day in the future
+    fireAt = new Date(datetimeLocalToISO(`${dateStr}T${hh}:${mm}`));
+  }
+  return { fireAt, fireDate: dateStr };
+}
