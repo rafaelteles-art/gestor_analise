@@ -21,6 +21,9 @@ export interface CatalogEntry {
   product_count: number | null;
   vertical: string | null;
   relationship: 'owned' | 'client';
+  video_sheet_spreadsheet_id: string | null;
+  video_sheet_filename: string | null;
+  video_sheet_tab: string | null;
 }
 
 export interface BMWithCatalogs {
@@ -166,6 +169,9 @@ async function fetchBmCatalogsDetailed(bmId: string, token: string): Promise<BmC
       product_count: typeof c.product_count === 'number' ? c.product_count : null,
       vertical: c.vertical ?? null,
       relationship: 'owned',
+      video_sheet_spreadsheet_id: null,
+      video_sheet_filename: null,
+      video_sheet_tab: null,
     });
   }
   for (const c of clientRes.data) {
@@ -177,6 +183,9 @@ async function fetchBmCatalogsDetailed(bmId: string, token: string): Promise<BmC
       product_count: typeof c.product_count === 'number' ? c.product_count : null,
       vertical: c.vertical ?? null,
       relationship: 'client',
+      video_sheet_spreadsheet_id: null,
+      video_sheet_filename: null,
+      video_sheet_tab: null,
     });
   }
 
@@ -214,12 +223,16 @@ async function ensureCatalogsTable() {
       PRIMARY KEY (bm_id, catalog_id)
     )
   `);
+  await pool.query(`ALTER TABLE meta_catalogs ADD COLUMN IF NOT EXISTS video_sheet_spreadsheet_id TEXT`);
+  await pool.query(`ALTER TABLE meta_catalogs ADD COLUMN IF NOT EXISTS video_sheet_filename TEXT`);
+  await pool.query(`ALTER TABLE meta_catalogs ADD COLUMN IF NOT EXISTS video_sheet_tab TEXT`);
 }
 
 export async function getCatalogsFromDB(): Promise<BMWithCatalogs[]> {
   await ensureCatalogsTable();
   const { rows } = await pool.query(
-    `SELECT bm_id, bm_name, catalog_id, catalog_name, product_count, vertical, relationship, accessible_profiles
+    `SELECT bm_id, bm_name, catalog_id, catalog_name, product_count, vertical, relationship, accessible_profiles,
+            video_sheet_spreadsheet_id, video_sheet_filename, video_sheet_tab
        FROM meta_catalogs
       ORDER BY bm_name ASC, catalog_name ASC`
   );
@@ -242,9 +255,58 @@ export async function getCatalogsFromDB(): Promise<BMWithCatalogs[]> {
       product_count: r.product_count,
       vertical: r.vertical,
       relationship: r.relationship,
+      video_sheet_spreadsheet_id: r.video_sheet_spreadsheet_id ?? null,
+      video_sheet_filename: r.video_sheet_filename ?? null,
+      video_sheet_tab: r.video_sheet_tab ?? null,
     });
   }
   return Array.from(byBm.values());
+}
+
+const DEFAULT_VIDEO_TAB = 'NOMECLATURA ADS';
+
+/**
+ * Link (or relink) a Video Sheet to a Catalog. Keyed by catalog_id — NOT the
+ * (bm_id, catalog_id) PK — because one catalog can appear as 'owned' in one BM and
+ * 'client' in another, yet has a single Video Sheet, so every row for the catalog
+ * gets the same link. Tab defaults to "NOMECLATURA ADS". See CONTEXT.md (Video Sheet).
+ */
+export async function setCatalogVideoSheet(input: {
+  catalog_id: string;
+  spreadsheet_id: string;
+  filename: string;
+  tab?: string | null;
+}): Promise<void> {
+  await ensureCatalogsTable();
+  const catalogId = input.catalog_id.trim();
+  const spreadsheetId = input.spreadsheet_id.trim();
+  const filename = input.filename.trim();
+  const tab = (input.tab ?? '').trim() || DEFAULT_VIDEO_TAB;
+  if (!catalogId) throw new Error('catalog_id obrigatório');
+  if (!spreadsheetId) throw new Error('spreadsheet_id obrigatório');
+  await pool.query(
+    `UPDATE meta_catalogs
+        SET video_sheet_spreadsheet_id = $2,
+            video_sheet_filename        = $3,
+            video_sheet_tab             = $4
+      WHERE catalog_id = $1`,
+    [catalogId, spreadsheetId, filename, tab],
+  );
+}
+
+/** Remove a Catalog's Video Sheet link (clears every row for the catalog_id). */
+export async function clearCatalogVideoSheet(catalogId: string): Promise<void> {
+  await ensureCatalogsTable();
+  const id = catalogId.trim();
+  if (!id) throw new Error('catalog_id obrigatório');
+  await pool.query(
+    `UPDATE meta_catalogs
+        SET video_sheet_spreadsheet_id = NULL,
+            video_sheet_filename        = NULL,
+            video_sheet_tab             = NULL
+      WHERE catalog_id = $1`,
+    [id],
+  );
 }
 
 /**
@@ -644,6 +706,9 @@ export async function createMetaCatalog(bmId: string, name: string): Promise<Cre
     product_count: 0,
     vertical: 'commerce',
     relationship: 'owned',
+    video_sheet_spreadsheet_id: null,
+    video_sheet_filename: null,
+    video_sheet_tab: null,
   };
 
   // Espelha a linha em meta_catalogs (não sobrescreve product_count em conflito).

@@ -19,6 +19,9 @@ interface CatalogEntry {
   product_count: number | null;
   vertical: string | null;
   relationship: 'owned' | 'client';
+  video_sheet_spreadsheet_id: string | null;
+  video_sheet_filename: string | null;
+  video_sheet_tab: string | null;
 }
 
 interface BMWithCatalogs {
