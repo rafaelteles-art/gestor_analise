@@ -115,6 +115,7 @@ interface VideoFillRecord {
     | {
         filled?: Array<{ product_id: string; retailer_id: string }>;
         products_without_link?: Array<{ product_id: string; retailer_id: string | null }>;
+        failed?: Array<{ product_id: string; retailer_id: string; reason?: string }>;
         error?: string;
       }
     | null;
@@ -2379,13 +2380,14 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                 <div className="text-xs text-console-muted italic">Nenhum preenchimento agendado ou executado para este catálogo.</div>
               )}
               {fills && fills.map((f) => {
+                const filled = f.outcome?.filled?.length ?? 0;
+                const missing = f.outcome?.products_without_link ?? [];
+                const failed = f.outcome?.failed ?? [];
                 const badge =
-                  f.status === 'done' ? 'bg-emerald-500/10 text-emerald-400'
+                  f.status === 'done' ? (failed.length > 0 ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400')
                   : f.status === 'failed' ? 'bg-rose-500/10 text-rose-400'
                   : f.status === 'canceled' ? 'bg-console-surface-2 text-console-muted'
                   : 'bg-amber-500/10 text-amber-400'; // pending / running
-                const filled = f.outcome?.filled?.length ?? 0;
-                const missing = f.outcome?.products_without_link ?? [];
                 return (
                   <div key={f.id} className="text-xs border border-console-border rounded px-3 py-2">
                     <div className="flex items-center gap-2">
@@ -2401,13 +2403,24 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                       )}
                     </div>
                     {f.status === 'done' && (
-                      <div className="text-console-muted mt-1">
-                        preencheu {filled} · faltaram {missing.length}
-                        {missing.length > 0 && (
-                          <span className="font-mono">
-                            : {missing.slice(0, 8).map((p) => p.retailer_id ?? p.product_id).join(', ')}
-                            {missing.length > 8 ? '…' : ''}
-                          </span>
+                      <div className="mt-1 space-y-0.5">
+                        <div className="text-console-muted">
+                          preencheu {filled} · sem link {missing.length}
+                          {missing.length > 0 && (
+                            <span className="font-mono">
+                              {' '}({missing.slice(0, 8).map((p) => p.retailer_id ?? p.product_id).join(', ')}
+                              {missing.length > 8 ? '…' : ''})
+                            </span>
+                          )}
+                        </div>
+                        {failed.length > 0 && (
+                          <div className="text-rose-400">
+                            {failed.length} falhou(falharam) na Meta:{' '}
+                            <span className="font-mono">
+                              {failed.slice(0, 8).map((p) => p.retailer_id ?? p.product_id).join(', ')}
+                              {failed.length > 8 ? '…' : ''}
+                            </span>
+                          </div>
                         )}
                       </div>
                     )}
