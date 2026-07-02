@@ -1408,6 +1408,13 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [catalogConfigMode, setCatalogConfigMode] = useState<'new' | 'existing'>('existing');
   const [catalogId, setCatalogId] = useState('');
   const [productSetId, setProductSetId] = useState('');
+  const [scheduleVideoFill, setScheduleVideoFill] = useState(false);
+  const [catalogSheetInfo, setCatalogSheetInfo] = useState<{
+    linked: boolean;
+    catalog_name: string | null;
+    sheet: { spreadsheet_id: string; filename: string | null; tab: string } | null;
+    missing_video_count: number;
+  } | null>(null);
   const [productSets, setProductSets] = useState<ProductSet[]>([]);
   const [loadingProductSets, setLoadingProductSets] = useState(false);
 
@@ -2176,6 +2183,39 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     ];
   }, [audiences]);
 
+  // Status do Video Sheet vinculado ao catálogo DPA selecionado (D1). Reseta o
+  // toggle de agendamento sempre que o catálogo muda ou deixa de estar vinculado.
+  useEffect(() => {
+    if (!isDPA || !catalogId) {
+      setCatalogSheetInfo(null);
+      setScheduleVideoFill(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/catalogs/video-sheet?catalog_id=${encodeURIComponent(catalogId)}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data?.success) {
+          setCatalogSheetInfo({
+            linked: !!data.linked,
+            catalog_name: data.catalog_name ?? null,
+            sheet: data.sheet ?? null,
+            missing_video_count: Number(data.missing_video_count ?? 0),
+          });
+          if (!data.linked) setScheduleVideoFill(false);
+        } else {
+          setCatalogSheetInfo(null);
+          setScheduleVideoFill(false);
+        }
+      } catch {
+        if (!cancelled) { setCatalogSheetInfo(null); setScheduleVideoFill(false); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isDPA, catalogId]);
+
   // ── Submit ───────────────────────────────────────────────────────────────
   const submit = async () => {
     setRunning(true);
@@ -2469,6 +2509,30 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       setQueuedJobIds(ids);
       setShowQueueWidget(true);
       setEnqueuedCount(ids.length);
+      // Arma o preenchimento de vídeo agendado — independente do resultado dos jobs
+      // (é uma operação de catálogo; ver docs/adr/0008).
+      if (scheduleVideoFill && catalogId) {
+        const okArm = window.confirm(
+          `Agendar o preenchimento de vídeo do catálogo${catalogSheetInfo?.catalog_name ? ` «${catalogSheetInfo.catalog_name}»` : ''} para amanhã às 08:30 (GMT-3)?\n\n` +
+          `Fonte: ${catalogSheetInfo?.sheet?.filename ?? 'planilha vinculada'} (aba ${catalogSheetInfo?.sheet?.tab ?? 'NOMECLATURA ADS'}).\n` +
+          `Preencherá todos os produtos do catálogo sem vídeo que tiverem link.`,
+        );
+        if (okArm) {
+          try {
+            const armRes = await fetch('/api/catalogs/video-fills', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ catalog_id: catalogId }),
+            });
+            const armData = await armRes.json().catch(() => ({}));
+            if (!armRes.ok || !armData.success) {
+              setEnqueueError((prev) => (prev ? prev + ' · ' : '') + `Falha ao agendar preenchimento de vídeo: ${armData.error ?? armRes.status}`);
+            }
+          } catch (e: any) {
+            setEnqueueError((prev) => (prev ? prev + ' · ' : '') + `Falha ao agendar preenchimento de vídeo: ${e?.message ?? String(e)}`);
+          }
+        }
+      }
       // Falhas de autenticação parciais (contas sem token) voltam em failures.
       if (Array.isArray(data?.failures) && data.failures.length) {
         setEnqueueError(
@@ -2682,6 +2746,26 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {/* DPA sub-config */}
         {isDPA && (
           <>
+            {catalogSheetInfo?.linked && (
+              <SubBlock
+                label="Preenchimento de vídeo (agendado)"
+                hint="Preenche os vídeos dos produtos do catálogo às 08:30 (GMT-3) do dia seguinte, a partir da planilha vinculada."
+              >
+                <div className="rounded border border-console-border bg-console-surface-2 px-4 py-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[12px] font-semibold text-foreground">Agendar preenchimento de vídeo (08:30)</p>
+                    <p className="text-[11px] text-console-muted">
+                      Planilha: {catalogSheetInfo.sheet?.filename ?? '—'} · aba {catalogSheetInfo.sheet?.tab ?? 'NOMECLATURA ADS'}
+                      {catalogSheetInfo.missing_video_count > 0
+                        ? ` · ${catalogSheetInfo.missing_video_count} produto(s) sem vídeo hoje`
+                        : ''}
+                    </p>
+                  </div>
+                  <Toggle checked={scheduleVideoFill} onChange={setScheduleVideoFill} />
+                </div>
+              </SubBlock>
+            )}
+
             <SubBlock label="Nível do Catálogo">
               <div className="grid grid-cols-2 gap-3">
                 <OptionCard
