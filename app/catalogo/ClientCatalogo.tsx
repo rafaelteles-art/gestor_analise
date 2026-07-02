@@ -181,6 +181,82 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
   const [expandedSessions, setExpandedSessions] = useState<Set<number>>(new Set());
   const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
 
+  // ── Estado do modal "Planilha de vídeos" ───────────────────────────────
+  const [sheetModalCatalog, setSheetModalCatalog] = useState<{ catalog: CatalogEntry; bm: BMWithCatalogs } | null>(null);
+  const [sheetBusy, setSheetBusy] = useState(false);
+  const [sheetError, setSheetError] = useState<string | null>(null);
+  // Per-catalog override so a just-saved/removed link shows immediately without a reload.
+  // Key present → use its value (may be null = unlinked); key absent → fall back to c.video_sheet_*.
+  const [sheetOverride, setSheetOverride] = useState<Record<string, { spreadsheet_id: string; filename: string; tab: string } | null>>({});
+
+  const currentSheet = (c: CatalogEntry): { spreadsheet_id: string; filename: string; tab: string } | null => {
+    if (Object.prototype.hasOwnProperty.call(sheetOverride, c.id)) return sheetOverride[c.id];
+    if (c.video_sheet_spreadsheet_id) {
+      return {
+        spreadsheet_id: c.video_sheet_spreadsheet_id,
+        filename: c.video_sheet_filename ?? 'planilha',
+        tab: c.video_sheet_tab ?? 'NOMECLATURA ADS',
+      };
+    }
+    return null;
+  };
+
+  const openSheetModal = (catalog: CatalogEntry, bm: BMWithCatalogs) => {
+    setSheetModalCatalog({ catalog, bm });
+    setSheetError(null);
+  };
+  const closeSheetModal = () => { setSheetModalCatalog(null); setSheetError(null); };
+
+  const pickAndLinkSheet = async () => {
+    if (!sheetModalCatalog) return;
+    const catalog = sheetModalCatalog.catalog;
+    let picked: { file_id: string; filename: string } | null = null;
+    try {
+      picked = await openSheetPicker();
+    } catch (e: any) {
+      setSheetError(`Google Picker: ${e?.message ?? String(e)}`);
+      return;
+    }
+    if (!picked) return; // usuário cancelou
+    setSheetBusy(true);
+    setSheetError(null);
+    try {
+      const res = await fetch('/api/catalogs/video-sheet', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ catalog_id: catalog.id, spreadsheet_id: picked.file_id, filename: picked.filename }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+      setSheetOverride((prev) => ({
+        ...prev,
+        [catalog.id]: { spreadsheet_id: picked!.file_id, filename: picked!.filename, tab: 'NOMECLATURA ADS' },
+      }));
+    } catch (e: any) {
+      setSheetError(e?.message ?? String(e));
+    } finally {
+      setSheetBusy(false);
+    }
+  };
+
+  const unlinkSheet = async () => {
+    if (!sheetModalCatalog) return;
+    const catalog = sheetModalCatalog.catalog;
+    if (!window.confirm('Remover a planilha vinculada a este catálogo? O preenchimento agendado de vídeo deixa de poder ser armado.')) return;
+    setSheetBusy(true);
+    setSheetError(null);
+    try {
+      const res = await fetch(`/api/catalogs/video-sheet?catalog_id=${encodeURIComponent(catalog.id)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+      setSheetOverride((prev) => ({ ...prev, [catalog.id]: null }));
+    } catch (e: any) {
+      setSheetError(e?.message ?? String(e));
+    } finally {
+      setSheetBusy(false);
+    }
+  };
+
   // ── Estado do modal "Vídeos" ───────────────────────────────────────────
   interface CatalogProductRow {
     product_id: string;
@@ -1298,6 +1374,22 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                               </svg>
                               Histórico
                             </button>
+                            {isPickerConfigured && (
+                              <button
+                                onClick={() => openSheetModal(c, g)}
+                                title={currentSheet(c) ? `Planilha vinculada: ${currentSheet(c)!.filename}` : 'Vincular planilha de vídeos a este catálogo'}
+                                className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded border transition-colors whitespace-nowrap ${
+                                  currentSheet(c)
+                                    ? 'border-amber-500 text-amber-400 hover:bg-amber-500/10'
+                                    : 'border-console-border text-console-muted hover:text-foreground hover:border-foreground/40'
+                                }`}
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                {currentSheet(c) ? 'Planilha ✓' : 'Planilha'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -2132,6 +2224,67 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
               >
                 Fechar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sheetModalCatalog && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-6">
+          <div className="bg-console-surface border border-console-border rounded w-full max-w-md my-8" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-console-border flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-foreground">Planilha de vídeos</h2>
+                <p className="text-xs text-console-muted truncate max-w-[360px]">
+                  {sheetModalCatalog.catalog.name}
+                  <span className="text-console-muted font-mono ml-2">ID {sheetModalCatalog.catalog.id}</span>
+                </p>
+              </div>
+              <button onClick={closeSheetModal} className="text-console-muted hover:text-foreground transition-colors" title="Fechar">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-xs text-console-muted">
+                A planilha vinculada é a fonte dos links de vídeo (aba <span className="font-mono">NOMECLATURA ADS</span>),
+                usada pelo import manual e pelo preenchimento agendado.
+              </p>
+              {(() => {
+                const cur = currentSheet(sheetModalCatalog.catalog);
+                return cur ? (
+                  <div className="text-xs border border-console-border rounded px-3 py-2 space-y-0.5">
+                    <div className="text-foreground font-semibold break-words">{cur.filename}</div>
+                    <div className="text-console-muted font-mono break-all">{cur.spreadsheet_id}</div>
+                    <div className="text-console-muted">aba: {cur.tab}</div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-console-muted italic">Nenhuma planilha vinculada.</div>
+                );
+              })()}
+              {sheetError && <div className="text-xs text-rose-400">{sheetError}</div>}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={pickAndLinkSheet}
+                  disabled={sheetBusy}
+                  className="px-3 py-1.5 text-xs font-semibold rounded border border-amber-500 text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+                >
+                  {sheetBusy ? 'Salvando…' : currentSheet(sheetModalCatalog.catalog) ? 'Trocar planilha' : 'Escolher planilha'}
+                </button>
+                {currentSheet(sheetModalCatalog.catalog) && (
+                  <button
+                    onClick={unlinkSheet}
+                    disabled={sheetBusy}
+                    className="px-3 py-1.5 text-xs font-semibold rounded border border-console-border text-console-muted hover:text-rose-400 hover:border-rose-400 transition-colors disabled:opacity-50"
+                  >
+                    Remover
+                  </button>
+                )}
+                <button onClick={closeSheetModal} className="ml-auto px-3 py-1.5 text-xs text-console-muted hover:text-foreground transition-colors">
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
         </div>
