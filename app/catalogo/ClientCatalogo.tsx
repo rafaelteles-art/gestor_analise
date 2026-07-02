@@ -101,6 +101,25 @@ interface ConjuntoSessionRecord {
   updated_at: string;
 }
 
+interface VideoFillRecord {
+  id: number;
+  catalog_id: string;
+  catalog_name: string | null;
+  fire_date: string;
+  fire_at: string;
+  status: 'pending' | 'running' | 'done' | 'failed' | 'canceled';
+  armed_by: string | null;
+  armed_at: string;
+  ran_at: string | null;
+  outcome:
+    | {
+        filled?: Array<{ product_id: string; retailer_id: string }>;
+        products_without_link?: Array<{ product_id: string; retailer_id: string | null }>;
+        error?: string;
+      }
+    | null;
+}
+
 interface CatalogEndpointAttempt {
   endpoint: 'owned' | 'client';
   status: 'ok' | 'empty' | 'error';
@@ -254,6 +273,42 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
       setSheetError(e?.message ?? String(e));
     } finally {
       setSheetBusy(false);
+    }
+  };
+
+  // ── Estado do modal "Preenchimentos de vídeo" ───────────────────────────
+  const [fillsCatalog, setFillsCatalog] = useState<{ catalog: CatalogEntry; bm: BMWithCatalogs } | null>(null);
+  const [fills, setFills] = useState<VideoFillRecord[] | null>(null);
+  const [fillsLoading, setFillsLoading] = useState(false);
+  const [fillsError, setFillsError] = useState<string | null>(null);
+
+  const openFillsModal = async (catalog: CatalogEntry, bm: BMWithCatalogs) => {
+    setFillsCatalog({ catalog, bm });
+    setFills(null);
+    setFillsError(null);
+    setFillsLoading(true);
+    try {
+      const res = await fetch(`/api/catalogs/video-fills?catalog_id=${encodeURIComponent(catalog.id)}`);
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+      setFills(data.fills ?? []);
+    } catch (e: any) {
+      setFillsError(e?.message ?? String(e));
+    } finally {
+      setFillsLoading(false);
+    }
+  };
+  const closeFillsModal = () => { setFillsCatalog(null); setFills(null); setFillsError(null); };
+
+  const cancelFill = async (f: VideoFillRecord) => {
+    if (!window.confirm(`Cancelar o preenchimento agendado para ${fmtDateTimeBR(f.fire_at)}?`)) return;
+    try {
+      const res = await fetch(`/api/catalogs/video-fills?id=${encodeURIComponent(String(f.id))}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+      setFills((prev) => (prev ? prev.map((x) => (x.id === f.id ? { ...x, status: 'canceled' } : x)) : prev));
+    } catch (e: any) {
+      setFillsError(`Falha ao cancelar: ${e?.message ?? String(e)}`);
     }
   };
 
@@ -1390,6 +1445,16 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                                 {currentSheet(c) ? 'Planilha ✓' : 'Planilha'}
                               </button>
                             )}
+                            <button
+                              onClick={() => openFillsModal(c, g)}
+                              title="Preenchimentos de vídeo agendados/executados deste catálogo"
+                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded border border-console-border text-console-muted hover:text-foreground hover:border-foreground/40 transition-colors whitespace-nowrap"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Preenchimentos
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -2285,6 +2350,78 @@ export default function ClientCatalogo({ initialGroups }: { initialGroups: BMWit
                   Fechar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fillsCatalog && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-6">
+          <div className="bg-console-surface border border-console-border rounded w-full max-w-2xl my-8" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-console-border flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-foreground">Preenchimentos de vídeo</h2>
+                <p className="text-xs text-console-muted truncate max-w-[480px]">
+                  {fillsCatalog.catalog.name}
+                  <span className="text-console-muted font-mono ml-2">ID {fillsCatalog.catalog.id}</span>
+                </p>
+              </div>
+              <button onClick={closeFillsModal} className="text-console-muted hover:text-foreground transition-colors" title="Fechar">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
+              {fillsLoading && <div className="text-xs text-console-muted">Carregando…</div>}
+              {fillsError && <div className="text-xs text-rose-400">{fillsError}</div>}
+              {fills && fills.length === 0 && !fillsLoading && (
+                <div className="text-xs text-console-muted italic">Nenhum preenchimento agendado ou executado para este catálogo.</div>
+              )}
+              {fills && fills.map((f) => {
+                const badge =
+                  f.status === 'done' ? 'bg-emerald-500/10 text-emerald-400'
+                  : f.status === 'failed' ? 'bg-rose-500/10 text-rose-400'
+                  : f.status === 'canceled' ? 'bg-console-surface-2 text-console-muted'
+                  : 'bg-amber-500/10 text-amber-400'; // pending / running
+                const filled = f.outcome?.filled?.length ?? 0;
+                const missing = f.outcome?.products_without_link ?? [];
+                return (
+                  <div key={f.id} className="text-xs border border-console-border rounded px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-foreground font-semibold">{fmtDateTimeBR(f.fire_at)}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${badge}`}>{f.status}</span>
+                      {f.status === 'pending' && (
+                        <button
+                          onClick={() => cancelFill(f)}
+                          className="ml-auto px-2 py-0.5 text-[10px] font-semibold rounded border border-console-border text-console-muted hover:text-rose-400 hover:border-rose-400 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
+                    {f.status === 'done' && (
+                      <div className="text-console-muted mt-1">
+                        preencheu {filled} · faltaram {missing.length}
+                        {missing.length > 0 && (
+                          <span className="font-mono">
+                            : {missing.slice(0, 8).map((p) => p.retailer_id ?? p.product_id).join(', ')}
+                            {missing.length > 8 ? '…' : ''}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {f.status === 'failed' && (
+                      <div className="text-rose-400 mt-1 break-words">{f.outcome?.error ?? 'falhou'}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="px-6 py-3 border-t border-console-border flex justify-end">
+              <button onClick={closeFillsModal} className="px-3 py-1.5 text-xs text-console-muted hover:text-foreground transition-colors">
+                Fechar
+              </button>
             </div>
           </div>
         </div>
