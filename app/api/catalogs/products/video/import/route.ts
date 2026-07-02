@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  listCatalogProducts,
-  getCatalogProductStats,
-  bulkUpdateProductVideos,
-  type BulkVideoItem,
-} from '@/lib/meta-product-catalogs';
-import { readSheetTabCells, SheetReadError } from '@/lib/google-sheets';
+import { SheetReadError } from '@/lib/google-sheets';
 import { DriveAuthError } from '@/lib/google-drive';
-import {
-  parseNomenclaturaSheet,
-  buildVideoImportPlan,
-  baseAdNameOf,
-  type MatchableProduct,
-} from '@/lib/catalog-video-import';
+import { resolveVideoFillPlan, commitVideoFillPlan } from '@/lib/catalog-video-import-run';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -46,60 +35,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "mode deve ser 'preview' ou 'commit'" }, { status: 400 });
     }
 
-    // 1) Fetch the catalog's missing-video products FIRST. Their Base Ad Names
-    //    calibrate the content-fallback column detection when the sheet's
-    //    "Nº CRIATIVO" header has drifted (see lib/catalog-video-import.ts cascade
-    //    + docs/adr/0008).
-    const [missing, stats] = await Promise.all([
-      listCatalogProducts(catalogId, { missingVideo: true }),
-      getCatalogProductStats(catalogId),
-    ]);
-    const products: MatchableProduct[] = missing.map((p) => ({
-      product_id: p.product_id,
-      retailer_id: p.retailer_id,
-      name: p.name,
-    }));
-    const knownBaseNames = products.map((p) => baseAdNameOf(p.retailer_id));
-
-    // 2) Read + parse the sheet tab (grid cells, so hyperlinks yield their URL).
-    const cells = await readSheetTabCells(spreadsheetId, tabName);
-    const parsed = parseNomenclaturaSheet(cells, knownBaseNames);
-    if (parsed.errors.length) {
+    // Resolve the plan (shared with the scheduled-fill cron — docs/adr/0008).
+    const resolved = await resolveVideoFillPlan(catalogId, spreadsheetId, tabName);
+    if (!resolved.ok) {
       return NextResponse.json(
-        { success: false, error: parsed.errors.join(' '), parse_errors: parsed.errors },
+        { success: false, error: resolved.errors.join(' '), parse_errors: resolved.errors },
         { status: 422 },
       );
     }
-
-    // 3) Build the plan against those missing-video products.
-    const plan = buildVideoImportPlan(parsed, products);
-
-    const planPayload = {
-      to_fill: plan.toFill,
-      products_without_link: plan.productsWithoutLink,
-      unmatched_sheet_keys: plan.unmatchedSheetKeys,
-      duplicate_sheet_keys: plan.duplicateSheetKeys,
-    };
+    const { plan, stats, sheetLinkRows } = resolved;
 
     if (mode === 'preview') {
       return NextResponse.json({
         success: true,
         mode: 'preview',
         tab: tabName,
-        sheet_link_rows: parsed.rows.length,
+        sheet_link_rows: sheetLinkRows,
         stats,
-        plan: planPayload,
+        plan: {
+          to_fill: plan.toFill,
+          products_without_link: plan.productsWithoutLink,
+          unmatched_sheet_keys: plan.unmatchedSheetKeys,
+          duplicate_sheet_keys: plan.duplicateSheetKeys,
+        },
       });
     }
 
-    // 3) Commit — write matched products to Meta and verify.
-    const items: BulkVideoItem[] = plan.toFill.map((f) => ({
-      product_id: f.product_id,
-      retailer_id: f.retailer_id,
-      video_url: f.link,
-    }));
-    const result = await bulkUpdateProductVideos(catalogId, items);
-
+    const result = await commitVideoFillPlan(catalogId, plan);
     return NextResponse.json({
       success: true,
       mode: 'commit',
