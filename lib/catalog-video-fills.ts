@@ -97,6 +97,7 @@ export async function finishVideoFill(
   status: 'done' | 'failed',
   outcome: unknown,
 ): Promise<void> {
+  await ensureVideoFillsTable();
   await pool.query(
     `UPDATE catalog_video_fills SET status = $2, outcome = $3::jsonb, ran_at = now() WHERE id = $1`,
     [id, status, JSON.stringify(outcome ?? null)],
