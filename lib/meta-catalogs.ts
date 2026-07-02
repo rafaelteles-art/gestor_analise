@@ -309,6 +309,38 @@ export async function clearCatalogVideoSheet(catalogId: string): Promise<void> {
   );
 }
 
+/** The catalog's current Video Sheet link, or null if unlinked. Aggregates across
+ *  the owned/client rows (they share the same value; set by catalog_id). */
+export async function getCatalogVideoSheet(catalogId: string): Promise<{
+  catalog_id: string;
+  catalog_name: string;
+  spreadsheet_id: string;
+  filename: string | null;
+  tab: string;
+} | null> {
+  await ensureCatalogsTable();
+  const { rows } = await pool.query(
+    `SELECT catalog_id,
+            MAX(catalog_name)              AS catalog_name,
+            MAX(video_sheet_spreadsheet_id) AS spreadsheet_id,
+            MAX(video_sheet_filename)       AS filename,
+            MAX(video_sheet_tab)            AS tab
+       FROM meta_catalogs
+      WHERE catalog_id = $1
+      GROUP BY catalog_id`,
+    [catalogId.trim()],
+  );
+  const r = rows[0];
+  if (!r || !r.spreadsheet_id) return null;
+  return {
+    catalog_id: r.catalog_id,
+    catalog_name: r.catalog_name ?? r.catalog_id,
+    spreadsheet_id: r.spreadsheet_id,
+    filename: r.filename ?? null,
+    tab: r.tab || DEFAULT_VIDEO_TAB,
+  };
+}
+
 /**
  * Descobre todas as BMs candidatas para a varredura de catálogos, vindas de
  * DUAS fontes:
