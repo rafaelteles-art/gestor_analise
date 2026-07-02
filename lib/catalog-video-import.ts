@@ -90,7 +90,18 @@ export interface ParsedSheet {
 }
 
 const HEADER_ROW_INDEX = 4; // row 5 (0-based) — labels live here per the sheet spec
-const KEY_HEADER_MATCH = (h: string) => h.includes('criativo');
+// Exact (normalized) labels for the creative-ID column. EXACT match on purpose — a
+// substring test like h.includes('criativo') false-positives on notes columns such as
+// "Criativos com empilhamento de hook a serem acompanhados" (observed in production),
+// silently stealing the column and skipping every real link row. See docs/adr/0008.
+const KEY_HEADER_LABELS = new Set([
+  'n criativo',
+  'no criativo',
+  'num criativo',
+  'numero criativo',
+  'criativo',
+]);
+const KEY_HEADER_MATCH = (h: string) => KEY_HEADER_LABELS.has(h);
 const LINK_HEADER_MATCH = (h: string) => h.includes('link') && h.includes('video');
 
 /**

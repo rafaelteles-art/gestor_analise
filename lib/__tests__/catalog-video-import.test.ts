@@ -117,6 +117,19 @@ describe('parseNomenclaturaSheet', () => {
     const p = parseNomenclaturaSheet(v);
     expect(p.rows).toEqual([]);
   });
+
+  it('does NOT false-match the "Criativos com empilhamento…" notes column', () => {
+    // Reproduces the drifted production sheet: the real creative-ID column (col 1)
+    // has a BLANK header, and a long notes column contains the word "criativo".
+    const v: any[][] = [
+      [], [], [], [],
+      ['DATA', '', '', 'LINK DO VIDEO', 'Criativos com empilhamento de hook a serem acompanhados'],
+      ['01/05', 'BD1', '', 'https://v/bd1', 'nota'],
+    ];
+    const p = parseNomenclaturaSheet(v); // no knownBaseNames → no content fallback
+    expect(p.rows).toEqual([]);
+    expect(p.errors.join(' ')).toMatch(/Nº CRIATIVO/);
+  });
 });
 
 describe('buildVideoImportPlan', () => {
