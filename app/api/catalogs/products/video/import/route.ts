@@ -10,6 +10,7 @@ import { DriveAuthError } from '@/lib/google-drive';
 import {
   parseNomenclaturaSheet,
   buildVideoImportPlan,
+  baseAdNameOf,
   type MatchableProduct,
 } from '@/lib/catalog-video-import';
 
@@ -45,17 +46,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "mode deve ser 'preview' ou 'commit'" }, { status: 400 });
     }
 
-    // 1) Read + parse the sheet tab (grid cells, so hyperlinks yield their URL).
-    const cells = await readSheetTabCells(spreadsheetId, tabName);
-    const parsed = parseNomenclaturaSheet(cells);
-    if (parsed.errors.length) {
-      return NextResponse.json(
-        { success: false, error: parsed.errors.join(' '), parse_errors: parsed.errors },
-        { status: 422 },
-      );
-    }
-
-    // 2) Build the plan against the current missing-video products.
+    // 1) Fetch the catalog's missing-video products FIRST. Their Base Ad Names
+    //    calibrate the content-fallback column detection when the sheet's
+    //    "Nº CRIATIVO" header has drifted (see lib/catalog-video-import.ts cascade
+    //    + docs/adr/0008).
     const [missing, stats] = await Promise.all([
       listCatalogProducts(catalogId, { missingVideo: true }),
       getCatalogProductStats(catalogId),
@@ -65,6 +59,19 @@ export async function POST(req: NextRequest) {
       retailer_id: p.retailer_id,
       name: p.name,
     }));
+    const knownBaseNames = products.map((p) => baseAdNameOf(p.retailer_id));
+
+    // 2) Read + parse the sheet tab (grid cells, so hyperlinks yield their URL).
+    const cells = await readSheetTabCells(spreadsheetId, tabName);
+    const parsed = parseNomenclaturaSheet(cells, knownBaseNames);
+    if (parsed.errors.length) {
+      return NextResponse.json(
+        { success: false, error: parsed.errors.join(' '), parse_errors: parsed.errors },
+        { status: 422 },
+      );
+    }
+
+    // 3) Build the plan against those missing-video products.
     const plan = buildVideoImportPlan(parsed, products);
 
     const planPayload = {
