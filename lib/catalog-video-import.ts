@@ -105,6 +105,44 @@ const KEY_HEADER_MATCH = (h: string) => KEY_HEADER_LABELS.has(h);
 const LINK_HEADER_MATCH = (h: string) => h.includes('link') && h.includes('video');
 
 /**
+ * Header-independent detection of the creative-ID column. When the "Nº CRIATIVO"
+ * header has drifted (blank/removed), pick the column whose data cells most often
+ * equal a known Base Ad Name of the catalog's products. Self-calibrating: real
+ * creative IDs (BD1, LT1100…) only cluster in the true key column. The link column
+ * is excluded so its URLs can't win by coincidence. Ties resolve to the leftmost.
+ * Returns -1 when nothing matches (caller then errors, as before).
+ */
+function detectKeyColumnByContent(
+  values: RawCell[][],
+  knownBaseNames: Iterable<string>,
+  linkCol: number,
+): number {
+  const known = new Set<string>();
+  for (const n of knownBaseNames) {
+    const k = normalizeKey(n ?? '');
+    if (k) known.add(k);
+  }
+  if (known.size === 0) return -1;
+
+  const width = values.reduce((w, r) => Math.max(w, r?.length ?? 0), 0);
+  let bestCol = -1;
+  let bestHits = 0;
+  for (let c = 0; c < width; c++) {
+    if (c === linkCol) continue;
+    let hits = 0;
+    for (let i = HEADER_ROW_INDEX + 1; i < values.length; i++) {
+      const text = coerce((values[i] ?? [])[c]).text;
+      if (text && known.has(normalizeKey(text))) hits++;
+    }
+    if (hits > bestHits) {
+      bestHits = hits;
+      bestCol = c;
+    }
+  }
+  return bestHits > 0 ? bestCol : -1;
+}
+
+/**
  * Parse the raw 2D cell matrix of the NOMECLATURA ADS tab (including the 4
  * preamble rows above the header). Locates the "Nº CRIATIVO" and "LINK DO VÍDEO"
  * columns by header label on row 5, then reads data from row 6 down.
@@ -113,8 +151,15 @@ const LINK_HEADER_MATCH = (h: string) => h.includes('link') && h.includes('video
  *  - blank link cell → row skipped (not an error).
  *  - duplicate base name → first non-blank link wins; the key is noted in
  *    `duplicateKeys` so the preview can warn.
+ *
+ * @param knownBaseNames  optional: catalog Base Ad Names for fallback detection when
+ *                        the header is absent. When provided and the exact header is
+ *                        not found, the key column is detected by matching cell values.
  */
-export function parseNomenclaturaSheet(values: RawCell[][]): ParsedSheet {
+export function parseNomenclaturaSheet(
+  values: RawCell[][],
+  knownBaseNames?: Iterable<string>,
+): ParsedSheet {
   const errors: string[] = [];
   const headerRow = values[HEADER_ROW_INDEX];
   if (!headerRow) {
@@ -122,8 +167,11 @@ export function parseNomenclaturaSheet(values: RawCell[][]): ParsedSheet {
   }
 
   const normHeader = headerRow.map((c) => normalizeHeader(coerce(c).text));
-  const keyCol = normHeader.findIndex(KEY_HEADER_MATCH);
   const linkCol = normHeader.findIndex(LINK_HEADER_MATCH);
+  let keyCol = normHeader.findIndex(KEY_HEADER_MATCH);
+  if (keyCol === -1 && knownBaseNames) {
+    keyCol = detectKeyColumnByContent(values, knownBaseNames, linkCol);
+  }
 
   if (keyCol === -1) errors.push('Coluna "Nº CRIATIVO" não encontrada na linha 5.');
   if (linkCol === -1) errors.push('Coluna "LINK DO VIDEO" não encontrada na linha 5.');

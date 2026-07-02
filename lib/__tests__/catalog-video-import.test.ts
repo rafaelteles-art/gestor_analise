@@ -132,6 +132,67 @@ describe('parseNomenclaturaSheet', () => {
   });
 });
 
+describe('parseNomenclaturaSheet content fallback', () => {
+  // Faithful reproduction of the real NOMECLATURA ADS header row (obs #3000):
+  // creative IDs live in col 1 with a BLANK header; "LINK DO VIDEO" is col 7;
+  // a "Criativos com empilhamento…" notes column is col 13.
+  const driftedHeader = [
+    'DATA ENTREGA', '', '', 'EDITOR', 'Nº COPY E DESCRIÇÃO', 'TIPO', 'TESTADO',
+    'LINK DO VIDEO', 'LINK COPY', 'CONFERÊNCIA', 'OBS', 'SITUAÇÃO', 'P',
+    'Criativos com empilhamento de hook a serem acompanhados',
+  ];
+  function driftedSheet(): any[][] {
+    return [
+      [], [], [], [],
+      driftedHeader,
+      ['01/05', 'BD1', '', 'ana', 'copy', 'ORIGINAL', 'SIM', 'https://v/bd1', '', '', '', '', '', ''],
+      ['02/05', 'BD2', '', 'ana', 'copy', 'VARIAÇÃO', 'SIM', 'https://v/bd2', '', '', '', '', '', ''],
+    ];
+  }
+
+  it('recovers the creative-ID column by matching known Base Ad Names', () => {
+    const p = parseNomenclaturaSheet(driftedSheet(), ['BD1', 'BD2', 'BD3']);
+    expect(p.errors).toEqual([]);
+    expect(p.rows).toEqual([
+      { baseAdName: 'BD1', link: 'https://v/bd1', rowNumber: 6 },
+      { baseAdName: 'BD2', link: 'https://v/bd2', rowNumber: 7 },
+    ]);
+  });
+
+  it('errors when the header is absent AND no known names are supplied', () => {
+    const p = parseNomenclaturaSheet(driftedSheet()); // no fallback data
+    expect(p.rows).toEqual([]);
+    expect(p.errors.join(' ')).toMatch(/Nº CRIATIVO/);
+  });
+
+  it('errors when known names match no column', () => {
+    const p = parseNomenclaturaSheet(driftedSheet(), ['LT9999', 'LT8888']);
+    expect(p.rows).toEqual([]);
+    expect(p.errors.join(' ')).toMatch(/Nº CRIATIVO/);
+  });
+
+  it('prefers the real header over the content fallback when the header is present', () => {
+    // Header present in col 0; a decoy col 2 also carries a known name.
+    const v: any[][] = [
+      [], [], [], [],
+      ['Nº CRIATIVO', 'LINK DO VIDEO', 'decoy'],
+      ['LT1100', 'https://v/1', 'LT9999'],
+    ];
+    const p = parseNomenclaturaSheet(v, ['LT1100', 'LT9999']);
+    expect(p.rows).toEqual([{ baseAdName: 'LT1100', link: 'https://v/1', rowNumber: 6 }]);
+  });
+
+  it('never picks the LINK column even if its URLs happen to match a known name', () => {
+    const v: any[][] = [
+      [], [], [], [],
+      ['DATA', '', 'LINK DO VIDEO'],
+      ['01/05', 'BD1', 'https://v/bd1'],
+    ];
+    const p = parseNomenclaturaSheet(v, ['BD1']);
+    expect(p.rows).toEqual([{ baseAdName: 'BD1', link: 'https://v/bd1', rowNumber: 6 }]);
+  });
+});
+
 describe('buildVideoImportPlan', () => {
   const parsed = parseNomenclaturaSheet(
     sheet(
