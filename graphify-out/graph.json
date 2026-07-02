@@ -1174,304 +1174,295 @@
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
       "source_location": "L1",
       "id": "app_campaigns_clientcampaignbuilder_tsx",
-      "community": 3,
+      "community": 4,
       "norm_label": "clientcampaignbuilder.tsx"
     },
     {
       "label": "cls()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L317",
+      "source_location": "L323",
       "id": "clientcampaignbuilder_cls",
-      "community": 3,
+      "community": 4,
       "norm_label": "cls()"
     },
     {
       "label": "makeId()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L321",
+      "source_location": "L327",
       "id": "clientcampaignbuilder_makeid",
-      "community": 3,
+      "community": 4,
       "norm_label": "makeid()"
     },
     {
       "label": "emptyAd()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L325",
+      "source_location": "L331",
       "id": "clientcampaignbuilder_emptyad",
-      "community": 3,
+      "community": 4,
       "norm_label": "emptyad()"
     },
     {
       "label": "emptySharedCopy()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L347",
+      "source_location": "L355",
       "id": "clientcampaignbuilder_emptysharedcopy",
-      "community": 3,
+      "community": 4,
       "norm_label": "emptysharedcopy()"
     },
     {
       "label": "MainSection()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L352",
+      "source_location": "L360",
       "id": "clientcampaignbuilder_mainsection",
-      "community": 3,
+      "community": 4,
       "norm_label": "mainsection()"
     },
     {
       "label": "acctLabel()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L451",
+      "source_location": "L459",
       "id": "clientcampaignbuilder_acctlabel",
-      "community": 3,
+      "community": 4,
       "norm_label": "acctlabel()"
     },
     {
       "label": "toggle()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L454",
+      "source_location": "L462",
       "id": "clientcampaignbuilder_toggle",
-      "community": 3,
+      "community": 4,
       "norm_label": "toggle()"
     },
     {
       "label": "toggleBM()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L462",
+      "source_location": "L470",
       "id": "clientcampaignbuilder_togglebm",
-      "community": 3,
+      "community": 4,
       "norm_label": "togglebm()"
     },
     {
       "label": "add()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L711",
+      "source_location": "L719",
       "id": "clientcampaignbuilder_add",
-      "community": 3,
+      "community": 4,
       "norm_label": "add()"
     },
     {
       "label": "remove()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L715",
+      "source_location": "L723",
       "id": "clientcampaignbuilder_remove",
-      "community": 3,
+      "community": 4,
       "norm_label": "remove()"
     },
     {
       "label": "setBusy()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L973",
+      "source_location": "L981",
       "id": "clientcampaignbuilder_setbusy",
-      "community": 3,
+      "community": 4,
       "norm_label": "setbusy()"
     },
     {
       "label": "onKey()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1094",
+      "source_location": "L1102",
       "id": "clientcampaignbuilder_onkey",
-      "community": 3,
+      "community": 4,
       "norm_label": "onkey()"
     },
     {
       "label": "handleSyncAccounts()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1284",
+      "source_location": "L1292",
       "id": "clientcampaignbuilder_handlesyncaccounts",
-      "community": 3,
+      "community": 4,
       "norm_label": "handlesyncaccounts()"
     },
     {
       "label": "loadBusinesses()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1421",
+      "source_location": "L1429",
       "id": "clientcampaignbuilder_loadbusinesses",
-      "community": 3,
+      "community": 4,
       "norm_label": "loadbusinesses()"
     },
     {
       "label": "handleCreateCatalog()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1450",
+      "source_location": "L1458",
       "id": "clientcampaignbuilder_handlecreatecatalog",
-      "community": 3,
+      "community": 4,
       "norm_label": "handlecreatecatalog()"
     },
     {
       "label": "fetchProductPresets()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1516",
+      "source_location": "L1524",
       "id": "clientcampaignbuilder_fetchproductpresets",
-      "community": 3,
+      "community": 4,
       "norm_label": "fetchproductpresets()"
     },
     {
       "label": "applyProductPreset()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1529",
+      "source_location": "L1537",
       "id": "clientcampaignbuilder_applyproductpreset",
-      "community": 3,
+      "community": 4,
       "norm_label": "applyproductpreset()"
     },
     {
       "label": "handleCreateProduct()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1549",
+      "source_location": "L1557",
       "id": "clientcampaignbuilder_handlecreateproduct",
-      "community": 3,
+      "community": 4,
       "norm_label": "handlecreateproduct()"
     },
     {
       "label": "buildCurrentPresetConfig()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1707",
+      "source_location": "L1715",
       "id": "clientcampaignbuilder_buildcurrentpresetconfig",
-      "community": 3,
+      "community": 4,
       "norm_label": "buildcurrentpresetconfig()"
     },
     {
       "label": "applyPresetConfig()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1754",
+      "source_location": "L1762",
       "id": "clientcampaignbuilder_applypresetconfig",
-      "community": 3,
+      "community": 4,
       "norm_label": "applypresetconfig()"
     },
     {
       "label": "applyAccountScopedPreset()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1825",
+      "source_location": "L1833",
       "id": "clientcampaignbuilder_applyaccountscopedpreset",
-      "community": 3,
+      "community": 4,
       "norm_label": "applyaccountscopedpreset()"
     },
     {
       "label": "handleApplyPreset()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1900",
+      "source_location": "L1908",
       "id": "clientcampaignbuilder_handleapplypreset",
-      "community": 3,
+      "community": 4,
       "norm_label": "handleapplypreset()"
     },
     {
       "label": "handleSavePreset()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1917",
+      "source_location": "L1925",
       "id": "clientcampaignbuilder_handlesavepreset",
-      "community": 3,
+      "community": 4,
       "norm_label": "handlesavepreset()"
     },
     {
       "label": "handleDeletePreset()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1943",
+      "source_location": "L1951",
       "id": "clientcampaignbuilder_handledeletepreset",
-      "community": 3,
+      "community": 4,
       "norm_label": "handledeletepreset()"
     },
     {
       "label": "updateAd()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1987",
+      "source_location": "L1995",
       "id": "clientcampaignbuilder_updatead",
-      "community": 3,
+      "community": 4,
       "norm_label": "updatead()"
     },
     {
       "label": "addAd()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1989",
+      "source_location": "L1997",
       "id": "clientcampaignbuilder_addad",
-      "community": 3,
+      "community": 4,
       "norm_label": "addad()"
     },
     {
       "label": "removeAd()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1990",
+      "source_location": "L1998",
       "id": "clientcampaignbuilder_removead",
-      "community": 3,
+      "community": 4,
       "norm_label": "removead()"
     },
     {
       "label": "updateSharedCopy()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1993",
+      "source_location": "L2001",
       "id": "clientcampaignbuilder_updatesharedcopy",
-      "community": 3,
+      "community": 4,
       "norm_label": "updatesharedcopy()"
-    },
-    {
-      "label": "nextCreativeNo()",
-      "file_type": "code",
-      "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1996",
-      "id": "clientcampaignbuilder_nextcreativeno",
-      "community": 3,
-      "norm_label": "nextcreativeno()"
     },
     {
       "label": "uploadFor()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2023",
+      "source_location": "L2028",
       "id": "clientcampaignbuilder_uploadfor",
-      "community": 3,
+      "community": 4,
       "norm_label": "uploadfor()"
     },
     {
       "label": "submit()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2175",
+      "source_location": "L2180",
       "id": "clientcampaignbuilder_submit",
-      "community": 3,
+      "community": 4,
       "norm_label": "submit()"
     },
     {
       "label": "handleDriveImport()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L3895",
+      "source_location": "L3900",
       "id": "clientcampaignbuilder_handledriveimport",
-      "community": 3,
+      "community": 4,
       "norm_label": "handledriveimport()"
     },
     {
       "label": "handleSingleUpload()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L3917",
+      "source_location": "L3923",
       "id": "clientcampaignbuilder_handlesingleupload",
-      "community": 3,
+      "community": 4,
       "norm_label": "handlesingleupload()"
     },
     {
@@ -5215,7 +5206,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L1",
       "id": "lib_meta_product_catalogs_ts",
-      "community": 4,
+      "community": 3,
       "norm_label": "meta-product-catalogs.ts"
     },
     {
@@ -5224,7 +5215,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L57",
       "id": "meta_product_catalogs_metacatalogapierror",
-      "community": 4,
+      "community": 3,
       "norm_label": "metacatalogapierror"
     },
     {
@@ -5233,7 +5224,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L58",
       "id": "meta_product_catalogs_metacatalogapierror_constructor",
-      "community": 4,
+      "community": 3,
       "norm_label": ".constructor()"
     },
     {
@@ -5242,7 +5233,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L69",
       "id": "meta_product_catalogs_buildmetaerrormessage",
-      "community": 4,
+      "community": 3,
       "norm_label": "buildmetaerrormessage()"
     },
     {
@@ -5251,7 +5242,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L90",
       "id": "meta_product_catalogs_postgraph",
-      "community": 4,
+      "community": 3,
       "norm_label": "postgraph()"
     },
     {
@@ -5260,7 +5251,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L107",
       "id": "meta_product_catalogs_sleep",
-      "community": 4,
+      "community": 3,
       "norm_label": "sleep()"
     },
     {
@@ -5269,7 +5260,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L118",
       "id": "meta_product_catalogs_createproductsetwithretry",
-      "community": 4,
+      "community": 3,
       "norm_label": "createproductsetwithretry()"
     },
     {
@@ -5278,7 +5269,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L154",
       "id": "meta_product_catalogs_resolvecatalogtoken",
-      "community": 4,
+      "community": 3,
       "norm_label": "resolvecatalogtoken()"
     },
     {
@@ -5287,7 +5278,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L186",
       "id": "meta_product_catalogs_sanitizeretailerid",
-      "community": 4,
+      "community": 3,
       "norm_label": "sanitizeretailerid()"
     },
     {
@@ -5296,7 +5287,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L195",
       "id": "meta_product_catalogs_brtdaymonth",
-      "community": 4,
+      "community": 3,
       "norm_label": "brtdaymonth()"
     },
     {
@@ -5305,7 +5296,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L218",
       "id": "meta_product_catalogs_createproductwithset",
-      "community": 4,
+      "community": 3,
       "norm_label": "createproductwithset()"
     },
     {
@@ -5314,7 +5305,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L235",
       "id": "meta_product_catalogs_createproductwithsetusingtoken",
-      "community": 4,
+      "community": 3,
       "norm_label": "createproductwithsetusingtoken()"
     },
     {
@@ -5323,7 +5314,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L307",
       "id": "meta_product_catalogs_ensurepresetstable",
-      "community": 4,
+      "community": 3,
       "norm_label": "ensurepresetstable()"
     },
     {
@@ -5332,7 +5323,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L319",
       "id": "meta_product_catalogs_listpresets",
-      "community": 4,
+      "community": 3,
       "norm_label": "listpresets()"
     },
     {
@@ -5341,7 +5332,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L329",
       "id": "meta_product_catalogs_upsertpreset",
-      "community": 4,
+      "community": 3,
       "norm_label": "upsertpreset()"
     },
     {
@@ -5350,7 +5341,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L343",
       "id": "meta_product_catalogs_deletepreset",
-      "community": 4,
+      "community": 3,
       "norm_label": "deletepreset()"
     },
     {
@@ -5359,7 +5350,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L370",
       "id": "meta_product_catalogs_ensureconjuntosessionstable",
-      "community": 4,
+      "community": 3,
       "norm_label": "ensureconjuntosessionstable()"
     },
     {
@@ -5368,7 +5359,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L389",
       "id": "meta_product_catalogs_listconjuntosessions",
-      "community": 4,
+      "community": 3,
       "norm_label": "listconjuntosessions()"
     },
     {
@@ -5377,7 +5368,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L401",
       "id": "meta_product_catalogs_upsertconjuntosession",
-      "community": 4,
+      "community": 3,
       "norm_label": "upsertconjuntosession()"
     },
     {
@@ -5386,7 +5377,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L423",
       "id": "meta_product_catalogs_deleteconjuntosession",
-      "community": 4,
+      "community": 3,
       "norm_label": "deleteconjuntosession()"
     },
     {
@@ -5395,7 +5386,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L446",
       "id": "meta_product_catalogs_ensurecatalogproductstable",
-      "community": 4,
+      "community": 3,
       "norm_label": "ensurecatalogproductstable()"
     },
     {
@@ -5404,7 +5395,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L462",
       "id": "meta_product_catalogs_ensureignoredproductstable",
-      "community": 4,
+      "community": 3,
       "norm_label": "ensureignoredproductstable()"
     },
     {
@@ -5413,7 +5404,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L482",
       "id": "meta_product_catalogs_fetchallcatalogproducts",
-      "community": 4,
+      "community": 3,
       "norm_label": "fetchallcatalogproducts()"
     },
     {
@@ -5422,7 +5413,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L539",
       "id": "meta_product_catalogs_extractvideos",
-      "community": 4,
+      "community": 3,
       "norm_label": "extractvideos()"
     },
     {
@@ -5431,7 +5422,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L563",
       "id": "meta_product_catalogs_getcatalogproductstats",
-      "community": 4,
+      "community": 3,
       "norm_label": "getcatalogproductstats()"
     },
     {
@@ -5440,7 +5431,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L592",
       "id": "meta_product_catalogs_synccatalogproducts",
-      "community": 4,
+      "community": 3,
       "norm_label": "synccatalogproducts()"
     },
     {
@@ -5449,7 +5440,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L672",
       "id": "meta_product_catalogs_listcatalogproducts",
-      "community": 4,
+      "community": 3,
       "norm_label": "listcatalogproducts()"
     },
     {
@@ -5458,7 +5449,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L708",
       "id": "meta_product_catalogs_listignoredproducts",
-      "community": 4,
+      "community": 3,
       "norm_label": "listignoredproducts()"
     },
     {
@@ -5467,7 +5458,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L725",
       "id": "meta_product_catalogs_ignoreproduct",
-      "community": 4,
+      "community": 3,
       "norm_label": "ignoreproduct()"
     },
     {
@@ -5476,7 +5467,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L739",
       "id": "meta_product_catalogs_unignoreproduct",
-      "community": 4,
+      "community": 3,
       "norm_label": "unignoreproduct()"
     },
     {
@@ -5485,7 +5476,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L757",
       "id": "meta_product_catalogs_fetchproductvideosfromcatalog",
-      "community": 4,
+      "community": 3,
       "norm_label": "fetchproductvideosfromcatalog()"
     },
     {
@@ -5494,7 +5485,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L828",
       "id": "meta_product_catalogs_pollbatchhandle",
-      "community": 4,
+      "community": 3,
       "norm_label": "pollbatchhandle()"
     },
     {
@@ -5503,7 +5494,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L885",
       "id": "meta_product_catalogs_bulkupdateproductvideos",
-      "community": 4,
+      "community": 3,
       "norm_label": "bulkupdateproductvideos()"
     },
     {
@@ -5512,7 +5503,7 @@
       "source_file": "lib\\meta-product-catalogs.ts",
       "source_location": "L997",
       "id": "meta_product_catalogs_updateproductvideo",
-      "community": 4,
+      "community": 3,
       "norm_label": "updateproductvideo()"
     },
     {
@@ -8653,7 +8644,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1168",
+      "source_location": "L1176",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_cls",
@@ -8665,7 +8656,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L321",
+      "source_location": "L327",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_makeid",
@@ -8677,7 +8668,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L325",
+      "source_location": "L331",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_emptyad",
@@ -8689,7 +8680,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L347",
+      "source_location": "L355",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_emptysharedcopy",
@@ -8701,7 +8692,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L352",
+      "source_location": "L360",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_mainsection",
@@ -8713,7 +8704,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L451",
+      "source_location": "L459",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_acctlabel",
@@ -8725,7 +8716,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L454",
+      "source_location": "L462",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_toggle",
@@ -8737,7 +8728,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L462",
+      "source_location": "L470",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_togglebm",
@@ -8749,7 +8740,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L711",
+      "source_location": "L719",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_add",
@@ -8761,7 +8752,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L715",
+      "source_location": "L723",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_remove",
@@ -8773,7 +8764,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L973",
+      "source_location": "L981",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_setbusy",
@@ -8785,7 +8776,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1094",
+      "source_location": "L1102",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_onkey",
@@ -8797,7 +8788,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1284",
+      "source_location": "L1292",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlesyncaccounts",
@@ -8809,7 +8800,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1421",
+      "source_location": "L1429",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_loadbusinesses",
@@ -8821,7 +8812,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1450",
+      "source_location": "L1458",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlecreatecatalog",
@@ -8833,7 +8824,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1516",
+      "source_location": "L1524",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_fetchproductpresets",
@@ -8845,7 +8836,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1529",
+      "source_location": "L1537",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_applyproductpreset",
@@ -8857,7 +8848,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1549",
+      "source_location": "L1557",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlecreateproduct",
@@ -8869,7 +8860,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1707",
+      "source_location": "L1715",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_buildcurrentpresetconfig",
@@ -8881,7 +8872,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1754",
+      "source_location": "L1762",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_applypresetconfig",
@@ -8893,7 +8884,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1825",
+      "source_location": "L1833",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_applyaccountscopedpreset",
@@ -8905,7 +8896,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1900",
+      "source_location": "L1908",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handleapplypreset",
@@ -8917,7 +8908,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1917",
+      "source_location": "L1925",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlesavepreset",
@@ -8929,7 +8920,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1943",
+      "source_location": "L1951",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handledeletepreset",
@@ -8941,7 +8932,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1987",
+      "source_location": "L1995",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_updatead",
@@ -8953,7 +8944,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1989",
+      "source_location": "L1997",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_addad",
@@ -8965,7 +8956,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1990",
+      "source_location": "L1998",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_removead",
@@ -8977,7 +8968,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1993",
+      "source_location": "L2001",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_updatesharedcopy",
@@ -8989,19 +8980,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1996",
-      "weight": 1.0,
-      "_src": "app_campaigns_clientcampaignbuilder_tsx",
-      "_tgt": "clientcampaignbuilder_nextcreativeno",
-      "source": "app_campaigns_clientcampaignbuilder_tsx",
-      "target": "clientcampaignbuilder_nextcreativeno",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2023",
+      "source_location": "L2028",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_uploadfor",
@@ -9013,7 +8992,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2175",
+      "source_location": "L2180",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_submit",
@@ -9025,7 +9004,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L3895",
+      "source_location": "L3900",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handledriveimport",
@@ -9037,7 +9016,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L3917",
+      "source_location": "L3923",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlesingleupload",
@@ -9049,7 +9028,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L327",
+      "source_location": "L333",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_emptyad",
       "_tgt": "clientcampaignbuilder_makeid",
@@ -9061,7 +9040,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1927",
+      "source_location": "L1935",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_handlesavepreset",
       "_tgt": "clientcampaignbuilder_buildcurrentpresetconfig",
@@ -9073,7 +9052,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1907",
+      "source_location": "L1915",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_handleapplypreset",
       "_tgt": "clientcampaignbuilder_applypresetconfig",
@@ -9085,7 +9064,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1908",
+      "source_location": "L1916",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_handleapplypreset",
       "_tgt": "clientcampaignbuilder_applyaccountscopedpreset",
@@ -9097,7 +9076,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L3919",
+      "source_location": "L3925",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_handlesingleupload",
       "_tgt": "clientcampaignbuilder_uploadfor",

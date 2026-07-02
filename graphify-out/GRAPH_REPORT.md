@@ -1,11 +1,11 @@
-# Graph Report - .  (2026-06-25)
+# Graph Report - .  (2026-07-01)
 
 ## Corpus Check
-- 163 files · ~165,972 words
+- 163 files · ~166,029 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 739 nodes · 882 edges · 110 communities detected
+- 738 nodes · 881 edges · 110 communities detected
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
@@ -165,12 +165,12 @@ Cohesion: 0.07
 Nodes (37): Vturb Analytics API (analytics.vturb.net v1), Auth: X-Api-Token + X-Api-Version, Caching: Redis ~10min TTL, Metric: click_rate, GET /players/list, POST /events/total_by_company_players, POST /traffic_origin/stats, Event: clicked (+29 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.07
-Nodes (9): applyAccountScopedPreset(), applyPresetConfig(), buildCurrentPresetConfig(), emptyAd(), handleApplyPreset(), handleSavePreset(), handleSingleUpload(), makeId() (+1 more)
-
-### Community 4 - "Community 4"
 Cohesion: 0.12
 Nodes (31): brtDayMonth(), buildMetaErrorMessage(), bulkUpdateProductVideos(), createProductSetWithRetry(), createProductWithSet(), createProductWithSetUsingToken(), deleteConjuntoSession(), deletePreset() (+23 more)
+
+### Community 4 - "Community 4"
+Cohesion: 0.07
+Nodes (9): applyAccountScopedPreset(), applyPresetConfig(), buildCurrentPresetConfig(), emptyAd(), handleApplyPreset(), handleSavePreset(), handleSingleUpload(), makeId() (+1 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.08
@@ -708,8 +708,8 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.07 - nodes in this community are weakly interconnected._
 - **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.07 - nodes in this community are weakly interconnected._
-- **Should `Community 4` be split into smaller, more focused modules?**
   _Cohesion score 0.12 - nodes in this community are weakly interconnected._
+- **Should `Community 4` be split into smaller, more focused modules?**
+  _Cohesion score 0.07 - nodes in this community are weakly interconnected._
 - **Should `Community 5` be split into smaller, more focused modules?**
   _Cohesion score 0.08 - nodes in this community are weakly interconnected._

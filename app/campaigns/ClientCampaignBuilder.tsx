@@ -196,6 +196,12 @@ interface AdDraft {
    * Drive limpa image_hash/video_id e vice-versa.
    */
   drive_media?: { file_id: string; filename: string; mime: string };
+  /**
+   * Nome do arquivo de um upload direto (não-Drive). Preservado só para derivar
+   * o nome default do criativo quando o input fica vazio — o Drive usa
+   * `drive_media.filename`. Mutuamente exclusivo com `drive_media`.
+   */
+  upload_filename?: string;
   // DPA: product set específico desse anúncio. Vazio = usa o set global (fallback).
   product_set_id: string;
 }
@@ -325,7 +331,9 @@ function makeId() {
 function emptyAd(): AdDraft {
   return {
     id: makeId(),
-    name: 'Criativo 1',
+    // Nome vazio por padrão. Se ficar vazio no enqueue, defaultCreativeName()
+    // deriva do arquivo de mídia ou conjunto de produtos (sem a data).
+    name: '',
     image_hash: '',
     video_id: '',
     video_thumbnail_url: '',
@@ -1986,14 +1994,11 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [ads, setAds] = useState<AdDraft[]>([emptyAd()]);
   const updateAd = (id: string, patch: Partial<AdDraft>) =>
     setAds(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a));
-  const addAd = () => setAds(prev => [{ ...emptyAd(), name: `Criativo ${nextCreativeNo()}` }, ...prev]);
+  const addAd = () => setAds(prev => [emptyAd(), ...prev]);
   const removeAd = (id: string) => setAds(prev => prev.length === 1 ? prev : prev.filter(a => a.id !== id));
 
   const [sharedCopy, setSharedCopy] = useState<SharedCopy>(emptySharedCopy());
   const updateSharedCopy = (patch: Partial<SharedCopy>) => setSharedCopy(prev => ({ ...prev, ...patch }));
-  // Monotonic numbering so prepended creatives keep unique default names even after removals.
-  const creativeCounter = useRef(1); // initial ad is "Criativo 1"
-  const nextCreativeNo = () => { creativeCounter.current += 1; return creativeCounter.current; };
 
   // Quando o total de anúncios a publicar muda (mais/menos criativos ou
   // mudança nos multiplicadores), garante que a soma das alocações manuais
@@ -2328,7 +2333,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         productSetName: isDPA
           ? (productSets.find(s => s.id === (a.product_set_id || productSetId))?.name)
           : undefined,
-        fileName: a.drive_media?.filename || undefined,
+        fileName: a.drive_media?.filename || a.upload_filename || undefined,
       });
       const baseName = (adNameTpl && adNameTpl.trim()) || resolvedAdName;
       const firstPageId = selectedPages[0]?.id ?? '';
@@ -3901,6 +3906,7 @@ function AdEditor({
       // Importing from Drive: clear any direct-uploaded media and set drive_media.
       onChange({
         drive_media: result,
+        upload_filename: undefined,
         image_hash: '',
         video_id: '',
         video_thumbnail_url: '',
@@ -3926,6 +3932,9 @@ function AdEditor({
         video_thumbnail_url: r.thumbnail_url,
         image_hash: '',
         image_preview: r.preview,
+        // Guarda o nome do arquivo pro fallback do nome do criativo (upload direto).
+        upload_filename: file.name,
+        drive_media: undefined,
       });
     } else {
       onChange({
@@ -3934,6 +3943,8 @@ function AdEditor({
         video_id: '',
         video_thumbnail_url: '',
         image_preview: r.preview,
+        upload_filename: file.name,
+        drive_media: undefined,
       });
     }
   };
@@ -3944,7 +3955,7 @@ function AdEditor({
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-[10px] font-bold text-console-muted uppercase tracking-wider">Criativo #{index + 1}</span>
           <input className={cls(inputBase, 'min-w-[200px]')} value={ad.name}
-            onChange={e => onChange({ name: e.target.value })} placeholder="Nome do criativo" />
+            onChange={e => onChange({ name: e.target.value })} placeholder="Vazio = nome do arquivo / conjunto (sem a data)" />
           {isDPA && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">DPA</span>}
         </div>
         {canRemove && (
