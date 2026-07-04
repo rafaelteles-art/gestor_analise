@@ -7,6 +7,7 @@ import {
   toCreativeGroupsPayload,
   parseCreativeGroupsTable,
   groupsStateFromRows,
+  draftIdsInGroups,
   type CreativeGroupsState,
 } from '../creative-groups';
 
@@ -152,5 +153,23 @@ describe('groupsStateFromRows', () => {
     const s = groupsStateFromRows(rows, ['a', 'b', 'c']);
     expect(s.names).toEqual(['RM01', 'RM02']);
     expect(s.byId).toEqual({ a: 0, b: 1, c: 0 });
+  });
+});
+
+describe('draftIdsInGroups', () => {
+  it('returns draft ids assigned to any of the given group indices', () => {
+    const s: CreativeGroupsState = { names: ['A', 'B', 'C'], byId: { a: 0, b: 1, c: 1, d: 2 } };
+    expect(draftIdsInGroups(s, [1]).sort()).toEqual(['b', 'c']);
+    expect(draftIdsInGroups(s, [0, 2]).sort()).toEqual(['a', 'd']);
+  });
+
+  it('returns an empty array when no groups are selected', () => {
+    const s: CreativeGroupsState = { names: ['A'], byId: { a: 0 } };
+    expect(draftIdsInGroups(s, [])).toEqual([]);
+  });
+
+  it('ignores group indices that do not exist', () => {
+    const s: CreativeGroupsState = { names: ['A'], byId: { a: 0 } };
+    expect(draftIdsInGroups(s, [5])).toEqual([]);
   });
 });

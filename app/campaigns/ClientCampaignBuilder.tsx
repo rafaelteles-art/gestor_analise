@@ -13,7 +13,7 @@ import { defaultCreativeName } from '@/lib/creative-name';
 import type { CreativeMedia, SeparationLevel } from '@/lib/batch-contract';
 import {
   normalizeGroups, moveToGroup, renameGroup, toCreativeGroupsPayload,
-  parseCreativeGroupsTable, groupsStateFromRows,
+  parseCreativeGroupsTable, groupsStateFromRows, draftIdsInGroups,
   type CreativeGroupsState,
 } from '@/lib/creative-groups';
 
@@ -1659,6 +1659,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [groupImportOpen, setGroupImportOpen] = useState(false);
   const [groupImportText, setGroupImportText] = useState('');
   const [groupImportErrors, setGroupImportErrors] = useState<string[]>([]);
+  // Exclusão em massa de grupos: índices (compactados de groupsView) marcados.
+  // Seleção é transitória e limpa após excluir/importar — os índices só valem
+  // dentro do render atual, antes do normalizeGroups recompactar.
+  const [selectedGroups, setSelectedGroups] = useState<Set<number>>(new Set());
 
   // ── Conjunto ──────────────────────────────────────────────────────────────
   const [pixelId, setPixelId] = useState('');
@@ -2032,10 +2036,35 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     setAds(drafts);
     setCreativeGroups(groupsStateFromRows(rows, drafts.map(d => d.id)));
     setGroupImportErrors(errors);
+    setSelectedGroups(new Set());
     if (errors.length === 0) {
       setGroupImportOpen(false);
       setGroupImportText('');
     }
+  };
+
+  // ── Seleção / exclusão de grupos (ADR-0009) ────────────────────────────────
+  const toggleGroupSelect = (gi: number) =>
+    setSelectedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(gi)) next.delete(gi); else next.add(gi);
+      return next;
+    });
+  // "Todos": marca/desmarca considerando os grupos vivos do render atual.
+  const toggleSelectAllGroups = (groupCount: number, allSelected: boolean) =>
+    setSelectedGroups(allSelected ? new Set() : new Set(Array.from({ length: groupCount }, (_, i) => i)));
+  // Excluir = remover os criativos dos grupos marcados. O normalizeGroups
+  // compacta o resto. Se esvaziar tudo, volta a um único criativo vazio (o
+  // builder exige ≥1 ad). `view` é o groupsView atual (índices compactados).
+  const deleteSelectedGroups = (view: CreativeGroupsState) => {
+    if (selectedGroups.size === 0) return;
+    const toRemove = new Set(draftIdsInGroups(view, Array.from(selectedGroups)));
+    if (toRemove.size === 0) { setSelectedGroups(new Set()); return; }
+    setAds(prev => {
+      const kept = prev.filter(a => !toRemove.has(a.id));
+      return kept.length === 0 ? [emptyAd()] : kept;
+    });
+    setSelectedGroups(new Set());
   };
 
   const [sharedCopy, setSharedCopy] = useState<SharedCopy>(emptySharedCopy());
@@ -3361,6 +3390,35 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                     </div>
                   </div>
                 )}
+                {/* Barra de seleção em massa: marcar todos + excluir marcados. */}
+                {ads.length > 0 && (() => {
+                  const groupCount = groupsView.names.length;
+                  const allSelected = groupCount > 0 && selectedGroups.size === groupCount;
+                  const removingAds = draftIdsInGroups(groupsView, Array.from(selectedGroups)).length;
+                  return (
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <label className="flex items-center gap-1.5 text-[10px] font-mono text-console-muted cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={el => { if (el) el.indeterminate = selectedGroups.size > 0 && !allSelected; }}
+                          onChange={() => toggleSelectAllGroups(groupCount, allSelected)}
+                          className="accent-amber-500 cursor-pointer"
+                        />
+                        Selecionar todos
+                      </label>
+                      <button
+                        type="button"
+                        disabled={selectedGroups.size === 0}
+                        onClick={() => deleteSelectedGroups(groupsView)}
+                        className="text-xs font-semibold px-3 py-1 rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-red-500/40 text-red-400 hover:bg-red-500/15 enabled:cursor-pointer"
+                      >
+                        Excluir {selectedGroups.size > 0 ? `${selectedGroups.size} grupo${selectedGroups.size === 1 ? '' : 's'}` : 'selecionados'}
+                        {removingAds > 0 ? ` (${removingAds} criativo${removingAds === 1 ? '' : 's'})` : ''}
+                      </button>
+                    </div>
+                  );
+                })()}
                 {ads.length === 0 ? (
                   <p className="text-xs text-console-muted">
                     Adicione criativos na seção Anúncios para distribuí-los em grupos. Novos criativos entram no Grupo 1.
@@ -3373,8 +3431,15 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                         .filter(({ a }) => groupsView.byId[a.id] === gi);
                       const adsPerSet = members.length * Math.max(1, adsPerAdset);
                       return (
-                        <div key={gi} className="flex-1 min-w-[220px] border border-console-border rounded bg-background overflow-hidden">
+                        <div key={gi} className={`flex-1 min-w-[220px] border rounded bg-background overflow-hidden transition-colors ${selectedGroups.has(gi) ? 'border-red-500/70' : 'border-console-border'}`}>
                           <div className="flex items-center gap-2 px-2 py-1.5 border-b border-console-border bg-console-surface-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedGroups.has(gi)}
+                              aria-label={`Selecionar grupo ${gName.trim() || gi + 1}`}
+                              onChange={() => toggleGroupSelect(gi)}
+                              className="accent-amber-500 cursor-pointer shrink-0"
+                            />
                             <input
                               type="text"
                               value={gName}

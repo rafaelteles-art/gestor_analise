@@ -124,6 +124,19 @@ export function groupsStateFromRows(rows: CreativeTableRow[], draftIds: string[]
 }
 
 /**
+ * draftIds atribuídos a qualquer um dos grupos em `groupIndices` (índices
+ * COMPACTADOS de groupsView). Usado pela exclusão em massa: excluir grupos =
+ * remover os criativos deles da lista de ads (o normalizeGroups compacta o
+ * resto). Índices inexistentes são ignorados.
+ */
+export function draftIdsInGroups(state: CreativeGroupsState, groupIndices: number[]): string[] {
+  const set = new Set(groupIndices);
+  return Object.entries(state.byId)
+    .filter(([, g]) => set.has(g))
+    .map(([id]) => id);
+}
+
+/**
  * Converte para o payload `batch.creative_groups` (BatchCreateInput) na ordem
  * do array de creatives enviado — assignments[i] casa com creatives[i].
  */
