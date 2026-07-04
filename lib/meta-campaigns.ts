@@ -720,12 +720,35 @@ export async function listCatalogs(bmId: string, token: string): Promise<Catalog
 }
 
 export async function listProductSets(catalogId: string, token: string): Promise<ProductSetInfo[]> {
-  const data = await getGraph<{ data: ProductSetInfo[] }>(
+  const out: ProductSetInfo[] = [];
+  // Primeira página via getGraph (herda o guard de erro/5xx). As seguintes via
+  // paging.next (URL completa já com access_token). Sem esta paginação, catálogos
+  // com >100 conjuntos truncavam a lista e o seletor DPA não achava o set colado.
+  const first = await getGraph<{ data: ProductSetInfo[]; paging?: { next?: string } }>(
     `${catalogId}/product_sets`,
     token,
     { fields: 'id,name,product_count', limit: '100' }
   );
-  return data.data ?? [];
+  if (Array.isArray(first.data)) out.push(...first.data);
+  let next = first.paging?.next ?? null;
+  // Limite de segurança: 100 páginas × 100 = 10k conjuntos (mais que suficiente).
+  for (let page = 0; next && page < 100; page++) {
+    const res = await fetch(next);
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      console.warn('listProductSets: resposta nao-JSON (5xx/gateway?) — interrompendo walk');
+      break;
+    }
+    if (data?.error) {
+      console.warn(`listProductSets Meta error (${data.error.code}): ${data.error.message}`);
+      break;
+    }
+    if (Array.isArray(data?.data)) out.push(...data.data);
+    next = data?.paging?.next ?? null;
+  }
+  return out;
 }
 
 export interface BusinessManagerInfo {

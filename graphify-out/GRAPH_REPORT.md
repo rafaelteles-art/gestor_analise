@@ -1,11 +1,11 @@
 # Graph Report - .  (2026-07-04)
 
 ## Corpus Check
-- 171 files · ~175,479 words
+- 171 files · ~175,999 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 784 nodes · 947 edges · 115 communities detected
+- 788 nodes · 951 edges · 115 communities detected
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
@@ -170,12 +170,12 @@ Cohesion: 0.06
 Nodes (9): cancelFill(), closeCreateCatalogModal(), fmtDateTimeBR(), handleCommitImport(), handleCreateCatalog(), handleUnignoreProduct(), handleVideoSync(), loadVideoData() (+1 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.07
-Nodes (37): Vturb Analytics API (analytics.vturb.net v1), Auth: X-Api-Token + X-Api-Version, Caching: Redis ~10min TTL, Metric: click_rate, GET /players/list, POST /events/total_by_company_players, POST /traffic_origin/stats, Event: clicked (+29 more)
+Cohesion: 0.06
+Nodes (9): applyAccountScopedPreset(), applyPresetConfig(), buildCurrentPresetConfig(), emptyAd(), handleApplyPreset(), handleSavePreset(), handleSingleUpload(), makeId() (+1 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.07
-Nodes (9): applyAccountScopedPreset(), applyPresetConfig(), buildCurrentPresetConfig(), emptyAd(), handleApplyPreset(), handleSavePreset(), handleSingleUpload(), makeId() (+1 more)
+Nodes (37): Vturb Analytics API (analytics.vturb.net v1), Auth: X-Api-Token + X-Api-Version, Caching: Redis ~10min TTL, Metric: click_rate, GET /players/list, POST /events/total_by_company_players, POST /traffic_origin/stats, Event: clicked (+29 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.12
@@ -254,32 +254,32 @@ Cohesion: 0.22
 Nodes (0): 
 
 ### Community 24 - "Community 24"
+Cohesion: 0.25
+Nodes (2): moveToGroup(), normalizeGroups()
+
+### Community 25 - "Community 25"
 Cohesion: 0.39
 Nodes (6): computeBackoffMs(), maxFlat(), maxNested(), Pacer, safeParse(), usagePctFromResponse()
 
-### Community 25 - "Community 25"
+### Community 26 - "Community 26"
 Cohesion: 0.28
 Nodes (3): creative(), groupInput(), makeInput()
 
-### Community 26 - "Community 26"
+### Community 27 - "Community 27"
 Cohesion: 0.25
 Nodes (0): 
 
-### Community 27 - "Community 27"
+### Community 28 - "Community 28"
 Cohesion: 0.32
 Nodes (3): handleSync(), runPolledSync(), sleep()
 
-### Community 28 - "Community 28"
+### Community 29 - "Community 29"
 Cohesion: 0.32
 Nodes (3): append(), buildPayload(), handleSync()
 
-### Community 29 - "Community 29"
-Cohesion: 0.29
-Nodes (2): append(), handleSync()
-
 ### Community 30 - "Community 30"
 Cohesion: 0.29
-Nodes (2): moveToGroup(), normalizeGroups()
+Nodes (2): append(), handleSync()
 
 ### Community 31 - "Community 31"
 Cohesion: 0.52
@@ -735,7 +735,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.06 - nodes in this community are weakly interconnected._
 - **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.07 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06 - nodes in this community are weakly interconnected._
 - **Should `Community 4` be split into smaller, more focused modules?**
   _Cohesion score 0.07 - nodes in this community are weakly interconnected._
 - **Should `Community 5` be split into smaller, more focused modules?**

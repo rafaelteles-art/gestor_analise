@@ -4374,11 +4374,25 @@ function AdEditor({
           }
         >
           <SSSelect
-            options={productSets.map(s => ({
-              value: s.id,
-              label: s.name,
-              sublabel: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
-            }))}
+            options={(() => {
+              const opts = productSets.map(s => ({
+                value: s.id,
+                label: s.name,
+                sublabel: s.product_count !== undefined ? `${s.product_count} produtos` : s.id,
+              }));
+              // Se o criativo já tem um set (ex.: colado via import) que ainda não
+              // está na lista buscada, injeta uma option sintética pra ele APARECER
+              // selecionado — senão o SSSelect cai no placeholder e parece vazio.
+              const psid = ad.product_set_id;
+              if (psid && !opts.some(o => o.value === psid)) {
+                opts.unshift({
+                  value: psid,
+                  label: psid,
+                  sublabel: loadingProductSets ? 'carregando catálogo…' : 'ID importado (fora da lista do catálogo)',
+                });
+              }
+              return opts;
+            })()}
             value={ad.product_set_id || null}
             onChange={v => onChange({ product_set_id: v ?? '' })}
             placeholder={loadingProductSets ? 'Carregando…' : (defaultPsid ? '— usar fallback global —' : '— selecione um conjunto —')}
