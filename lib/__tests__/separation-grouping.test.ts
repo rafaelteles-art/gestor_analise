@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { expandBatch, createCampaignBatch, type BatchCreateInput } from '../meta-campaigns';
+import { expandBatch, createCampaignBatch, dropGrupoToken, type BatchCreateInput } from '../meta-campaigns';
 import { reduceCounts } from '../campaign-jobs-core';
 import type { BatchRunState, BatchRunOpts, SeparationLevel } from '../batch-contract';
 
@@ -78,6 +78,70 @@ describe('expandBatch (separation grouping)', () => {
     expect(campaigns).toHaveLength(1);
     expect(adsets).toHaveLength(1);
     expect(ads).toHaveLength(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Group level (ADR-0009): creatives share campaigns and are PARTITIONED into
+// Creative Groups; each group materializes as S adsets per campaign. Invariant
+// total ads = N*C*S*A holds (each group adset carries |group|*A ads).
+// ─────────────────────────────────────────────────────────────────────────────
+describe('expandBatch (group level, ADR-0009)', () => {
+  // N=4 criativos, grupos {0,1}→g0 e {2,3}→g1, C=1, S=2, A=1.
+  const GROUPS = [0, 0, 1, 1];
+
+  it('C shared campaigns; each group gets S adsets keyed s:g<gi>:<ci>:<si>', () => {
+    const { campaigns, adsets, ads } = expandBatch(4, 1, 2, 1, 'group', GROUPS);
+    expect(campaigns).toHaveLength(1);
+    expect(campaigns[0].key).toBe('c:-:0');
+    expect(campaigns[0].creativeIdx).toBeNull();
+
+    // 2 grupos × S=2 = 4 adsets, em ordem de grupo, _CJ contínuo na campanha
+    expect(adsets.map((s) => s.key)).toEqual(['s:g0:0:0', 's:g0:0:1', 's:g1:0:0', 's:g1:0:1']);
+    expect(adsets.every((s) => s.campKey === 'c:-:0')).toBe(true);
+    expect(adsets.map((s) => s.setSuffixNum)).toEqual([1, 2, 3, 4]);
+    expect(adsets.map((s) => s.groupIdx)).toEqual([0, 0, 1, 1]);
+
+    // total ads = N*C*S*A = 8; cada adset de grupo carrega |grupo|*A = 2 ads
+    expect(ads).toHaveLength(8);
+    for (const s of adsets) {
+      const inAdset = ads.filter((x) => x.adsetKey === s.key);
+      expect(inAdset).toHaveLength(2);
+      const expectedCreatives = s.groupIdx === 0 ? [0, 1] : [2, 3];
+      expect(inAdset.map((x) => x.creativeIdx).sort()).toEqual(expectedCreatives);
+      // _AD contínuo dentro do adset
+      expect(inAdset.map((x) => x.adSuffixNum).sort((a, b) => a - b)).toEqual([1, 2]);
+    }
+  });
+
+  it('group adsets have creativeIdx null even for a singleton group (rigid naming rule)', () => {
+    const { adsets } = expandBatch(3, 1, 1, 1, 'group', [0, 0, 1]);
+    // grupo {2} é unitário e MESMO ASSIM o adset é multi-criativo p/ nomes
+    expect(adsets).toHaveLength(2);
+    expect(adsets.every((s) => s.creativeIdx === null)).toBe(true);
+  });
+
+  it('compacts sparse/invalid assignments and skips empty groups', () => {
+    // grupos 0 e 7 (buraco) + índice inválido (-1 vira grupo 0)
+    const { adsets, ads } = expandBatch(3, 1, 1, 1, 'group', [7, -1, 7]);
+    expect(adsets.map((s) => s.key)).toEqual(['s:g0:0:0', 's:g1:0:0']);
+    // -1 normalizado p/ grupo 0 → primeiro grupo (ascendente: 0, depois 7→g1)
+    expect(ads.filter((x) => x.adsetKey === 's:g0:0:0').map((x) => x.creativeIdx)).toEqual([1]);
+    expect(ads.filter((x) => x.adsetKey === 's:g1:0:0').map((x) => x.creativeIdx)).toEqual([0, 2]);
+  });
+
+  it('missing assignments fall back to a single group (equivalent to ad level totals)', () => {
+    const { campaigns, adsets, ads } = expandBatch(3, 1, 2, 1, 'group');
+    expect(campaigns).toHaveLength(1);
+    expect(adsets.map((s) => s.key)).toEqual(['s:g0:0:0', 's:g0:0:1']);
+    expect(ads).toHaveLength(6); // N*C*S*A = 3*1*2*1
+  });
+
+  it('totals are always N*C*S*A at group level regardless of partition', () => {
+    for (const groups of [[0, 0, 1, 1], [0, 1, 2, 3], [0, 0, 0, 0], [2, 0, 1, 0]]) {
+      const { ads } = expandBatch(4, 2, 3, 2, 'group', groups);
+      expect(ads).toHaveLength(4 * 2 * 3 * 2);
+    }
   });
 });
 
@@ -192,6 +256,143 @@ const noopOpts = (runState: BatchRunState): BatchRunOpts => ({
   onEvent: async () => {},
   runState,
   shouldAbort: () => false,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Nomenclatura no nivel 'group' (ADR-0009): {{grupo}} resolve em nomes de
+// conjunto/anuncio, e some de nomes de campanha e de QUALQUER nome em outros
+// niveis; {{criativo}} NUNCA resolve em nome de conjunto no nivel group (regra
+// rigida por nivel — mesmo grupo unitario).
+// ─────────────────────────────────────────────────────────────────────────────
+describe('dropGrupoToken', () => {
+  it('removes the token and adjacent separators like dropCriativoToken does', () => {
+    expect(dropGrupoToken('CJ - {{grupo}} - BR')).toBe('CJ - BR');
+    expect(dropGrupoToken('CJ {{grupo}}')).toBe('CJ');
+    expect(dropGrupoToken('{{grupo}} - BR')).toBe('BR');
+    expect(dropGrupoToken('sem token')).toBe('sem token');
+  });
+});
+
+describe('createCampaignBatch — group-level naming (ADR-0009)', () => {
+  const origFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = origFetch;
+    vi.restoreAllMocks();
+  });
+
+  /** Captura os nomes/url_tags enviados à Graph, roteando por path. */
+  function capturingFetch(captured: { campaigns: string[]; adsets: string[]; ads: string[]; urlTags: string[] }) {
+    let id = 0;
+    return vi.fn(async (url: URL | RequestInfo, init?: { body?: unknown }): Promise<Response> => {
+      const u = String(url);
+      const body = new URLSearchParams(String(init?.body ?? ''));
+      const name = body.get('name') ?? '';
+      if (u.includes('/adcreatives')) {
+        const tags = body.get('url_tags');
+        if (tags) captured.urlTags.push(tags);
+        return metaOk(`cr_${id++}`);
+      }
+      if (u.includes('/adsets')) { captured.adsets.push(name); return metaOk(`set_${id++}`); }
+      if (u.includes('/campaigns')) { captured.campaigns.push(name); return metaOk(`camp_${id++}`); }
+      if (u.endsWith('/ads')) { captured.ads.push(name); return metaOk(`ad_${id++}`); }
+      throw new Error(`unexpected fetch to ${u}`);
+    });
+  }
+
+  function creative(name: string) {
+    return {
+      name,
+      creative: {
+        name,
+        page_id: 'pageA',
+        instagram_user_id: 'ig_1',
+        type: 'single' as const,
+        link: 'https://x.test',
+        image_hash: 'hash123',
+        message: 'oi',
+      },
+    };
+  }
+
+  function groupInput(over: Partial<BatchCreateInput> = {}): BatchCreateInput {
+    return makeInput({
+      separation_level: 'group',
+      creative_groups: { names: ['Hooks', 'Depoimentos'], assignments: [0, 0, 1] },
+      creatives: [creative('Cria A'), creative('Cria B {{grupo}}'), creative('Cria C')],
+      campaign: {
+        name: 'CAMP {{grupo}} TESTE',
+        objective: 'OUTCOME_SALES',
+        status: 'PAUSED',
+        special_ad_categories: ['NONE'],
+      },
+      adset: {
+        name: 'CJ - {{grupo}} - {{criativo}} - BR',
+        optimization_goal: 'OFFSITE_CONVERSIONS',
+        billing_event: 'IMPRESSIONS',
+        promoted_object: { pixel_id: 'px', custom_event_type: 'PURCHASE' },
+        targeting: { geo_locations: { countries: ['BR'] } },
+        status: 'PAUSED',
+      },
+      ...over,
+    });
+  }
+
+  it('resolves {{grupo}} in adset names, strips it from campaign names, and NEVER resolves {{criativo}} in adset names (even singleton group)', async () => {
+    const captured = { campaigns: [] as string[], adsets: [] as string[], ads: [] as string[], urlTags: [] as string[] };
+    global.fetch = capturingFetch(captured) as unknown as typeof fetch;
+    const runState: BatchRunState = { created: {}, failed: {} };
+
+    await createCampaignBatch(groupInput(), noopOpts(runState));
+
+    // campanha compartilhada: {{grupo}} removido (contem todos os grupos)
+    expect(captured.campaigns).toEqual(['CAMP TESTE']);
+
+    // 2 grupos × S=1 → 2 conjuntos; sufixo _CJ presente (campanha tem >1 conjunto);
+    // {{grupo}} resolvido; {{criativo}} REMOVIDO mesmo no grupo unitario {Cria C}.
+    expect(captured.adsets.sort()).toEqual(['CJ - Depoimentos - BR_CJ02', 'CJ - Hooks - BR_CJ01']);
+    expect(captured.adsets.join(' ')).not.toContain('Cria');
+
+    // nomes de anuncio: {{grupo}} resolve com o grupo do criativo do ad
+    expect(captured.ads.sort()).toEqual(['Cria A', 'Cria B Hooks', 'Cria C']);
+  });
+
+  it('resolves {{grupo}} in url_tags at group level', async () => {
+    const captured = { campaigns: [] as string[], adsets: [] as string[], ads: [] as string[], urlTags: [] as string[] };
+    global.fetch = capturingFetch(captured) as unknown as typeof fetch;
+    const runState: BatchRunState = { created: {}, failed: {} };
+
+    await createCampaignBatch(groupInput({ url_tags_template: 'utm_content={{grupo}}' }), noopOpts(runState));
+
+    expect(captured.urlTags.sort()).toEqual(['utm_content=Depoimentos', 'utm_content=Hooks', 'utm_content=Hooks']);
+  });
+
+  it('strips {{grupo}} from adset names at non-group levels', async () => {
+    const captured = { campaigns: [] as string[], adsets: [] as string[], ads: [] as string[], urlTags: [] as string[] };
+    global.fetch = capturingFetch(captured) as unknown as typeof fetch;
+    const runState: BatchRunState = { created: {}, failed: {} };
+
+    await createCampaignBatch(
+      groupInput({ separation_level: 'ad', creative_groups: undefined, adsets_per_campaign: 1 }),
+      noopOpts(runState)
+    );
+
+    // nivel 'ad': 1 conjunto compartilhado; {{grupo}} e {{criativo}} removidos
+    expect(captured.adsets).toEqual(['CJ - BR']);
+    expect(captured.campaigns).toEqual(['CAMP TESTE']);
+  });
+
+  it('falls back to "Grupo N" when a group has no name', async () => {
+    const captured = { campaigns: [] as string[], adsets: [] as string[], ads: [] as string[], urlTags: [] as string[] };
+    global.fetch = capturingFetch(captured) as unknown as typeof fetch;
+    const runState: BatchRunState = { created: {}, failed: {} };
+
+    await createCampaignBatch(
+      groupInput({ creative_groups: { names: ['Hooks'], assignments: [0, 0, 1] } }),
+      noopOpts(runState)
+    );
+
+    expect(captured.adsets.sort()).toEqual(['CJ - Grupo 2 - BR_CJ02', 'CJ - Hooks - BR_CJ01']);
+  });
 });
 
 describe('createCampaignBatch — orphan-AdCreative leak on resume', () => {

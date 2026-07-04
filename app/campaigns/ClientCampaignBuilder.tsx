@@ -11,6 +11,11 @@ import {
 import { QueueWidget, useQueuePolling } from '@/app/components/QueueWidget';
 import { defaultCreativeName } from '@/lib/creative-name';
 import type { CreativeMedia, SeparationLevel } from '@/lib/batch-contract';
+import {
+  normalizeGroups, moveToGroup, renameGroup, toCreativeGroupsPayload,
+  parseCreativeGroupsTable, groupsStateFromRows,
+  type CreativeGroupsState,
+} from '@/lib/creative-groups';
 
 // ────────────────────────────────────────────────────────────────────────────
 // SCOPE NOTE (for orchestrator):
@@ -1644,6 +1649,16 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [adsPerAdset, setAdsPerAdset] = useState(1);
   // F7 — nível de separação de criativos. Default 'campaign' = legado.
   const [separationLevel, setSeparationLevel] = useState<SeparationLevel>('campaign');
+  // Creative Groups (ADR-0009) — só usados no nível 'group'. O estado bruto pode
+  // referenciar drafts removidos; a versão normalizada (drafts vivos, grupos
+  // compactados) é derivada abaixo e é a única lida por render/payload. A
+  // distribuição sobrevive a trocar de nível e voltar (decisão de sessão).
+  const [creativeGroups, setCreativeGroups] = useState<CreativeGroupsState>({ names: ['Grupo 1'], byId: {} });
+  // Import em massa por colagem (DPA): tabela "Conjunto \t Anúncio \t ID do
+  // conjunto de produtos" vira drafts + grupos de uma vez. SUBSTITUI os drafts.
+  const [groupImportOpen, setGroupImportOpen] = useState(false);
+  const [groupImportText, setGroupImportText] = useState('');
+  const [groupImportErrors, setGroupImportErrors] = useState<string[]>([]);
 
   // ── Conjunto ──────────────────────────────────────────────────────────────
   const [pixelId, setPixelId] = useState('');
@@ -2004,6 +2019,25 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const addAd = () => setAds(prev => [emptyAd(), ...prev]);
   const removeAd = (id: string) => setAds(prev => prev.length === 1 ? prev : prev.filter(a => a.id !== id));
 
+  // Import em massa (ADR-0009, DPA): cada linha da tabela colada vira um draft
+  // com nome + product_set_id, já atribuído ao grupo da coluna "Conjunto".
+  // Substitui os drafts atuais — o caminho manual continua sendo o painel.
+  const importGroupsTable = () => {
+    const { rows, errors } = parseCreativeGroupsTable(groupImportText);
+    if (rows.length === 0) {
+      setGroupImportErrors(errors.length ? errors : ['Nada para importar — cole a tabela com 3 colunas.']);
+      return;
+    }
+    const drafts = rows.map(r => ({ ...emptyAd(), name: r.name, product_set_id: r.productSetId }));
+    setAds(drafts);
+    setCreativeGroups(groupsStateFromRows(rows, drafts.map(d => d.id)));
+    setGroupImportErrors(errors);
+    if (errors.length === 0) {
+      setGroupImportOpen(false);
+      setGroupImportText('');
+    }
+  };
+
   const [sharedCopy, setSharedCopy] = useState<SharedCopy>(emptySharedCopy());
   const updateSharedCopy = (patch: Partial<SharedCopy>) => setSharedCopy(prev => ({ ...prev, ...patch }));
 
@@ -2093,12 +2127,27 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [running, setRunning] = useState(false);
 
   // ── Validação ────────────────────────────────────────────────────────────
+  // Creative Groups normalizados contra os drafts vivos (ADR-0009): grupos
+  // vazios somem, ids novos caem no Grupo 1. Única fonte lida por render/payload.
+  const groupsView = useMemo(
+    () => normalizeGroups(creativeGroups, ads.map(a => a.id)),
+    [creativeGroups, ads]
+  );
+
+  // Contagem por nível de separação (total de anúncios é SEMPRE N*C*S*A; muda o
+  // agrupamento — nº real de campanhas/conjuntos que o orquestrador vai criar).
   const totals = useMemo(() => {
-    const camp = ads.length * Math.max(1, campaignsPerCreative);
-    const sets = camp * Math.max(1, adsetsPerCampaign);
-    const adsTotal = sets * Math.max(1, adsPerAdset);
-    return { camp, sets, ads: adsTotal };
-  }, [ads.length, campaignsPerCreative, adsetsPerCampaign, adsPerAdset]);
+    const N = ads.length, C = Math.max(1, campaignsPerCreative);
+    const S = Math.max(1, adsetsPerCampaign), A = Math.max(1, adsPerAdset);
+    const K = groupsView.names.length;
+    if (N === 0) return { camp: 0, sets: 0, ads: 0 };
+    const camp = separationLevel === 'campaign' ? N * C : C;
+    const sets =
+      separationLevel === 'campaign' || separationLevel === 'adset' ? N * C * S
+      : separationLevel === 'group' ? C * K * S
+      : C * S; // 'ad'
+    return { camp, sets, ads: N * C * S * A };
+  }, [ads.length, campaignsPerCreative, adsetsPerCampaign, adsPerAdset, separationLevel, groupsView.names.length]);
 
   const isEngagement = campaignGoal === 'ENGAGEMENT';
   // Engagement nunca usa catálogo/DPA — força isDPA=false mesmo que o toggle tenha
@@ -2445,6 +2494,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       // o injeta em cada job para o orquestrador A2 consumir).
       separation_level: separationLevel,
       batch: {
+        // Creative Groups (ADR-0009): dentro do batch — flui route→worker→
+        // createCampaignBatch via flattenBatchPayload. assignments[i] casa com
+        // creatives[i] (ambos derivados de `ads` na mesma ordem).
+        ...(separationLevel === 'group'
+          ? { creative_groups: toCreativeGroupsPayload(groupsView, ads.map(a => a.id)) }
+          : {}),
         campaigns_per_creative: campaignsPerCreative,
         adsets_per_campaign: adsetsPerCampaign,
         ads_per_adset: adsPerAdset,
@@ -3217,7 +3272,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           {/* F7 — separation level: how creatives are fanned out across campaigns */}
           <div className="mt-3">
             <p className="text-[11px] font-semibold text-foreground mb-2">Nível de separação de criativos</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
               <OptionCard<SeparationLevel>
                 value="campaign"
                 selected={separationLevel === 'campaign'}
@@ -3239,7 +3294,139 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 title="Por anúncio"
                 desc="Todos os criativos no mesmo conjunto, separados por anúncio"
               />
+              <OptionCard<SeparationLevel>
+                value="group"
+                selected={separationLevel === 'group'}
+                onClick={setSeparationLevel}
+                title="Grupos personalizados"
+                desc="Você escolhe quais criativos dividem cada conjunto"
+              />
             </div>
+            {/* Painel de Creative Groups (ADR-0009) — só no nível 'group'. Cada
+                grupo vira S conjuntos na campanha compartilhada; o nome da coluna
+                resolve {{grupo}} em nomes de conjunto/anúncio. */}
+            {separationLevel === 'group' && (
+              <div className="mt-3 border border-console-border rounded bg-console-surface p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-console-muted">
+                    Grupos de criativos
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {isDPA && (
+                      <button
+                        type="button"
+                        onClick={() => { setGroupImportOpen(v => !v); setGroupImportErrors([]); }}
+                        className="text-[10px] font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors"
+                      >
+                        {groupImportOpen ? 'Fechar import' : 'Colar tabela'}
+                      </button>
+                    )}
+                    <p className="text-[10px] font-mono text-console-muted">
+                      {groupsView.names.length} grupo{groupsView.names.length === 1 ? '' : 's'} × {Math.max(1, adsetsPerCampaign)} ={' '}
+                      <span className="text-amber-400">{groupsView.names.length * Math.max(1, adsetsPerCampaign)}</span> conjuntos/campanha
+                    </p>
+                  </div>
+                </div>
+                {/* Import em massa (DPA): cola direto do Sheets/Excel. Cria um
+                    criativo por linha (nome + conjunto de produtos) e monta os
+                    grupos pela coluna "Conjunto". Substitui os criativos atuais. */}
+                {isDPA && groupImportOpen && (
+                  <div className="mb-3 border border-console-border rounded bg-background p-2">
+                    <p className="text-[10px] text-console-muted mb-1.5">
+                      Cole a tabela com 3 colunas — <span className="font-mono">Conjunto (grupo) · Anúncio (nome do criativo) · ID do conjunto de produtos</span>.
+                      Linha de cabeçalho é ignorada. <span className="text-amber-400">Substitui os criativos atuais.</span>
+                    </p>
+                    <textarea
+                      value={groupImportText}
+                      onChange={e => setGroupImportText(e.target.value)}
+                      rows={6}
+                      placeholder={'RM01\tBDM01\t1018724193904597\nRM01\tBDM02\t1318730223804323\n…'}
+                      className="w-full bg-console-surface border border-console-border rounded px-2 py-1.5 text-xs font-mono text-foreground outline-none focus:border-amber-500 transition-colors resize-y"
+                    />
+                    {groupImportErrors.length > 0 && (
+                      <ul className="mt-1.5 space-y-0.5">
+                        {groupImportErrors.map((err, ei) => (
+                          <li key={ei} className="text-[10px] text-red-400 font-mono">{err}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={importGroupsTable}
+                        className="text-xs font-semibold px-3 py-1 rounded bg-amber-500/10 border border-amber-500/40 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                      >
+                        Importar
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {ads.length === 0 ? (
+                  <p className="text-xs text-console-muted">
+                    Adicione criativos na seção Anúncios para distribuí-los em grupos. Novos criativos entram no Grupo 1.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 items-start">
+                    {groupsView.names.map((gName, gi) => {
+                      const members = ads
+                        .map((a, i) => ({ a, i }))
+                        .filter(({ a }) => groupsView.byId[a.id] === gi);
+                      const adsPerSet = members.length * Math.max(1, adsPerAdset);
+                      return (
+                        <div key={gi} className="flex-1 min-w-[220px] border border-console-border rounded bg-background overflow-hidden">
+                          <div className="flex items-center gap-2 px-2 py-1.5 border-b border-console-border bg-console-surface-2">
+                            <input
+                              type="text"
+                              value={gName}
+                              placeholder={`Grupo ${gi + 1}`}
+                              aria-label={`Nome do grupo ${gi + 1}`}
+                              onChange={e => setCreativeGroups(renameGroup(groupsView, gi, e.target.value))}
+                              className="flex-1 min-w-0 bg-transparent text-xs font-semibold text-foreground outline-none border-b border-transparent focus:border-amber-500 placeholder:text-console-muted transition-colors"
+                            />
+                            <span className="text-[10px] font-mono text-console-muted shrink-0">{members.length}</span>
+                          </div>
+                          <div className="divide-y divide-console-border">
+                            {members.map(({ a, i }) => {
+                              const display = a.name.trim() || a.drive_media?.filename || a.upload_filename || `Criativo ${i + 1}`;
+                              return (
+                                <div key={a.id} className="flex items-center gap-2 px-2 py-1.5 border-l-2 border-transparent hover:border-amber-500 hover:bg-console-surface-2 transition-colors">
+                                  <span className="text-xs text-foreground truncate flex-1 min-w-0" title={display}>{display}</span>
+                                  <select
+                                    value=""
+                                    aria-label={`Mover ${display} para outro grupo`}
+                                    onChange={e => {
+                                      const target = Number(e.target.value);
+                                      if (Number.isFinite(target)) {
+                                        setCreativeGroups(moveToGroup(groupsView, ads.map(x => x.id), a.id, target));
+                                      }
+                                    }}
+                                    className="shrink-0 text-[10px] bg-console-surface border border-console-border rounded px-1 py-0.5 text-console-muted outline-none cursor-pointer hover:text-amber-400 hover:border-amber-500/50 focus:border-amber-500 transition-colors"
+                                  >
+                                    <option value="" disabled>Mover…</option>
+                                    {groupsView.names.map((n2, gi2) =>
+                                      gi2 === gi ? null : (
+                                        <option key={gi2} value={gi2}>{n2.trim() || `Grupo ${gi2 + 1}`}</option>
+                                      )
+                                    )}
+                                    <option value={groupsView.names.length}>+ Novo grupo</option>
+                                  </select>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* O que este grupo materializa (grupo × S): estrutura como informação */}
+                          <div className="px-2 py-1 border-t border-console-border bg-console-surface">
+                            <p className="text-[9px] font-mono text-console-muted">
+                              → {Math.max(1, adsetsPerCampaign)} conjunto{Math.max(1, adsetsPerCampaign) === 1 ? '' : 's'}/campanha · {adsPerSet} anúncio{adsPerSet === 1 ? '' : 's'} cada
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </SubBlock>
 

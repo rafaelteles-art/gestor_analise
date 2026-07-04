@@ -2,11 +2,14 @@
 // batch orchestrator (lib/meta-campaigns.ts). Spec: docs/superpowers/plans/
 // 2026-06-11-campaign-builder-features.md (Contracts 1 & 2) + docs/adr/0005.
 
-export type SeparationLevel = 'campaign' | 'adset' | 'ad';
+export type SeparationLevel = 'campaign' | 'adset' | 'ad' | 'group';
 
 // Entity-key grammar (deterministic, enables idempotent resume):
 //   c:<creativeIdx>:<campIdx> | s:<cr>:<ci>:<adsetIdx> | a:<cr>:<ci>:<si>:<adIdx>
-// Shared entities (separation 'adset'/'ad') use '-' for the creative segment, e.g. c:-:0.
+// Shared entities (separation 'adset'/'ad'/'group') use '-' for the creative segment, e.g. c:-:0.
+// Group-level adsets (ADR-0009) belong to a Creative Group, not a creative: s:g<groupIdx>:<ci>:<si>
+// (<si> is the adset index WITHIN the group; ad keys stay a:<cr>:<ci>:<si>:<ai>, unique because
+// each creative lives in exactly one group).
 // Media upload checkpoints use m:<creativeIdx>.
 export type BatchRunState = {
   created: Record<string, string>; // entityKey -> Meta entity id (skip create, reuse id)

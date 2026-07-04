@@ -365,6 +365,14 @@ export interface BatchCreateInput {
    */
   separation_level?: SeparationLevel;
   /**
+   * Nivel 'group' (ADR-0009): particao dos criativos em Creative Groups.
+   * `assignments[i]` = indice do grupo do criativo i (0-based, COMPACTADO — a UI
+   * garante 0..K-1 sem buracos; indices esparsos sao normalizados defensivamente
+   * em expandBatch, mas nesse caso `names` pode desalinhar). `names[g]` = nome da
+   * coluna do painel (fallback "Grupo N"). Ignorado nos demais niveis.
+   */
+  creative_groups?: { names: string[]; assignments: number[] };
+  /**
    * Contexto de data/hora CONGELADO no momento do enfileiramento (A1).
    * Quando presente, {{data}}/{{hora}}/{{ano}}/... usam estes valores em vez de
    * now() — garante que um job que so roda 2 min depois (ou retoma horas apos um
@@ -1468,6 +1476,8 @@ export function substituteDirectAdsVars(
     budget?: string;
     criativo?: string;
     criativos?: string;
+    /** Nome do Creative Group do ad (nivel 'group', ADR-0009). */
+    grupo?: string;
     fila?: number;
     index?: number;
     conjunto?: number;
@@ -1515,12 +1525,26 @@ export function substituteDirectAdsVars(
  * que {{criativo}} nao tem valor unico. F7.
  * Separadores reconhecidos: - (hifen) U+2014 U+2013 _ |.
  */
-export function dropCriativoToken(tpl: string): string {
+function dropNameToken(tpl: string, token: string): string {
+  const t = `\\{\\{\\s*${token}\\s*\\}\\}`;
   return tpl
-    .replace(/\s*[-\u2014\u2013_|]\s*\{\{criativo\}\}\s*[-\u2014\u2013_|]\s*/g, ' - ')
-    .replace(/\s*[-\u2014\u2013_|]?\s*\{\{criativo\}\}\s*[-\u2014\u2013_|]?\s*/g, ' ')
+    .replace(new RegExp(`\\s*[-\\u2014\\u2013_|]\\s*${t}\\s*[-\\u2014\\u2013_|]\\s*`, 'gi'), ' - ')
+    .replace(new RegExp(`\\s*[-\\u2014\\u2013_|]?\\s*${t}\\s*[-\\u2014\\u2013_|]?\\s*`, 'gi'), ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+export function dropCriativoToken(tpl: string): string {
+  return dropNameToken(tpl, 'criativo');
+}
+
+/**
+ * Remove o token {{grupo}} (ADR-0009). O token so resolve em nomes de conjunto/
+ * anuncio no nivel de separacao 'group'; em nomes de campanha (contem todos os
+ * grupos) e em QUALQUER nome nos demais niveis, ele e removido.
+ */
+export function dropGrupoToken(tpl: string): string {
+  return dropNameToken(tpl, 'grupo');
 }
 
 /**
@@ -1568,12 +1592,14 @@ export interface PlannedCampaign {
   campSuffixNum: number;       // numeracao continua do sufixo _C (1-based)
 }
 export interface PlannedAdSet {
-  key: string;                 // s:<cr|->:<ci>:<si>
+  key: string;                 // s:<cr|->:<ci>:<si> | s:g<gi>:<ci>:<si> (nivel 'group')
   campKey: string;             // chave da campanha-pai
   creativeIdx: number | null;
   campIdx: number;
-  adsetIdx: number;            // 0-based dentro da campanha
+  adsetIdx: number;            // 0-based dentro da campanha (nivel 'group': dentro do GRUPO)
   setSuffixNum: number;        // numeracao continua do sufixo _CJ dentro da campanha
+  /** Nivel 'group' (ADR-0009): indice do Creative Group dono deste adset. */
+  groupIdx?: number | null;
 }
 export interface PlannedAd {
   key: string;                 // a:<cr>:<ci>:<si>:<ai>
@@ -1583,6 +1609,8 @@ export interface PlannedAd {
   adsetIdx: number;
   adIdx: number;               // 0-based dentro do adset
   adSuffixNum: number;         // numeracao continua do sufixo _AD dentro do adset
+  /** Nivel 'group' (ADR-0009): indice do Creative Group do criativo deste ad. */
+  groupIdx?: number | null;
 }
 export interface ExpandedBatch {
   campaigns: PlannedCampaign[];
@@ -1601,6 +1629,11 @@ export interface ExpandedBatch {
  *               ganha s adsets (s:<cr>:<ci>:<si>), a ads cada.
  *   'ad':       c campanhas + s adsets compartilhados (s:-:<ci>:<si>); dentro de cada
  *               adset, cada criativo aparece como a ads (a:<cr>:<ci>:<si>:<ai>).
+ *   'group':    c campanhas compartilhadas; criativos PARTICIONADOS em Creative Groups
+ *               (ADR-0009) via `groups` (groups[cr] = indice do grupo do criativo cr);
+ *               cada grupo ganha s adsets (s:g<gi>:<ci>:<si>) com |grupo|*a ads cada.
+ *               Indices esparsos/invalidos sao normalizados (compactacao ascendente;
+ *               invalido → grupo 0); sem `groups`, todos caem num unico grupo.
  * Sufixos _C/_CJ/_AD numeram CONTINUO dentro de cada pai (1-based).
  */
 export function expandBatch(
@@ -1608,7 +1641,8 @@ export function expandBatch(
   c: number,
   s: number,
   a: number,
-  level: SeparationLevel = 'campaign'
+  level: SeparationLevel = 'campaign',
+  groups?: number[]
 ): ExpandedBatch {
   const N = Math.max(1, Math.floor(n));
   const C = Math.max(1, Math.floor(c));
@@ -1645,6 +1679,37 @@ export function expandBatch(
           adsets.push({ key: adsetKey, campKey, creativeIdx: cr, campIdx: ci, adsetIdx: si, setSuffixNum: setSuffix });
           for (let ai = 0; ai < A; ai++) {
             ads.push({ key: `a:${cr}:${ci}:${si}:${ai}`, adsetKey, creativeIdx: cr, campIdx: ci, adsetIdx: si, adIdx: ai, adSuffixNum: ai + 1 });
+          }
+        }
+      }
+    }
+  } else if (level === 'group') {
+    // Normaliza atribuicoes: invalido/ausente → grupo 0; compacta indices esparsos
+    // em ordem ascendente (g0..gK-1); grupos vazios simplesmente nao existem.
+    const raw = Array.from({ length: N }, (_, cr) => {
+      const g = groups?.[cr];
+      return typeof g === 'number' && Number.isInteger(g) && g >= 0 ? g : 0;
+    });
+    const distinct = [...new Set(raw)].sort((x, y) => x - y);
+    const gIdxOf = new Map(distinct.map((g, i) => [g, i]));
+    const members: number[][] = distinct.map(() => []);
+    raw.forEach((g, cr) => members[gIdxOf.get(g)!].push(cr));
+
+    for (let ci = 0; ci < C; ci++) {
+      const campKey = `c:-:${ci}`;
+      campaigns.push({ key: campKey, creativeIdx: null, campIdx: ci, campSuffixNum: ci + 1 });
+      let setSuffix = 0; // _CJ continuo dentro da campanha (grupos x S, em ordem de grupo)
+      for (let gi = 0; gi < members.length; gi++) {
+        for (let si = 0; si < S; si++) {
+          setSuffix += 1;
+          const adsetKey = `s:g${gi}:${ci}:${si}`;
+          adsets.push({ key: adsetKey, campKey, creativeIdx: null, campIdx: ci, adsetIdx: si, setSuffixNum: setSuffix, groupIdx: gi });
+          let adSuffix = 0; // _AD continuo dentro do adset (|grupo| x A)
+          for (const cr of members[gi]) {
+            for (let ai = 0; ai < A; ai++) {
+              adSuffix += 1;
+              ads.push({ key: `a:${cr}:${ci}:${si}:${ai}`, adsetKey, creativeIdx: cr, campIdx: ci, adsetIdx: si, adIdx: ai, adSuffixNum: adSuffix, groupIdx: gi });
+            }
           }
         }
       }
@@ -1864,6 +1929,7 @@ export async function createCampaignBatch(
     url_tags_template,
     context,
     separation_level,
+    creative_groups,
     frozen_context,
   } = input;
 
@@ -1917,7 +1983,15 @@ export async function createCampaignBatch(
   };
 
   // ── Plano determinista de entidades (chaves p/ resume idempotente). ─────────
-  const plan = expandBatch(creatives.length, nCamp, nAdSet, nAd, level);
+  const plan = expandBatch(creatives.length, nCamp, nAdSet, nAd, level, creative_groups?.assignments);
+
+  // ── Creative Groups (ADR-0009): nome do grupo p/ {{grupo}} em nomes/url_tags.
+  // Fallback "Grupo N" quando a coluna nao foi nomeada. `numGroups` decide o
+  // sufixo _CJ no nivel group: a campanha tem grupos×S conjuntos, entao numerar
+  // e obrigatorio sempre que houver mais de um conjunto (senao nomes colidem).
+  const groupNameOf = (gi: number | null | undefined): string | null =>
+    gi == null ? null : (creative_groups?.names?.[gi]?.trim() || `Grupo ${gi + 1}`);
+  const numGroups = level === 'group' ? new Set(plan.adsets.map((s) => s.groupIdx)).size : 0;
 
   // `counts` rastreia apenas o que ESTE run fez — usado p/ skipped (que não tem
   // mapa em runState e é por-run por design; processJob zera o baseline de skipped
@@ -2001,7 +2075,9 @@ export async function createCampaignBatch(
     const creativeName = pc.creativeIdx === null ? null : creatives[pc.creativeIdx].name;
     const campSuffix = nCamp > 1 ? `_C${pad2(pc.campSuffixNum)}` : '';
     const baseTplName = campaignTpl.name || creativeName || 'Campanha';
-    const name = resolveName(baseTplName, creativeName, campSuffix);
+    // {{grupo}} nunca resolve em nome de campanha: no nivel group ela contem
+    // TODOS os grupos; nos demais niveis o token nem existe como conceito.
+    const name = resolveName(dropGrupoToken(baseTplName), creativeName, campSuffix);
     const campSpec: CampaignSpec = { ...campaignTpl, name };
 
     try {
@@ -2042,9 +2118,19 @@ export async function createCampaignBatch(
     }
 
     const creativeName = ps.creativeIdx === null ? null : creatives[ps.creativeIdx].name;
-    const setSuffix = nAdSet > 1 ? `_CJ${pad2(ps.setSuffixNum)}` : '';
+    // Nivel group: sufixo _CJ sempre que a campanha tem >1 conjunto (grupos×S) —
+    // sem ele, grupos com S=1 gerariam conjuntos homonimos. Demais niveis: gate
+    // historico nAdSet>1 (numGroups=0 nao interfere).
+    const setSuffix = nAdSet > 1 || numGroups > 1 ? `_CJ${pad2(ps.setSuffixNum)}` : '';
     const baseTplName = adsetTpl.name || campaignTpl.name || creativeName || 'Conjunto';
-    const name = resolveName(baseTplName, creativeName, setSuffix);
+    // {{grupo}} resolve no nome do conjunto SO no nivel group (1 grupo em escopo);
+    // fora dele e removido. {{criativo}} segue via resolveName: creativeIdx e null
+    // em conjunto de grupo (mesmo unitario — regra rigida ADR-0009) → removido.
+    const groupName = groupNameOf(ps.groupIdx);
+    const tplWithGrupo = groupName !== null
+      ? baseTplName.replace(/\{\{\s*grupo\s*\}\}/gi, groupName)
+      : dropGrupoToken(baseTplName);
+    const name = resolveName(tplWithGrupo, creativeName, setSuffix);
 
     // Override do product_set por creative SÓ no DPA "Nível de Campanha", em que o
     // conjunto é um adset de catálogo (template já traz product_set_id). No "Nível de
@@ -2104,7 +2190,13 @@ export async function createCampaignBatch(
     const crv = creatives[pa.creativeIdx];
     const creativeSpec = mergeMedia(crv.creative, crv.media);
     const adSuffix = nAd > 1 ? `_AD${pad2(pa.adSuffixNum)}` : '';
-    const adName = `${crv.name.replace(/\{\{\s*conta\s*\}\}/gi, contaName)}${adSuffix}`;
+    // {{grupo}} em nome de anuncio: resolve no nivel group (o ad pertence a
+    // exatamente um grupo); removido nos demais niveis (ADR-0009).
+    const adGroupName = groupNameOf(pa.groupIdx);
+    const adNameTpl = adGroupName !== null
+      ? crv.name.replace(/\{\{\s*grupo\s*\}\}/gi, adGroupName)
+      : dropGrupoToken(crv.name);
+    const adName = `${adNameTpl.replace(/\{\{\s*conta\s*\}\}/gi, contaName)}${adSuffix}`;
 
     const primaryPage = pageSequence[adOrdinal] ?? page_ids[0];
     const pagesToTry =
@@ -2116,6 +2208,7 @@ export async function createCampaignBatch(
       ? substituteDirectAdsVars(url_tags_template, {
           ...baseCtx,
           criativo:      crv.name,
+          grupo:         adGroupName ?? undefined,
           fila:          pa.creativeIdx + 1,
           index:         pa.creativeIdx + 1,
           conjunto:      pa.adsetIdx + 1,
