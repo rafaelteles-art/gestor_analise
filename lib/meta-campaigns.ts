@@ -1570,6 +1570,30 @@ export function dropGrupoToken(tpl: string): string {
   return dropNameToken(tpl, 'grupo');
 }
 
+/** true se o template tem o token {{grupo}} (ADR-0009). */
+export function hasGrupoToken(tpl: string): boolean {
+  return /\{\{\s*grupo\s*\}\}/i.test(tpl);
+}
+
+/**
+ * Decide se o conjunto precisa do sufixo _CJ para não colidir com irmãos
+ * (ADR-0009). No nível `group`, quando o nome já carrega a identidade do grupo
+ * ({{grupo}}), os conjuntos só colidem se houver mais de um por grupo (S>1) —
+ * então NÃO numera com S=1 (nomes ficam limpos: "RM01", "RM02"). Sem {{grupo}},
+ * todos os grupos compartilhariam o nome, então numera sempre que houver >1
+ * conjunto. Nos demais níveis: numera quando há >1 conjunto por campanha
+ * (numGroups=0 não interfere).
+ */
+export function needsAdsetSuffix(
+  level: SeparationLevel,
+  nAdSet: number,
+  numGroups: number,
+  templateHasGrupo: boolean
+): boolean {
+  if (level === 'group' && templateHasGrupo) return nAdSet > 1;
+  return nAdSet > 1 || numGroups > 1;
+}
+
 /**
  * Valor do token {{conta}} em nomes de entidade: o apelido (nickname) tem
  * precedencia sobre o nome da conta (F3). Vazio se nenhum existir.
@@ -2141,11 +2165,13 @@ export async function createCampaignBatch(
     }
 
     const creativeName = ps.creativeIdx === null ? null : creatives[ps.creativeIdx].name;
-    // Nivel group: sufixo _CJ sempre que a campanha tem >1 conjunto (grupos×S) —
-    // sem ele, grupos com S=1 gerariam conjuntos homonimos. Demais niveis: gate
-    // historico nAdSet>1 (numGroups=0 nao interfere).
-    const setSuffix = nAdSet > 1 || numGroups > 1 ? `_CJ${pad2(ps.setSuffixNum)}` : '';
     const baseTplName = adsetTpl.name || campaignTpl.name || creativeName || 'Conjunto';
+    // Sufixo _CJ: com {{grupo}} no nome (nivel group) o proprio nome do grupo ja
+    // distingue os conjuntos, entao so numera com S>1 — nomes limpos ("RM01").
+    // Ver needsAdsetSuffix.
+    const setSuffix = needsAdsetSuffix(level, nAdSet, numGroups, hasGrupoToken(baseTplName))
+      ? `_CJ${pad2(ps.setSuffixNum)}`
+      : '';
     // {{grupo}} resolve no nome do conjunto SO no nivel group (1 grupo em escopo);
     // fora dele e removido. {{criativo}} segue via resolveName: creativeIdx e null
     // em conjunto de grupo (mesmo unitario — regra rigida ADR-0009) → removido.

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { expandBatch, createCampaignBatch, dropGrupoToken, type BatchCreateInput } from '../meta-campaigns';
+import { expandBatch, createCampaignBatch, dropGrupoToken, needsAdsetSuffix, type BatchCreateInput } from '../meta-campaigns';
 import { reduceCounts } from '../campaign-jobs-core';
 import type { BatchRunState, BatchRunOpts, SeparationLevel } from '../batch-contract';
 
@@ -347,9 +347,10 @@ describe('createCampaignBatch — group-level naming (ADR-0009)', () => {
     // campanha compartilhada: {{grupo}} removido (contem todos os grupos)
     expect(captured.campaigns).toEqual(['CAMP TESTE']);
 
-    // 2 grupos × S=1 → 2 conjuntos; sufixo _CJ presente (campanha tem >1 conjunto);
+    // 2 grupos × S=1 → 2 conjuntos. Como o nome tem {{grupo}} e S=1, o nome do
+    // grupo ja distingue os conjuntos → SEM sufixo _CJ (ADR-0009, needsAdsetSuffix).
     // {{grupo}} resolvido; {{criativo}} REMOVIDO mesmo no grupo unitario {Cria C}.
-    expect(captured.adsets.sort()).toEqual(['CJ - Depoimentos - BR_CJ02', 'CJ - Hooks - BR_CJ01']);
+    expect(captured.adsets.sort()).toEqual(['CJ - Depoimentos - BR', 'CJ - Hooks - BR']);
     expect(captured.adsets.join(' ')).not.toContain('Cria');
 
     // nomes de anuncio: {{grupo}} resolve com o grupo do criativo do ad
@@ -391,7 +392,27 @@ describe('createCampaignBatch — group-level naming (ADR-0009)', () => {
       noopOpts(runState)
     );
 
-    expect(captured.adsets.sort()).toEqual(['CJ - Grupo 2 - BR_CJ02', 'CJ - Hooks - BR_CJ01']);
+    expect(captured.adsets.sort()).toEqual(['CJ - Grupo 2 - BR', 'CJ - Hooks - BR']);
+  });
+
+  it('keeps the _CJ suffix at group level when S>1 (siblings within a group collide)', async () => {
+    const captured = { campaigns: [] as string[], adsets: [] as string[], ads: [] as string[], urlTags: [] as string[] };
+    global.fetch = capturingFetch(captured) as unknown as typeof fetch;
+    const runState: BatchRunState = { created: {}, failed: {} };
+
+    // S=2: cada grupo vira 2 conjuntos → o nome do grupo sozinho colidiria,
+    // entao o sufixo _CJ volta a ser necessario mesmo com {{grupo}} no nome.
+    await createCampaignBatch(
+      groupInput({ adsets_per_campaign: 2 }),
+      noopOpts(runState)
+    );
+
+    expect(captured.adsets.sort()).toEqual([
+      'CJ - Depoimentos - BR_CJ03',
+      'CJ - Depoimentos - BR_CJ04',
+      'CJ - Hooks - BR_CJ01',
+      'CJ - Hooks - BR_CJ02',
+    ]);
   });
 });
 
@@ -589,5 +610,31 @@ describe('createCampaignBatch — page_auto_retry error classification', () => {
 
     expect(calls.adcreatives).toBe(3); // advanced pageA→pageB→pageC
     expect(calls.ads).toBe(1); // ad created after the working page
+  });
+});
+
+/**
+ * needsAdsetSuffix (ADR-0009): decide o sufixo _CJ. No nível group, quando o
+ * nome já carrega {{grupo}}, os conjuntos só colidem com >1 por grupo (S>1);
+ * sem {{grupo}}, numera sempre que houver >1 conjunto. Demais níveis: >1 por
+ * campanha.
+ */
+describe('needsAdsetSuffix', () => {
+  it('group + {{grupo}} + S=1: no suffix (group name is unique)', () => {
+    expect(needsAdsetSuffix('group', 1, 55, true)).toBe(false);
+  });
+  it('group + {{grupo}} + S>1: suffix (siblings within a group collide)', () => {
+    expect(needsAdsetSuffix('group', 2, 55, true)).toBe(true);
+  });
+  it('group without {{grupo}} + many groups: suffix (names would collide)', () => {
+    expect(needsAdsetSuffix('group', 1, 55, false)).toBe(true);
+  });
+  it('group without {{grupo}} + single group + S=1: no suffix', () => {
+    expect(needsAdsetSuffix('group', 1, 1, false)).toBe(false);
+  });
+  it('non-group levels: suffix only when >1 adset per campaign', () => {
+    expect(needsAdsetSuffix('campaign', 1, 0, false)).toBe(false);
+    expect(needsAdsetSuffix('campaign', 2, 0, false)).toBe(true);
+    expect(needsAdsetSuffix('adset', 3, 0, false)).toBe(true);
   });
 });

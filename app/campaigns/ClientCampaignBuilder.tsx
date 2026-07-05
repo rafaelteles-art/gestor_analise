@@ -2385,7 +2385,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     Object.keys(promotedObject).forEach(k => promotedObject[k] === undefined && delete promotedObject[k]);
 
     const adset: any = {
-      name: setName.trim() || resolvedCampaignName + ' — Conjunto',
+      // Nível de grupo: default = {{grupo}} → cada conjunto herda o nome do seu
+      // grupo (RM01, RM02…). Servidor resolve {{grupo}} e omite o _CJ com S=1.
+      name: setName.trim() || (separationLevel === 'group' ? '{{grupo}}' : resolvedCampaignName + ' — Conjunto'),
       optimization_goal: isEngagement ? 'PAGE_LIKES' : isDPA ? 'OFFSITE_CONVERSIONS' : optGoal,
       billing_event: isEngagement ? 'IMPRESSIONS' : optGoal === 'LINK_CLICKS' ? 'LINK_CLICKS' : 'IMPRESSIONS',
       bid_strategy: !isCBO ? bidStrategy : undefined,
