@@ -1351,6 +1351,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         setSyncMsg('Concluído — contas atualizadas.');
         startAccountsRefresh(() => router.refresh());
         setSyncing(false);
+        setTimeout(() => {
+          setSyncMsg(prev => (prev === 'Concluído — contas atualizadas.' ? '' : prev));
+        }, 5000);
       } else if (last?.type === 'error') {
         throw new Error(last.error ?? 'erro desconhecido');
       } else {
@@ -1455,24 +1458,43 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [pagesSyncMsg, setPagesSyncMsg] = useState<string | null>(null);
   const [pagesSyncError, setPagesSyncError] = useState<string | null>(null);
   const loadingPages = pagesRes.loading || pagesSyncBusy;
+  const profileNameRef = useRef(profileName);
+  profileNameRef.current = profileName;
 
   // ↻ de páginas: sync do perfil (job em fila; Scheduler pode levar ~2 min pra
   // pegar) → re-busca do banco. Não bloqueia o formulário enquanto roda.
   const handleRefreshPages = async () => {
     if (!profileName || pagesSyncBusy) return;
+    const syncProfile = profileName;
     setPagesSyncBusy(true);
-    setPagesSyncError(null);
+    if (profileNameRef.current === syncProfile) setPagesSyncError(null);
     setPagesSyncMsg('Enfileirando sync do perfil…');
     try {
       const { partial } = await runPageSyncJob({
         profiles: [profileName],
-        onProgress: (p) => setPagesSyncMsg(p.indeterminate ? p.message : `${p.message} (${p.current}/${p.total})`),
+        onProgress: (p) => {
+          if (profileNameRef.current === syncProfile) {
+            setPagesSyncMsg(p.indeterminate ? p.message : `${p.message} (${p.current}/${p.total})`);
+          }
+        },
       });
-      setPagesSyncMsg(partial ? 'Sync parcial (rate limit #4) — mostrando o que foi atualizado.' : null);
-      await pagesRes.refresh();
+      const partialMsg = 'Sync parcial (rate limit #4) — mostrando o que foi atualizado.';
+      if (profileNameRef.current === syncProfile) {
+        setPagesSyncMsg(partial ? partialMsg : null);
+      }
+      if (partial) {
+        setTimeout(() => {
+          setPagesSyncMsg(prev => (prev === partialMsg ? null : prev));
+        }, 10000);
+      }
+      if (profileNameRef.current === syncProfile) {
+        await pagesRes.refresh();
+      }
     } catch (e) {
-      setPagesSyncError(e instanceof Error ? e.message : String(e));
-      setPagesSyncMsg(null);
+      if (profileNameRef.current === syncProfile) {
+        setPagesSyncError(e instanceof Error ? e.message : String(e));
+        setPagesSyncMsg(null);
+      }
     } finally {
       setPagesSyncBusy(false);
     }
