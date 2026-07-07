@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { RefreshCw, CheckCircle2 } from 'lucide-react';
 import { todayStr, toDatetimeLocal, datetimeLocalToISO } from '@/lib/timezone';
 import {
@@ -1324,6 +1325,13 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [syncMsg, setSyncMsg] = useState<string>('');
   const [syncError, setSyncError] = useState<string | null>(null);
 
+  const router = useRouter();
+  // ↻ de contas: re-executa o server component (page.tsx re-lê o banco) sem
+  // perder o estado do formulário. Não faz scan na Meta — o cron horário e o
+  // botão "Sincronizar contas" cobrem isso.
+  const [accountsRefreshing, startAccountsRefresh] = useTransition();
+  const handleRefreshAccounts = () => startAccountsRefresh(() => router.refresh());
+
   const handleSyncAccounts = async () => {
     setSyncing(true);
     setSyncError(null);
@@ -1340,8 +1348,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         if (line?.message) setSyncMsg(String(line.message));
       });
       if (last?.type === 'done' && last?.success) {
-        setSyncMsg('Concluído — recarregando…');
-        window.location.reload();
+        setSyncMsg('Concluído — contas atualizadas.');
+        startAccountsRefresh(() => router.refresh());
+        setSyncing(false);
       } else if (last?.type === 'error') {
         throw new Error(last.error ?? 'erro desconhecido');
       } else {
@@ -2796,7 +2805,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             </button>
           </div>
         </div>
-        {syncing && syncMsg && <p className="text-[11px] text-console-muted">{syncMsg}</p>}
+        {syncMsg && <p className="text-[11px] text-console-muted">{syncMsg}</p>}
         {syncError && <p className="text-[11px] text-rose-600 dark:text-rose-400">Erro ao sincronizar: {syncError}</p>}
       </MainSection>
 
@@ -2874,7 +2883,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {/* IDENTIFICAÇÃO */}
         <SubBlock label="Identificação">
           <div className="grid grid-cols-1 gap-3">
-            <Field label="Conta de Anúncio" hint={isBroadcast ? `Modo broadcast: a campanha será criada em ${accountIds.length} contas sequencialmente.` : undefined}>
+            <Field label="Conta de Anúncio"
+              action={<RefreshButton onClick={handleRefreshAccounts} loading={accountsRefreshing} title="Re-ler contas do banco (sem scan na Meta)" />}
+              hint={isBroadcast ? `Modo broadcast: a campanha será criada em ${accountIds.length} contas sequencialmente.` : undefined}>
               <AccountMultiSelect
                 accounts={accountsForProfile}
                 selected={accountIds}
