@@ -16,6 +16,7 @@ import {
   parseCreativeGroupsTable, groupsStateFromRows, draftIdsInGroups, parseProductSetList,
   type CreativeGroupsState,
 } from '@/lib/creative-groups';
+import { useRefreshable, fetchJson } from './useRefreshable';
 
 // ────────────────────────────────────────────────────────────────────────────
 // SCOPE NOTE (for orchestrator):
@@ -1352,33 +1353,53 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const isBroadcast = accountIds.length > 1;
 
   // Listas dependentes da conta
-  const [pixels, setPixels] = useState<Pixel[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
-  const [audiences, setAudiences] = useState<{ custom: Audience[]; saved: Audience[] }>({ custom: [], saved: [] });
-  const [catalogs, setCatalogs] = useState<Catalog[]>([]);
   const [catalogBmFilter, setCatalogBmFilter] = useState<string>(''); // filtra dropdown de catálogos por BM
-  const [catalogSourceCounts, setCatalogSourceCounts] = useState<{ db: number; api: number; total: number } | null>(null);
-  const [loadingDeps, setLoadingDeps] = useState(false);
-  const [depsError, setDepsError] = useState<string | null>(null);
 
-  // Pixels, audiences, catalogs — específicos da conta (mudam quando troca conta).
-  useEffect(() => {
-    if (!accountId) return;
-    const qs = `account_id=${encodeURIComponent(accountId)}${profileName ? `&profile_name=${encodeURIComponent(profileName)}` : ''}`;
-    setLoadingDeps(true); setDepsError(null);
-    Promise.all([
-      fetch(`/api/campaigns/pixels?${qs}`).then(r => r.json()),
-      fetch(`/api/campaigns/audiences?${qs}`).then(r => r.json()),
-      fetch(`/api/campaigns/catalogs?${qs}`).then(r => r.json()).catch(() => ({ catalogs: [] })),
-    ]).then(([p, au, cat]) => {
-      if (p.error) setDepsError(p.error);
-      setPixels(p.pixels ?? []);
-      setAudiences({ custom: au.custom ?? [], saved: au.saved ?? [] });
-      setCatalogs(cat.catalogs ?? []);
-      setCatalogSourceCounts(cat.source_counts ?? null);
-    }).catch(e => setDepsError(e?.message ?? String(e)))
-      .finally(() => setLoadingDeps(false));
-  }, [accountId, profileName]);
+  // Listas dependentes da conta — cada uma é um recurso "refreshable": o ↻ na
+  // UI recarrega só aquela fonte, sem reload e sem tocar no resto do formulário.
+  const depsQs = `account_id=${encodeURIComponent(accountId)}${profileName ? `&profile_name=${encodeURIComponent(profileName)}` : ''}`;
+
+  const pixelsRes = useRefreshable<Pixel[]>({
+    fetcher: async () =>
+      (await fetchJson<{ pixels?: Pixel[] }>(`/api/campaigns/pixels?${depsQs}`)).pixels ?? [],
+    initial: [],
+    deps: [accountId, profileName],
+    enabled: !!accountId,
+  });
+
+  const audiencesRes = useRefreshable<{ custom: Audience[]; saved: Audience[] }>({
+    fetcher: async () => {
+      const au = await fetchJson<{ custom?: Audience[]; saved?: Audience[] }>(`/api/campaigns/audiences?${depsQs}`);
+      return { custom: au.custom ?? [], saved: au.saved ?? [] };
+    },
+    initial: { custom: [], saved: [] },
+    deps: [accountId, profileName],
+    enabled: !!accountId,
+  });
+
+  const catalogsRes = useRefreshable<{
+    catalogs: Catalog[];
+    source_counts: { db: number; api: number; total: number } | null;
+  }>({
+    fetcher: async () => {
+      const cat = await fetchJson<{
+        catalogs?: Catalog[];
+        source_counts?: { db: number; api: number; total: number };
+      }>(`/api/campaigns/catalogs?${depsQs}`);
+      return { catalogs: cat.catalogs ?? [], source_counts: cat.source_counts ?? null };
+    },
+    initial: { catalogs: [], source_counts: null },
+    deps: [accountId, profileName],
+    enabled: !!accountId,
+  });
+
+  // Aliases de leitura — mantêm os nomes usados pelo resto do arquivo.
+  const pixels = pixelsRes.data;
+  const audiences = audiencesRes.data;
+  const catalogs = catalogsRes.data.catalogs;
+  const catalogSourceCounts = catalogsRes.data.source_counts;
+  const loadingDeps = pixelsRes.loading || audiencesRes.loading || catalogsRes.loading;
 
   // Páginas — escopo é o perfil (todos os BMs acessíveis). Não muda ao trocar
   // de conta dentro do mesmo perfil.
@@ -1390,7 +1411,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     fetch(`/api/campaigns/pages?${qs}`)
       .then(r => r.json())
       .then(pg => setPages(pg.pages ?? []))
-      .catch(e => setDepsError(e?.message ?? String(e)))
+      .catch(() => { /* Task 6 substitui este effect pelo pagesRes */ })
       .finally(() => setLoadingPages(false));
   }, [profileName]);
 
@@ -1487,7 +1508,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       if (!res.ok) throw new Error(data?.error ?? res.statusText);
       const cat = data.catalog as { id: string; name: string };
       setCreatedCatalog(cat);
-      setCatalogs(prev => [...prev, { id: cat.id, name: cat.name, product_count: 0 }]);
+      catalogsRes.setData(prev => ({ ...prev, catalogs: [...prev.catalogs, { id: cat.id, name: cat.name, product_count: 0 }] }));
       setCatalogId(cat.id);
       setProductSetId('');
       setNewCatalogName('');
@@ -2817,7 +2838,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                 </div>
               )}
             </Field>
-            <Field label="Nome da Campanha *" hint={loadingDeps ? 'Carregando pixels/páginas/públicos/catálogos…' : depsError ?? undefined}>
+            <Field label="Nome da Campanha *" hint={loadingDeps ? 'Carregando pixels/públicos/catálogos…' : undefined}>
               <div className="flex items-stretch gap-2">
                 <input
                   className={cls(inputBase, 'flex-1 min-w-0')}
@@ -3750,7 +3771,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                   accountId={accountId}
                   profileName={profileName}
                   customAudiences={audiences.custom}
-                  onCreated={(a) => setAudiences(prev => ({ ...prev, custom: [a, ...prev.custom] }))}
+                  onCreated={(a) => audiencesRes.setData(prev => ({ ...prev, custom: [a, ...prev.custom] }))}
                 />
               </div>
             </SubBlock>
