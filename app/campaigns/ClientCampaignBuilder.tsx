@@ -2077,7 +2077,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     const drafts = ids.map((id) => {
       const psName = productSets.find((s) => s.id === id)?.name;
       // Nome derivado do conjunto (sem o token de data). Desconhecido → vazio:
-      // o defaultCreativeName() no enqueue cai em "Criativo N".
+      // o defaultCreativeName() no enqueue cai no fallback "Criativo 1".
       const name = psName ? stripTrailingDateToken(psName) : '';
       return { ...emptyAd(), name, product_set_id: id };
     });
