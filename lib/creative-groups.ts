@@ -103,6 +103,44 @@ export function parseCreativeGroupsTable(text: string): { rows: CreativeTableRow
 }
 
 /**
+ * Parser do import de coluna única (níveis campaign/adset/ad): uma linha = um
+ * ID de conjunto de produtos, cada ID vira um criativo. Tolerante como o parser
+ * de grupos: aceita colagem com colunas extras (o ID é sempre a última célula),
+ * ignora linhas vazias. A PRIMEIRA linha não-vazia sem nenhum ID é tratada como
+ * cabeçalho e pulada em silêncio (ex.: "ID do conjunto de produtos"); qualquer
+ * linha sem ID DEPOIS dela vira erro com o número da linha. Duplicatas são
+ * mantidas em `ids` (cada linha = 1 criativo) e listadas uma vez em `duplicates`
+ * para o aviso.
+ */
+export function parseProductSetList(text: string): { ids: string[]; errors: string[]; duplicates: string[] } {
+  const ids: string[] = [];
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  const dupSet = new Set<string>();
+  const lines = text.split(/\r?\n/);
+  let sawFirst = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    const cells = (line.includes('\t') ? line.split('\t') : line.trim().split(/\s+/))
+      .map((c) => c.trim())
+      .filter((c) => c !== '');
+    const candidate = cells[cells.length - 1] ?? '';
+    if (!/^\d{6,}$/.test(candidate)) {
+      // Só a primeira linha não-vazia pode ser cabeçalho — pulada em silêncio.
+      if (!sawFirst) { sawFirst = true; continue; }
+      errors.push(`Linha ${i + 1}: "${candidate || line.trim()}" não parece um ID de conjunto de produtos (esperado só dígitos).`);
+      continue;
+    }
+    sawFirst = true;
+    if (seen.has(candidate)) dupSet.add(candidate);
+    seen.add(candidate);
+    ids.push(candidate);
+  }
+  return { ids, errors, duplicates: [...dupSet] };
+}
+
+/**
  * Constrói o CreativeGroupsState a partir das linhas importadas: colunas na
  * ordem de primeira aparição do nome do grupo; `draftIds[i]` casa com `rows[i]`.
  */

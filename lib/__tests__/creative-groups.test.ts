@@ -8,6 +8,7 @@ import {
   parseCreativeGroupsTable,
   groupsStateFromRows,
   draftIdsInGroups,
+  parseProductSetList,
   type CreativeGroupsState,
 } from '../creative-groups';
 
@@ -171,5 +172,49 @@ describe('draftIdsInGroups', () => {
   it('ignores group indices that do not exist', () => {
     const s: CreativeGroupsState = { names: ['A'], byId: { a: 0 } };
     expect(draftIdsInGroups(s, [5])).toEqual([]);
+  });
+});
+
+describe('parseProductSetList', () => {
+  it('parses one product set id per line', () => {
+    const { ids, errors, duplicates } = parseProductSetList('1018724193904597\n1318730223804323');
+    expect(errors).toEqual([]);
+    expect(duplicates).toEqual([]);
+    expect(ids).toEqual(['1018724193904597', '1318730223804323']);
+  });
+
+  it('ignores blank lines and surrounding whitespace', () => {
+    const { ids, errors } = parseProductSetList('  1018724193904597  \n\n   \n1318730223804323\n');
+    expect(errors).toEqual([]);
+    expect(ids).toEqual(['1018724193904597', '1318730223804323']);
+  });
+
+  it('takes the last cell when extra columns are pasted (tolerant)', () => {
+    const { ids, errors } = parseProductSetList('LT100\t1018724193904597\nLT200\t1318730223804323');
+    expect(errors).toEqual([]);
+    expect(ids).toEqual(['1018724193904597', '1318730223804323']);
+  });
+
+  it('skips a leading header row silently', () => {
+    const { ids, errors } = parseProductSetList('ID do conjunto de produtos\n1018724193904597');
+    expect(errors).toEqual([]);
+    expect(ids).toEqual(['1018724193904597']);
+  });
+
+  it('reports non-id lines after the first with their line number and keeps valid ones', () => {
+    const { ids, errors } = parseProductSetList('1018724193904597\nnão-é-id\n1318730223804323');
+    expect(ids).toEqual(['1018724193904597', '1318730223804323']);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('Linha 2');
+  });
+
+  it('keeps duplicates as separate creatives but lists each repeated id once', () => {
+    const { ids, duplicates } = parseProductSetList('1018724193904597\n1018724193904597\n1318730223804323');
+    expect(ids).toEqual(['1018724193904597', '1018724193904597', '1318730223804323']);
+    expect(duplicates).toEqual(['1018724193904597']);
+  });
+
+  it('returns empty for empty text', () => {
+    expect(parseProductSetList('')).toEqual({ ids: [], errors: [], duplicates: [] });
   });
 });
