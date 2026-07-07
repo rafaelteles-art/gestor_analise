@@ -2084,7 +2084,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     setAds(drafts);
     setPsImportErrors(errors);
     setPsImportWarnings(warnings);
-    if (errors.length === 0) {
+    // Mantém o painel aberto quando há avisos (IDs desconhecidos/duplicados) para
+    // que fiquem visíveis; a importação já foi aplicada. Fecha só quando limpo.
+    if (errors.length === 0 && warnings.length === 0) {
       setPsImportOpen(false);
       setPsImportText('');
     }
