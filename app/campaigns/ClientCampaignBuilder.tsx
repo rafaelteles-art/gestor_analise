@@ -399,13 +399,41 @@ function SubBlock({
   );
 }
 
-function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
+function Field({ label, children, hint, action, error }: {
+  label: string; children: React.ReactNode; hint?: string;
+  /** controle opcional alinhado à direita do label (ex.: RefreshButton) */
+  action?: React.ReactNode;
+  /** erro do recurso — substitui o hint enquanto presente */
+  error?: string | null;
+}) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold text-console-muted">{label}</span>
+      <span className="flex items-center justify-between gap-2 text-[11px] font-semibold text-console-muted">
+        <span>{label}</span>
+        {action}
+      </span>
       {children}
-      {hint && <span className="text-[10px] text-console-muted">{hint}</span>}
+      {error && <span className="text-[10px] text-rose-600 dark:text-rose-400">{error}</span>}
+      {hint && !error && <span className="text-[10px] text-console-muted">{hint}</span>}
     </label>
+  );
+}
+
+/** Botãozinho ↻: recarrega uma lista pontualmente, sem reload da página.
+ *  preventDefault evita que o clique dispare a ativação do <label> pai. */
+function RefreshButton({ onClick, loading, title }: {
+  onClick: () => void; loading?: boolean; title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={title ?? 'Recarregar'}
+      disabled={loading}
+      onClick={(e) => { e.preventDefault(); if (!loading) onClick(); }}
+      className="shrink-0 p-0.5 rounded text-console-muted hover:text-foreground disabled:opacity-50"
+    >
+      <RefreshCw className={cls('h-3 w-3', !!loading && 'animate-spin')} />
+    </button>
   );
 }
 
@@ -3141,7 +3169,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                         clearable={true}
                       />
                     </Field>
-                    <Field label="Catálogo">
+                    <Field label="Catálogo"
+                      action={<RefreshButton onClick={() => void catalogsRes.refresh()} loading={catalogsRes.loading} title="Recarregar catálogos" />}
+                      error={catalogsRes.error}>
                       <SSSelect
                         options={filteredCatalogs.map(c => {
                           const bits: string[] = [];
@@ -3158,7 +3188,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
                         placeholder="— selecione —"
                       />
                     </Field>
-                    <Field label="Conjunto de Produtos (fallback)" hint="Usado quando o criativo não define o próprio set.">
+                    <Field label="Conjunto de Produtos (fallback)" hint="Usado quando o criativo não define o próprio set."
+                      action={<RefreshButton onClick={() => { if (catalogId) void productSetsRes.refresh(); }} loading={productSetsRes.loading} title="Recarregar conjuntos de produtos" />}
+                      error={productSetsRes.error}>
                       <SSSelect
                         options={productSets.map(s => ({
                           value: s.id,
@@ -3633,7 +3665,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
             : 'Rastreamento de Conversão'}
         >
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Pixel">
+            <Field label="Pixel"
+              action={<RefreshButton onClick={() => void pixelsRes.refresh()} loading={pixelsRes.loading} title="Recarregar pixels da conta" />}
+              error={pixelsRes.error}>
               <SSSelect
                 options={pixels.map(p => ({
                   value: p.id,
@@ -3701,7 +3735,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
               <Toggle checked={advantageAudience} onChange={setAdvantageAudience} label="Advantage+" />
             </div>
 
-            <Field label="Usar um público salvo">
+            <Field label="Usar um público salvo"
+              action={<RefreshButton onClick={() => void audiencesRes.refresh()} loading={audiencesRes.loading} title="Recarregar públicos (salvos e personalizados)" />}
+              error={audiencesRes.error}>
               <SSSelect
                 options={audiences.saved.map(a => ({
                   value: a.id,
@@ -3896,9 +3932,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       <MainSection title="Anúncios" subtitle="Defina textos, links, chamada para ação e páginas de distribuição">
         {/* PÁGINAS E DISTRIBUIÇÃO */}
         <SubBlock label="Páginas e Distribuição">
-          <Field label="Páginas do Facebook *" hint={isEngagement
+          <Field label="Páginas do Facebook *"
+            action={<RefreshButton onClick={() => void handleRefreshPages()} loading={loadingPages} title="Sincronizar páginas do perfil na Meta e recarregar" />}
+            error={pagesSyncError ?? pagesRes.error}
+            hint={pagesSyncMsg ?? (isEngagement
             ? "Engajamento promove UMA Página: selecione exatamente uma — ela é curtida e também é a identidade dos anúncios. Escopo: perfil (todas BMs)."
-            : "Selecione 1 ou mais páginas. Os anúncios serão distribuídos em round-robin entre elas (ou conforme alocação manual abaixo). Escopo: perfil (todas BMs)."}>
+            : "Selecione 1 ou mais páginas. Os anúncios serão distribuídos em round-robin entre elas (ou conforme alocação manual abaixo). Escopo: perfil (todas BMs).")}>
             <ChipPicker
               options={pages.map(p => {
                 const avail = p.ad_limit == null
