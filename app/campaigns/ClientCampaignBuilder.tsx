@@ -1441,52 +1441,62 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     sheet: { spreadsheet_id: string; filename: string | null; tab: string } | null;
     missing_video_count: number;
   } | null>(null);
-  const [productSets, setProductSets] = useState<ProductSet[]>([]);
-  const [loadingProductSets, setLoadingProductSets] = useState(false);
+  const productSetsRes = useRefreshable<ProductSet[]>({
+    fetcher: async () =>
+      (await fetchJson<{ product_sets?: ProductSet[] }>(
+        `/api/campaigns/product_sets?${depsQs}&catalog_id=${encodeURIComponent(catalogId)}`
+      )).product_sets ?? [],
+    initial: [],
+    deps: [catalogId, accountId, profileName],
+    enabled: !!catalogId,
+  });
+  const productSets = productSetsRes.data;
+  const loadingProductSets = productSetsRes.loading;
 
   // ── Criar catálogo novo (inline) ──────────────────────────────────────────
   const [newCatalogName, setNewCatalogName] = useState('');
   const [newCatalogBmId, setNewCatalogBmId] = useState('');
   const [manualBmMode, setManualBmMode] = useState(false);
-  const [businesses, setBusinesses] = useState<{ id: string; name: string }[]>([]);
-  const [businessSourceCounts, setBusinessSourceCounts] = useState<{ api: number; db: number; total: number } | null>(null);
-  const [loadingBusinesses, setLoadingBusinesses] = useState(false);
-  const [businessesError, setBusinessesError] = useState<string | null>(null);
-  const [creatingCatalog, setCreatingCatalog] = useState(false);
-  const [createdCatalog, setCreatedCatalog] = useState<{ id: string; name: string } | null>(null);
-  const [createCatalogError, setCreateCatalogError] = useState<string | null>(null);
 
-  // Carrega BMs visíveis ao token sempre que o usuário entra no modo "novo
-  // catálogo" e ainda não tem a lista. Não pré-carrega no mount pra evitar
-  // hit no Graph API quando o usuário não vai usar catálogo.
+  // BMs visíveis ao token — lazy (auto: false): só carrega quando o usuário
+  // entra no modo "novo catálogo" ou clica o ↻. Evita hit desnecessário na Graph.
+  const businessesRes = useRefreshable<{
+    businesses: { id: string; name: string }[];
+    source_counts: { api: number; db: number; total: number } | null;
+  }>({
+    fetcher: async () => {
+      const data = await fetchJson<{
+        businesses?: { id: string; name: string }[];
+        source_counts?: { api: number; db: number; total: number };
+      }>(`/api/campaigns/businesses?${depsQs}`);
+      return { businesses: data.businesses ?? [], source_counts: data.source_counts ?? null };
+    },
+    initial: { businesses: [], source_counts: null },
+    deps: [accountId, profileName],
+    enabled: !!accountId,
+    auto: false,
+  });
+  const businesses = businessesRes.data.businesses;
+  const businessSourceCounts = businessesRes.data.source_counts;
+  const loadingBusinesses = businessesRes.loading;
+  const businessesError = businessesRes.error;
+
   const loadBusinesses = async () => {
-    if (!accountId) return;
-    setLoadingBusinesses(true);
-    setBusinessesError(null);
-    try {
-      const qs = `account_id=${encodeURIComponent(accountId)}${profileName ? `&profile_name=${encodeURIComponent(profileName)}` : ''}`;
-      const res = await fetch(`/api/campaigns/businesses?${qs}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? res.statusText);
-      const list = (data.businesses ?? []) as { id: string; name: string }[];
-      setBusinesses(list);
-      setBusinessSourceCounts(data.source_counts ?? null);
-      // Auto-seleciona o primeiro pra reduzir cliques
-      if (list.length > 0 && !newCatalogBmId) setNewCatalogBmId(list[0].id);
-    } catch (e: any) {
-      setBusinessesError(e?.message ?? String(e));
-      setBusinesses([]);
-    } finally {
-      setLoadingBusinesses(false);
-    }
+    const d = await businessesRes.refresh();
+    // Auto-seleciona a primeira BM pra reduzir cliques (se nada selecionado)
+    if (d && d.businesses.length > 0) setNewCatalogBmId(prev => prev || d.businesses[0].id);
   };
 
   // Limpa lista de BMs ao trocar de conta/perfil — token muda → BMs mudam
   useEffect(() => {
-    setBusinesses([]);
+    businessesRes.reset();
     setNewCatalogBmId('');
-    setBusinessesError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, profileName]);
+
+  const [creatingCatalog, setCreatingCatalog] = useState(false);
+  const [createdCatalog, setCreatedCatalog] = useState<{ id: string; name: string } | null>(null);
+  const [createCatalogError, setCreateCatalogError] = useState<string | null>(null);
 
   const handleCreateCatalog = async () => {
     const name = newCatalogName.trim();
@@ -1621,7 +1631,7 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         product_name: data.product_name,
       };
       setCreatedProduct(info);
-      setProductSets(prev => [...prev, { id: info.product_set_id, name: info.retailer_id, product_count: 1 }]);
+      productSetsRes.setData(prev => [...prev, { id: info.product_set_id, name: info.retailer_id, product_count: 1 }]);
       setProductSetId(info.product_set_id);
     } catch (e: any) {
       setCreateProductError(e?.message ?? String(e));
@@ -1652,17 +1662,6 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     // Clear any pending deferred product-set apply from a previous account's preset.
     pendingProductSetRef.current = null;
   }, [accountId]);
-
-  useEffect(() => {
-    if (!catalogId) { setProductSets([]); return; }
-    const qs = `account_id=${encodeURIComponent(accountId)}${profileName ? `&profile_name=${encodeURIComponent(profileName)}` : ''}&catalog_id=${encodeURIComponent(catalogId)}`;
-    setLoadingProductSets(true);
-    fetch(`/api/campaigns/product_sets?${qs}`)
-      .then(r => r.json())
-      .then(d => setProductSets(d.product_sets ?? []))
-      .catch(() => setProductSets([]))
-      .finally(() => setLoadingProductSets(false));
-  }, [catalogId, accountId, profileName]);
 
   // ── Estrutura ─────────────────────────────────────────────────────────────
   const [campaignsPerCreative, setCampaignsPerCreative] = useState(1);
