@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { RefreshCw, Search, ChevronDown } from 'lucide-react';
+import { runPageSyncJob } from '@/lib/page-sync-client';
 
 interface Page {
   page_id: string;
@@ -146,59 +147,20 @@ export default function ClientStatusPaginas({
     return { total, comLimite, cheias, totalLimit, totalRunning, disponivel };
   }, [filteredPages]);
 
-  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
   const runPolledSync = async (label: string, profiles?: string[]) => {
     setSyncProgress({ label, message: 'Enfileirando…', current: 0, total: 0, indeterminate: true });
-    let jobId: number;
     try {
-      const res = await fetch('/api/pages/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profiles && profiles.length ? { profiles } : {}),
+      const { partial } = await runPageSyncJob({
+        profiles,
+        onProgress: (p) => setSyncProgress({ label, ...p }),
       });
-      const data = await res.json() as Record<string, unknown>;
-      if (!res.ok || !data.job_id) throw new Error(String(data.error ?? `HTTP ${res.status}`));
-      jobId = data.job_id as number;
+      if (partial) {
+        alert('Sincronização parcial: rate limit do app Facebook atingido. Tente novamente em ~1h.');
+      }
+      setTimeout(() => window.location.reload(), 400);
     } catch (err: unknown) {
-      alert(`Erro ao iniciar ${label}: ${err instanceof Error ? err.message : 'rede'}`);
+      alert(`Erro em ${label}: ${err instanceof Error ? err.message : 'desconhecido'}`);
       setSyncProgress(null);
-      return;
-    }
-
-    // Poll until the job leaves pending/running. The Scheduler may take up to its
-    // interval (~2 min) to pick the job up — that's expected for "async, walk away".
-    while (true) {
-      await sleep(2500);
-      let job: Record<string, unknown>;
-      try {
-        const res = await fetch(`/api/pages/sync/status?job_id=${jobId}`);
-        job = await res.json();
-        if (!res.ok) throw new Error(String(job.error ?? `HTTP ${res.status}`));
-      } catch {
-        continue; // transient — keep polling
-      }
-
-      setSyncProgress({
-        label,
-        message: typeof job.message === 'string' ? job.message : 'Processando…',
-        current: typeof job.current === 'number' ? job.current : 0,
-        total: typeof job.total === 'number' ? job.total : 0,
-        indeterminate: !job.total,
-      });
-
-      if (job.status === 'done') {
-        if (job.partial) {
-          alert(typeof job.message === 'string' ? job.message : 'Sincronização parcial: rate limit do app Facebook atingido. Tente novamente em ~1h.');
-        }
-        setTimeout(() => window.location.reload(), 400);
-        return;
-      }
-      if (job.status === 'error') {
-        alert(`Erro em ${label}: ${typeof job.error === 'string' ? job.error : 'desconhecido'}`);
-        setSyncProgress(null);
-        return;
-      }
     }
   };
 
