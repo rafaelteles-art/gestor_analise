@@ -9,11 +9,11 @@ import {
   type SSOption,
 } from '@/app/components/SearchableSelect';
 import { QueueWidget, useQueuePolling } from '@/app/components/QueueWidget';
-import { defaultCreativeName } from '@/lib/creative-name';
+import { defaultCreativeName, stripTrailingDateToken } from '@/lib/creative-name';
 import type { CreativeMedia, SeparationLevel } from '@/lib/batch-contract';
 import {
   normalizeGroups, moveToGroup, renameGroup, toCreativeGroupsPayload,
-  parseCreativeGroupsTable, groupsStateFromRows, draftIdsInGroups,
+  parseCreativeGroupsTable, groupsStateFromRows, draftIdsInGroups, parseProductSetList,
   type CreativeGroupsState,
 } from '@/lib/creative-groups';
 
@@ -1659,6 +1659,12 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [groupImportOpen, setGroupImportOpen] = useState(false);
   const [groupImportText, setGroupImportText] = useState('');
   const [groupImportErrors, setGroupImportErrors] = useState<string[]>([]);
+  // Import de coluna única (níveis ≠ group): cola uma lista de IDs de conjunto
+  // de produtos, cada um vira 1 criativo. Espelha o estado do import de grupos.
+  const [psImportOpen, setPsImportOpen] = useState(false);
+  const [psImportText, setPsImportText] = useState('');
+  const [psImportErrors, setPsImportErrors] = useState<string[]>([]);
+  const [psImportWarnings, setPsImportWarnings] = useState<string[]>([]);
   // Exclusão em massa de grupos: índices (compactados de groupsView) marcados.
   // Seleção é transitória e limpa após excluir/importar — os índices só valem
   // dentro do render atual, antes do normalizeGroups recompactar.
@@ -2040,6 +2046,47 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     if (errors.length === 0) {
       setGroupImportOpen(false);
       setGroupImportText('');
+    }
+  };
+
+  // Import em massa (coluna única, níveis campaign/adset/ad): cada ID vira um
+  // draft DPA (product_set_id preenchido; nome derivado do conjunto via lookup).
+  // Substitui os drafts atuais — mesma semântica do import de grupos.
+  const importProductSetList = () => {
+    if (!catalogId) {
+      setPsImportErrors(['Selecione um catálogo primeiro.']);
+      setPsImportWarnings([]);
+      return;
+    }
+    const { ids, errors, duplicates } = parseProductSetList(psImportText);
+    if (ids.length === 0) {
+      setPsImportErrors(errors.length ? errors : ['Nada para importar — cole uma lista de IDs de conjunto de produtos (um por linha).']);
+      setPsImportWarnings([]);
+      return;
+    }
+    const warnings: string[] = [];
+    const known = new Set(productSets.map((s) => s.id));
+    const unknown = [...new Set(ids.filter((id) => !known.has(id)))];
+    if (unknown.length > 0) {
+      const shown = unknown.slice(0, 5).join(', ') + (unknown.length > 5 ? '…' : '');
+      warnings.push(`${unknown.length} ID(s) não encontrados no catálogo selecionado; confira se o catálogo está certo: ${shown}`);
+    }
+    if (duplicates.length > 0) {
+      warnings.push(`${duplicates.length} ID(s) repetidos — cada linha vira 1 criativo: ${duplicates.join(', ')}`);
+    }
+    const drafts = ids.map((id) => {
+      const psName = productSets.find((s) => s.id === id)?.name;
+      // Nome derivado do conjunto (sem o token de data). Desconhecido → vazio:
+      // o defaultCreativeName() no enqueue cai em "Criativo N".
+      const name = psName ? stripTrailingDateToken(psName) : '';
+      return { ...emptyAd(), name, product_set_id: id };
+    });
+    setAds(drafts);
+    setPsImportErrors(errors);
+    setPsImportWarnings(warnings);
+    if (errors.length === 0) {
+      setPsImportOpen(false);
+      setPsImportText('');
     }
   };
 
@@ -3300,6 +3347,11 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
           <p className="text-[11px] text-console-muted mt-1">
             = <strong>{totals.camp}</strong> camp · <strong>{totals.sets}</strong> conj · <strong>{totals.ads}</strong> anúncios ({ads.length} criativo{ads.length === 1 ? '' : 's'} drafted)
           </p>
+          {(ads.length > 100 || totals.camp > 200 || totals.sets > 200 || totals.ads > 200) && (
+            <p className="text-[11px] text-amber-400 mt-1">
+              Volume alto ({ads.length} criativos → {totals.camp} camp · {totals.sets} conj · {totals.ads} anúncios). A criação pode demorar ou estourar o tempo limite — considere dividir em lotes menores.
+            </p>
+          )}
           {/* F7 — separation level: how creatives are fanned out across campaigns */}
           <div className="mt-3">
             <p className="text-[11px] font-semibold text-foreground mb-2">Nível de separação de criativos</p>
@@ -4005,6 +4057,59 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
         {/* CRIATIVOS (lista) */}
         <SubBlock label="Criativos" hint="Cada criativo gera N campanhas × M conjuntos × K anúncios conforme a estrutura definida.">
           <div className="flex flex-col gap-3">
+            {isDPA && separationLevel !== 'group' && (
+              <div className="border border-console-border rounded bg-console-surface p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-console-muted">
+                    Import em massa
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setPsImportOpen(v => !v); setPsImportErrors([]); setPsImportWarnings([]); }}
+                    className="text-[10px] font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors"
+                  >
+                    {psImportOpen ? 'Fechar import' : 'Colar product sets'}
+                  </button>
+                </div>
+                {psImportOpen && (
+                  <div className="mt-2 border border-console-border rounded bg-background p-2">
+                    <p className="text-[10px] text-console-muted mb-1.5">
+                      Cole uma lista de <span className="font-mono">IDs de conjunto de produtos</span>, um por linha. Cada ID vira 1 criativo; o nome sai do conjunto. <span className="text-amber-400">Substitui os criativos atuais.</span>
+                    </p>
+                    <textarea
+                      value={psImportText}
+                      onChange={e => setPsImportText(e.target.value)}
+                      rows={6}
+                      placeholder={'1018724193904597\n1318730223804323\n…'}
+                      className="w-full bg-console-surface border border-console-border rounded px-2 py-1.5 text-xs font-mono text-foreground outline-none focus:border-amber-500 transition-colors resize-y"
+                    />
+                    {psImportErrors.length > 0 && (
+                      <ul className="mt-1.5 space-y-0.5">
+                        {psImportErrors.map((err, ei) => (
+                          <li key={ei} className="text-[10px] text-red-400 font-mono">{err}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {psImportWarnings.length > 0 && (
+                      <ul className="mt-1.5 space-y-0.5">
+                        {psImportWarnings.map((w, wi) => (
+                          <li key={wi} className="text-[10px] text-amber-400 font-mono">{w}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={importProductSetList}
+                        className="text-xs font-semibold px-3 py-1 rounded bg-amber-500/10 border border-amber-500/40 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                      >
+                        Importar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {ads.map((a, i) => (
               <AdEditor
                 key={a.id}
