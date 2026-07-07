@@ -17,6 +17,7 @@ import {
   type CreativeGroupsState,
 } from '@/lib/creative-groups';
 import { useRefreshable, fetchJson } from './useRefreshable';
+import { runPageSyncJob } from '@/lib/page-sync-client';
 
 // ────────────────────────────────────────────────────────────────────────────
 // SCOPE NOTE (for orchestrator):
@@ -1353,7 +1354,6 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const isBroadcast = accountIds.length > 1;
 
   // Listas dependentes da conta
-  const [pages, setPages] = useState<Page[]>([]);
   const [catalogBmFilter, setCatalogBmFilter] = useState<string>(''); // filtra dropdown de catálogos por BM
 
   // Listas dependentes da conta — cada uma é um recurso "refreshable": o ↻ na
@@ -1401,19 +1401,45 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const catalogSourceCounts = catalogsRes.data.source_counts;
   const loadingDeps = pixelsRes.loading || audiencesRes.loading || catalogsRes.loading;
 
-  // Páginas — escopo é o perfil (todos os BMs acessíveis). Não muda ao trocar
-  // de conta dentro do mesmo perfil.
-  const [loadingPages, setLoadingPages] = useState(false);
-  useEffect(() => {
-    if (!profileName) return;
-    const qs = `profile_name=${encodeURIComponent(profileName)}`;
-    setLoadingPages(true);
-    fetch(`/api/campaigns/pages?${qs}`)
-      .then(r => r.json())
-      .then(pg => setPages(pg.pages ?? []))
-      .catch(() => { /* Task 6 substitui este effect pelo pagesRes */ })
-      .finally(() => setLoadingPages(false));
-  }, [profileName]);
+  // Páginas — escopo é o perfil (todos os BMs acessíveis); a rota serve só do
+  // banco (meta_pages). O ↻ roda o sync do perfil na Meta antes de re-buscar.
+  const pagesRes = useRefreshable<Page[]>({
+    fetcher: async () =>
+      (await fetchJson<{ pages?: Page[] }>(
+        `/api/campaigns/pages?profile_name=${encodeURIComponent(profileName)}`
+      )).pages ?? [],
+    initial: [],
+    deps: [profileName],
+    enabled: !!profileName,
+  });
+  const pages = pagesRes.data;
+
+  const [pagesSyncBusy, setPagesSyncBusy] = useState(false);
+  const [pagesSyncMsg, setPagesSyncMsg] = useState<string | null>(null);
+  const [pagesSyncError, setPagesSyncError] = useState<string | null>(null);
+  const loadingPages = pagesRes.loading || pagesSyncBusy;
+
+  // ↻ de páginas: sync do perfil (job em fila; Scheduler pode levar ~2 min pra
+  // pegar) → re-busca do banco. Não bloqueia o formulário enquanto roda.
+  const handleRefreshPages = async () => {
+    if (!profileName || pagesSyncBusy) return;
+    setPagesSyncBusy(true);
+    setPagesSyncError(null);
+    setPagesSyncMsg('Enfileirando sync do perfil…');
+    try {
+      const { partial } = await runPageSyncJob({
+        profiles: [profileName],
+        onProgress: (p) => setPagesSyncMsg(p.indeterminate ? p.message : `${p.message} (${p.current}/${p.total})`),
+      });
+      setPagesSyncMsg(partial ? 'Sync parcial (rate limit #4) — mostrando o que foi atualizado.' : null);
+      await pagesRes.refresh();
+    } catch (e) {
+      setPagesSyncError(e instanceof Error ? e.message : String(e));
+      setPagesSyncMsg(null);
+    } finally {
+      setPagesSyncBusy(false);
+    }
+  };
 
   // ── Campanha ──────────────────────────────────────────────────────────────
   const [campaignName, setCampaignName] = useState('Conversão Website — ' + todayStr());
