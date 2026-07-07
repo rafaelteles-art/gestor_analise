@@ -37,7 +37,8 @@ interface Refreshable<T> {
   data: T;
   loading: boolean;
   error: string | null;      // mensagem do último load; refresh() re-tenta
-  refresh: () => Promise<void>;
+  refresh: () => Promise<T | null>;  // resolve com o payload (null se pulado/erro/descartado)
+  reset: () => void;                 // volta a `initial` e invalida requests em voo (BMs ao trocar de conta)
   setData: Dispatch<SetStateAction<T>>; // mutações locais (ex.: catálogo criado inline)
 }
 
