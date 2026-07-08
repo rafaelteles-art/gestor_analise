@@ -165,6 +165,12 @@ export interface Targeting {
    * habilita expansão em todos os eixos. Quando omitido, sem relaxação.
    */
   targeting_relaxation_types?: { lookalike?: 0 | 1; custom_audience?: 0 | 1 };
+  /**
+   * Advantage+ Audience (flag explícita, v23+): quando omitida em adsets novos a
+   * Meta assume `advantage_audience: 1`. O opt-out exige mandar `0` — coexiste
+   * com `targeting_relaxation_types` (setup "relaxed" da doc oficial).
+   */
+  targeting_automation?: { advantage_audience?: 0 | 1 };
 }
 
 export interface ChildAttachment {
@@ -518,6 +524,57 @@ export async function listPixels(accountId: string, token: string): Promise<Pixe
     { fields: 'id,name,last_fired_time', limit: '100' }
   );
   return data.data ?? [];
+}
+
+/**
+ * Trava de pixel — camada 2 (worker). Spec: docs/superpowers/specs/
+ * 2026-07-07-pixel-guard-design.md. Roda no início de createCampaignBatch,
+ * ANTES de criar qualquer entidade, e SÓ em runs frescos (resume nunca passa
+ * aqui — jamais errar um job parcialmente criado).
+ *
+ * - Vendas (OUTCOME_SALES) sem pixel_id → Error: o processJob captura e
+ *   finaliza o job 'error' com a mensagem, sem criar nada.
+ * - pixel_id presente → confirma acesso via act_{id}/adspixels (listPixels);
+ *   sem acesso → Error idem. Cobre broadcast multi-conta e re-enfileiramento,
+ *   onde o builder não consegue validar (o pixel exibido é o da conta primária).
+ * - Erro na PRÓPRIA checagem (rate limit #4/#17, rede) → fail-open: loga aviso
+ *   e prossegue — a Meta ainda rejeita na criação, como antes da trava. O guard
+ *   existe para falhar cedo e limpo, não para criar novo ponto de indisponibilidade.
+ * - OUTCOME_ENGAGEMENT (PAGE_LIKES) não usa pixel: skip total.
+ *
+ * `listPixelsFn` é injetável só para os testes unitários.
+ */
+export async function preflightPixelGuard(
+  args: {
+    account_id: string;
+    access_token: string;
+    campaign: { objective?: string };
+    adset: { promoted_object?: { pixel_id?: string } };
+  },
+  listPixelsFn: (accountId: string, token: string) => Promise<{ id: string }[]> = listPixels
+): Promise<void> {
+  const objective = args.campaign?.objective;
+  const pixelId = args.adset?.promoted_object?.pixel_id;
+  if (objective === 'OUTCOME_ENGAGEMENT') return;
+  if (objective === 'OUTCOME_SALES' && !pixelId) {
+    throw new Error('Campanha de vendas sem pixel — selecione um pixel no builder.');
+  }
+  if (!pixelId) return;
+  let pixels: { id: string }[];
+  try {
+    pixels = await listPixelsFn(args.account_id, args.access_token);
+  } catch (e) {
+    console.warn(
+      '[pixel-guard] checagem de acesso ao pixel falhou (fail-open, prosseguindo):',
+      e instanceof Error ? e.message : String(e)
+    );
+    return;
+  }
+  if (!pixels.some((p) => p.id === pixelId)) {
+    throw new Error(
+      `A conta ${args.account_id} não tem acesso ao pixel ${pixelId} — selecione um pixel desta conta (trava pré-publicação: nada foi criado).`
+    );
+  }
 }
 
 export interface PageInfo {
@@ -1985,6 +2042,19 @@ export async function createCampaignBatch(
   if (!runState.failed) runState.failed = {};
 
   const level: SeparationLevel = separation_level ?? 'campaign';
+
+  // ── Trava de pixel (pre-flight): só em run FRESCO — um resume já criou
+  // entidades e não pode ser errado retroativamente pelo guard. ────────────────
+  const freshRun =
+    Object.keys(runState.created).length === 0 && Object.keys(runState.failed).length === 0;
+  if (freshRun) {
+    await preflightPixelGuard({
+      account_id,
+      access_token,
+      campaign: campaignTpl,
+      adset: adsetTpl,
+    });
+  }
 
   // ── Contexto de data/hora: CONGELADO no enfileiramento quando presente. ─────
   const fc = frozen_context;
