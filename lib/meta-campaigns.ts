@@ -2057,6 +2057,9 @@ export async function createCampaignBatch(
   // de upload de mídia do Drive, gravados pelo processJob ANTES do batch — não
   // são campanha/conjunto/anúncio e não podem mascarar o pre-flight (achado C1
   // do review final: sem este filtro, todo job com mídia do Drive pulava a trava).
+  // O prefixo também casa m:cr:<...> (checkpoints de AdCreative) — seguro hoje
+  // porque um m:cr: só é gravado depois do adset (s:...) existir no runState,
+  // então um resume real sempre tem chaves c:/s: e continua pulando o guard.
   const noEntities = (m: Record<string, string>) =>
     Object.keys(m).every((k) => k.startsWith('m:'));
   const freshRun = noEntities(runState.created) && noEntities(runState.failed);
