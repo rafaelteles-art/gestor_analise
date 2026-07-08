@@ -19,6 +19,7 @@ import {
 } from '@/lib/creative-groups';
 import { useRefreshable, fetchJson } from './useRefreshable';
 import { runPageSyncJob } from '@/lib/page-sync-client';
+import { shouldResetOrphanPixel, pixelSubmitErrors } from '@/lib/pixel-guard';
 
 // ────────────────────────────────────────────────────────────────────────────
 // SCOPE NOTE (for orchestrator):
@@ -2127,6 +2128,23 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
 
   useEffect(() => { if (!pixelId && pixels[0]) setPixelId(pixels[0].id); }, [pixels, pixelId]);
 
+  // Pixel órfão (trava de pixel, camada 1): ao trocar de conta o pixelId antigo
+  // sobrevive no estado — o SearchableSelect renderiza vazio (value fora das
+  // options) mas o submit publicaria o ID da conta anterior (Meta 1815045 só na
+  // fila, com campanha/conjunto já criados). Quando a lista da conta termina de
+  // carregar sem o pixel selecionado, resetamos: o auto-select acima escolhe o
+  // primeiro pixel da conta nova, ou o campo fica vazio e o submit trava.
+  useEffect(() => {
+    if (shouldResetOrphanPixel({
+      pixelId,
+      pixelIds: pixels.map(p => p.id),
+      loading: pixelsRes.loading,
+      error: pixelsRes.error,
+    })) {
+      setPixelId('');
+    }
+  }, [pixels, pixelsRes.loading, pixelsRes.error, pixelId]);
+
   // Anúncios (criativos drafted)
   const [ads, setAds] = useState<AdDraft[]>([emptyAd()]);
   const updateAd = (id: string, patch: Partial<AdDraft>) =>
@@ -2343,8 +2361,9 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   if (!accountId) errors.push('Selecione uma conta.');
   if (!campaignName.trim()) errors.push('Nome da campanha é obrigatório.');
   // Pixel é obrigatório quando otimização é por conversão (vale tanto para non-DPA quanto DPA
-  // com OFFSITE_CONVERSIONS — Meta precisa saber qual evento do pixel otimizar).
-  if (!isEngagement && !pixelId) errors.push('Selecione um pixel.');
+  // com OFFSITE_CONVERSIONS — Meta precisa saber qual evento do pixel otimizar) E precisa
+  // pertencer à conta atual (trava de pixel, camada 1 — cinto e suspensório do reset acima).
+  errors.push(...pixelSubmitErrors({ isEngagement, pixelId, pixelIds: pixels.map(p => p.id) }));
   if (isDPA && !catalogId) {
     errors.push(catalogConfigMode === 'new'
       ? 'Crie o novo catálogo (botão "Criar agora").'
