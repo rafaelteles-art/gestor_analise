@@ -82,7 +82,7 @@ describe('preflightPixelGuard', () => {
   it('pixel fora da lista de adspixels da conta → lança com mensagem acionável', async () => {
     const listMock = vi.fn(async () => [{ id: 'px_other' }]);
     await expect(preflightPixelGuard(base, listMock)).rejects.toThrow(
-      'A conta act_1 não tem acesso ao pixel px_ok — selecione um pixel desta conta (trava pré-publicação: nada foi criado).'
+      'A conta act_1 não tem acesso ao pixel px_ok — selecione um pixel desta conta (trava pré-publicação: nenhuma campanha/conjunto/anúncio foi criado).'
     );
     expect(listMock).toHaveBeenCalledWith('act_1', 'tok');
   });
@@ -106,6 +106,16 @@ describe('preflightPixelGuard', () => {
   it('erro na checagem (rate limit/rede) → fail-open: avisa e prossegue', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const listMock = vi.fn(async () => { throw new Error('(#4) rate limit'); });
+    await expect(preflightPixelGuard(base, listMock)).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('página cheia (>=100 pixels) sem match → inconclusivo, fail-open com aviso', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const listMock = vi.fn(async () =>
+      Array.from({ length: 100 }, (_, i) => ({ id: `px_${i}` }))
+    );
     await expect(preflightPixelGuard(base, listMock)).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
@@ -191,5 +201,19 @@ describe('createCampaignBatch — pre-flight integrado', () => {
     expect(result.aborted).toBe(false);
     // adset + creative + ad criados no resume (a campanha já existia).
     expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it('run com só checkpoints de mídia do Drive (m:<idx>) ainda é tratado como fresco — guard dispara', async () => {
+    // Achado C1 do review final: resolveDriveMedia roda antes do batch e grava
+    // checkpoints m:<idx> no runState.created. Sem o filtro de prefixo, isso
+    // fazia freshRun=false e a trava de pixel nunca disparava para jobs com
+    // mídia do Drive.
+    const fetchMock = vi.fn(async () => { throw new Error('não deveria chamar a Graph'); });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const runState: BatchRunState = { created: { 'm:0': 'img:hash123' }, failed: {} };
+    await expect(
+      createCampaignBatch(inputSemPixel() as any, opts(runState))
+    ).rejects.toThrow('Campanha de vendas sem pixel');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

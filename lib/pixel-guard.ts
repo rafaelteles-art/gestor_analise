@@ -26,6 +26,11 @@ export function shouldResetOrphanPixel(args: {
  * Erros de submit relativos a pixel (substitui o check inline de presença que
  * vivia no builder): presença E pertencimento à conta. Engagement (PAGE_LIKES)
  * não usa pixel.
+ *
+ * Limitação conhecida: se o fetch de pixels da conta nova FALHA, a lista em
+ * memória continua sendo a da conta anterior (useRefreshable preserva data em
+ * erro) — o pertencimento é checado contra lista stale e pode passar. A camada
+ * 2 (preflightPixelGuard no worker) cobre esse caso.
  */
 export function pixelSubmitErrors(args: {
   isEngagement: boolean;

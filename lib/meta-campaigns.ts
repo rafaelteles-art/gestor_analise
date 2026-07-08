@@ -571,8 +571,16 @@ export async function preflightPixelGuard(
     return;
   }
   if (!pixels.some((p) => p.id === pixelId)) {
+    // Página cheia sem match = lista possivelmente truncada (listPixels não pagina,
+    // limit 100): inconclusivo → fail-open, como nos erros transitórios (achado I1).
+    if (pixels.length >= 100) {
+      console.warn(
+        `[pixel-guard] conta ${args.account_id} tem ${pixels.length}+ pixels (lista truncada) — checagem inconclusiva, prosseguindo.`
+      );
+      return;
+    }
     throw new Error(
-      `A conta ${args.account_id} não tem acesso ao pixel ${pixelId} — selecione um pixel desta conta (trava pré-publicação: nada foi criado).`
+      `A conta ${args.account_id} não tem acesso ao pixel ${pixelId} — selecione um pixel desta conta (trava pré-publicação: nenhuma campanha/conjunto/anúncio foi criado).`
     );
   }
 }
@@ -2045,8 +2053,13 @@ export async function createCampaignBatch(
 
   // ── Trava de pixel (pre-flight): só em run FRESCO — um resume já criou
   // entidades e não pode ser errado retroativamente pelo guard. ────────────────
-  const freshRun =
-    Object.keys(runState.created).length === 0 && Object.keys(runState.failed).length === 0;
+  // Run fresco = nenhuma ENTIDADE criada/falhada. Chaves m:<idx> são checkpoints
+  // de upload de mídia do Drive, gravados pelo processJob ANTES do batch — não
+  // são campanha/conjunto/anúncio e não podem mascarar o pre-flight (achado C1
+  // do review final: sem este filtro, todo job com mídia do Drive pulava a trava).
+  const noEntities = (m: Record<string, string>) =>
+    Object.keys(m).every((k) => k.startsWith('m:'));
+  const freshRun = noEntities(runState.created) && noEntities(runState.failed);
   if (freshRun) {
     await preflightPixelGuard({
       account_id,
