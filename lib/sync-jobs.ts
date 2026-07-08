@@ -9,6 +9,9 @@ export interface ProfileSyncState {
   accounts: string[] | null;     // cached me/adaccounts ids for the current profile
   accountOffset: number;         // next account to process in the 'limits' phase
   failed: string[];              // profiles skipped due to auth (expired token) errors
+  // Ordem dos perfis fixada no 1º chunk (menores primeiro). profileIndex indexa
+  // ESTA lista; sem ela o resume entre chunks poderia pular/duplicar perfis.
+  order?: string[] | null;
 }
 
 export interface PageSyncJob {
@@ -56,10 +59,50 @@ export async function ensureJobTable(): Promise<void> {
   await pool.query(`ALTER TABLE page_sync_jobs ADD COLUMN IF NOT EXISTS state JSONB`);
 }
 
-/** Insert a pending job. `profiles` null/empty = sync all. Returns its id. */
+/**
+ * Normaliza a lista de perfis de um job para uma chave de comparação estável:
+ * trim, remove vazios, dedupe case-insensitive (mantém a 1ª grafia) e ordena.
+ * `null` = todos os perfis. Função pura — testável.
+ */
+export function normalizeProfiles(profiles?: string[] | null): string[] | null {
+  if (!profiles || profiles.length === 0) return null;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of profiles) {
+    const name = String(raw).trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  if (out.length === 0) return null;
+  return out.sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Insert a pending job. `profiles` null/empty = sync all. Returns its id.
+ *
+ * Dedupe: se já existe um job pending/running com o MESMO escopo (mesmo kind e
+ * mesmo conjunto de perfis, ou ambos "todos"), retorna o id do existente em vez
+ * de enfileirar outro. Antes disso, cliques repetidos em "Sincronizar" criavam
+ * jobs idênticos que rodavam em série (horas de retrabalho) — e um job podia
+ * rodar EM PARALELO com seu duplicado, dobrando o consumo de quota da Meta.
+ */
 export async function createPageSyncJob(opts: { kind: 'refresh' | 'discovery' | 'profile'; profiles?: string[] }): Promise<number> {
   await ensureJobTable();
-  const list = opts.profiles && opts.profiles.length > 0 ? opts.profiles : null;
+  const list = normalizeProfiles(opts.profiles);
+  const dup = await pool.query(
+    `SELECT id FROM page_sync_jobs
+      WHERE status IN ('pending', 'running') AND kind = $1
+        AND ((profiles IS NULL AND $2::text[] IS NULL)
+          OR (profiles IS NOT NULL AND $2::text[] IS NOT NULL
+              AND profiles @> $2::text[] AND profiles <@ $2::text[]))
+      ORDER BY id ASC
+      LIMIT 1`,
+    [opts.kind, list],
+  );
+  if (dup.rows[0]) return dup.rows[0].id as number;
   const res = await pool.query(
     `INSERT INTO page_sync_jobs (status, kind, profiles, message)
      VALUES ('pending', $1, $2, 'Na fila…') RETURNING id`,
@@ -97,17 +140,20 @@ export async function claimNextPageSyncJob(): Promise<PageSyncJob | null> {
 
 export async function updateJobProgress(
   id: number,
-  p: { message?: string; current?: number; total?: number },
+  p: { message?: string; current?: number; total?: number; state?: ProfileSyncState },
 ): Promise<void> {
-  // Also extends the lease so a long-but-healthy run isn't stolen.
+  // Also extends the lease so a long-but-healthy run isn't stolen. Persisting
+  // `state` a cada report faz o resume continuar de onde parou mesmo se o LB
+  // matar o request no meio do chunk (antes: refazia o chunk inteiro).
   await pool.query(
     `UPDATE page_sync_jobs SET
         message = COALESCE($2, message),
         current = COALESCE($3, current),
         total = COALESCE($4, total),
-        leased_until = now() + ($5 || ' minutes')::interval
+        state = COALESCE($5::jsonb, state),
+        leased_until = now() + ($6 || ' minutes')::interval
       WHERE id = $1`,
-    [id, p.message ?? null, p.current ?? null, p.total ?? null, String(LEASE_MINUTES)],
+    [id, p.message ?? null, p.current ?? null, p.total ?? null, p.state ? JSON.stringify(p.state) : null, String(LEASE_MINUTES)],
   );
 }
 

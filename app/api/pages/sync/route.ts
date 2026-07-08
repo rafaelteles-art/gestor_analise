@@ -6,7 +6,10 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/pages/sync  → enqueue a background per-profile page-sync job.
  * Body (optional): { profiles?: string[] }.
- *   profiles  → sync only these profiles (in order). Omitted/empty = all configured.
+ *   profiles  → sync only these profiles. Omitted/empty = all configured.
+ * Perfis são processados dos MENORES para os MAIORES (nº de contas), então os
+ * rápidos entregam dados frescos em minutos. Se já existe um job pending/running
+ * com o mesmo escopo, retorna o job_id EXISTENTE (dedupe) em vez de enfileirar.
  * Each profile runs the standalone-style pass (me/accounts pages + me/adaccounts +
  * ads_volume limits), scoped to its own token. Returns { job_id, status, kind }
  * immediately; the Cloud Scheduler poller (/api/cron/pages-sync) runs it in chunks.

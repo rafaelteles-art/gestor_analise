@@ -11,13 +11,15 @@ const INITIAL_STATE: ProfileSyncState = {
   accounts: null,
   accountOffset: 0,
   failed: [],
+  order: null,
 };
 
 /**
  * POST /api/cron/pages-sync
  * Triggered by Cloud Scheduler (~every 2 min). Claims the oldest runnable
- * page_sync_jobs row (skip-locked + lease) and runs one chunk of the per-profile
- * sync on the 1200s channel. Auth: Authorization: Bearer <CRON_SECRET>  or  ?key=<CRON_SECRET>.
+ * page_sync_jobs row (skip-locked + lease) and runs one chunk (~180s) of the
+ * per-profile sync — quantos perfis couberem no orçamento, menores primeiro.
+ * Auth: Authorization: Bearer <CRON_SECRET>  or  ?key=<CRON_SECRET>.
  */
 export async function POST(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -35,13 +37,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ran: true, job_id: job.id, error: 'unsupported kind' }, { status: 207 });
   }
 
+  // Serializa os writes de progresso: um updateJobProgress atrasado (fire-and-
+  // forget) podia aterrissar DEPOIS do advance/complete, re-estendendo o lease
+  // por 20 min e revertendo o state persistido. Encadear + aguardar antes de
+  // finalizar garante a ordem.
+  let progressChain: Promise<void> = Promise.resolve();
+
   try {
     const state = job.state ?? INITIAL_STATE;
     const r = await runProfileSyncChunk({
       state,
       profileNames: job.profiles ?? undefined,
-      onProgress: (p) => { void updateJobProgress(job.id, p); },
+      onProgress: (p) => {
+        progressChain = progressChain.then(() => updateJobProgress(job.id, p)).catch(() => {});
+      },
     });
+    await progressChain;
 
     if (r.done) {
       const failed = r.state.failed ?? [];
@@ -63,6 +74,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ran: true, kind: 'profile', job_id: job.id, done: false, partial: r.partial });
   } catch (err: any) {
+    await progressChain.catch(() => {});
     await failJob(job.id, err?.message ?? String(err));
     return NextResponse.json({ ran: true, job_id: job.id, error: err?.message ?? String(err) }, { status: 207 });
   }
