@@ -18,7 +18,6 @@ import {
   type CreativeGroupsState,
 } from '@/lib/creative-groups';
 import { useRefreshable, fetchJson } from './useRefreshable';
-import { runPageSyncJob } from '@/lib/page-sync-client';
 import { reopenSchedule, type BuilderSnapshot } from '@/lib/builder-snapshot';
 import { shouldResetOrphanPixel, pixelSubmitErrors } from '@/lib/pixel-guard';
 
@@ -1455,7 +1454,9 @@ export default function ClientCampaignBuilder({
   const loadingDeps = pixelsRes.loading || audiencesRes.loading || catalogsRes.loading;
 
   // Páginas — escopo é o perfil (todos os BMs acessíveis); a rota serve só do
-  // banco (meta_pages). O ↻ roda o sync do perfil na Meta antes de re-buscar.
+  // banco (meta_pages). O ↻ só re-lê o banco: o sync na Meta é job de minutos
+  // (fila + scheduler) e travava este campo em "carregando…" — quem precisa
+  // sincronizar usa /paginas.
   const pagesRes = useRefreshable<Page[]>({
     fetcher: async () =>
       (await fetchJson<{ pages?: Page[] }>(
@@ -1466,52 +1467,7 @@ export default function ClientCampaignBuilder({
     enabled: !!profileName,
   });
   const pages = pagesRes.data;
-
-  const [pagesSyncBusy, setPagesSyncBusy] = useState(false);
-  const [pagesSyncMsg, setPagesSyncMsg] = useState<string | null>(null);
-  const [pagesSyncError, setPagesSyncError] = useState<string | null>(null);
-  const loadingPages = pagesRes.loading || pagesSyncBusy;
-  const profileNameRef = useRef(profileName);
-  profileNameRef.current = profileName;
-
-  // ↻ de páginas: sync do perfil (job em fila; Scheduler pode levar ~2 min pra
-  // pegar) → re-busca do banco. Não bloqueia o formulário enquanto roda.
-  const handleRefreshPages = async () => {
-    if (!profileName || pagesSyncBusy) return;
-    const syncProfile = profileName;
-    setPagesSyncBusy(true);
-    if (profileNameRef.current === syncProfile) setPagesSyncError(null);
-    setPagesSyncMsg('Enfileirando sync do perfil…');
-    try {
-      const { partial } = await runPageSyncJob({
-        profiles: [profileName],
-        onProgress: (p) => {
-          if (profileNameRef.current === syncProfile) {
-            setPagesSyncMsg(p.indeterminate ? p.message : `${p.message} (${p.current}/${p.total})`);
-          }
-        },
-      });
-      const partialMsg = 'Sync parcial (rate limit #4) — mostrando o que foi atualizado.';
-      if (profileNameRef.current === syncProfile) {
-        setPagesSyncMsg(partial ? partialMsg : null);
-      }
-      if (partial) {
-        setTimeout(() => {
-          setPagesSyncMsg(prev => (prev === partialMsg ? null : prev));
-        }, 10000);
-      }
-      if (profileNameRef.current === syncProfile) {
-        await pagesRes.refresh();
-      }
-    } catch (e) {
-      if (profileNameRef.current === syncProfile) {
-        setPagesSyncError(e instanceof Error ? e.message : String(e));
-        setPagesSyncMsg(null);
-      }
-    } finally {
-      setPagesSyncBusy(false);
-    }
-  };
+  const loadingPages = pagesRes.loading;
 
   // ── Campanha ──────────────────────────────────────────────────────────────
   const [campaignName, setCampaignName] = useState('Conversão Website — ' + todayStr());
@@ -2658,6 +2614,9 @@ export default function ClientCampaignBuilder({
       targeting.age_min = ageMin;
       // Sinaliza relaxação total
       targeting.targeting_relaxation_types = { lookalike: 1, custom_audience: 1 };
+      // A flag é obrigatória nos dois sentidos (erro 100/1870227 "Advantage
+      // Audience Flag Required" exige 1 ou 0 explícito), então o ON também manda.
+      targeting.targeting_automation = { advantage_audience: 1 };
     } else {
       targeting.age_min = ageMin;
       targeting.age_max = ageMax;
@@ -4158,9 +4117,9 @@ export default function ClientCampaignBuilder({
         {/* PÁGINAS E DISTRIBUIÇÃO */}
         <SubBlock label="Páginas e Distribuição">
           <Field label="Páginas do Facebook *"
-            action={<RefreshButton onClick={() => void handleRefreshPages()} loading={loadingPages} title="Sincronizar páginas do perfil na Meta e recarregar" />}
-            error={pagesSyncError ?? pagesRes.error}
-            hint={pagesSyncMsg ?? (isEngagement
+            action={<RefreshButton onClick={() => void pagesRes.refresh()} loading={loadingPages} title="Recarregar páginas do banco (sync completo em /paginas)" />}
+            error={pagesRes.error}
+            hint={(isEngagement
             ? "Engajamento promove UMA Página: selecione exatamente uma — ela é curtida e também é a identidade dos anúncios. Escopo: perfil (todas BMs)."
             : "Selecione 1 ou mais páginas. Os anúncios serão distribuídos em round-robin entre elas (ou conforme alocação manual abaixo). Escopo: perfil (todas BMs).")}>
             <ChipPicker
