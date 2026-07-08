@@ -52,11 +52,13 @@ Cobre **broadcast multi-conta + naming por conta.**
 - [ ] Espera em `/campaigns/fila`: **um job por conta** (mesmo broadcast group).
 - [ ] **Meta:** as campanhas da conta 1 levam **`[QA-1]`** e as da conta 2 **`[QA-2]`** — cada uma com a SUA identidade (não clonando a primeira). → fix d1a761a
 
-## Cenário 5 — Controles da fila (cancelar + re-enfileirar)
-Cobre **F1 (cancelar, re-enqueue).**
+## Cenário 5 — Controles da fila (cancelar + Reabrir no builder)
+Cobre **F1 (cancelar) + Reopen (CONTEXT.md).**
 - [ ] Enfileire um job maior (ex. 3 criativos × 2 conjuntos), **pausado**.
 - [ ] **Cancele** com ele rodando → para na próxima entidade; status `cancelado`; entidades já criadas permanecem.
-- [ ] No histórico, **Re-enfileirar** um job concluído → novo job roda; `{{data}}` reflete a hora do **re-enqueue** (não a original).
+- [ ] No histórico, **Reabrir no builder** um job concluído → builder abre pré-preenchido (contas do broadcast original, páginas, criativos c/ mídia, grupos, copy, budget); datas passadas recalculadas (início = agora+1h). Revise e **Publicar** → novo job com "Re-enfileirado a partir do job #X" no detalhe; `{{data}}` reflete a hora do novo enqueue.
+- [ ] Num job **antigo** (anterior ao Builder Snapshot), o botão fica **desabilitado** com tooltip explicando.
+- [ ] Recursos removidos desde a submissão (pixel/público/catálogo/página) são **pulados com aviso** no banner âmbar do builder.
 
 ---
 
@@ -64,7 +66,7 @@ Cobre **F1 (cancelar, re-enqueue).**
 | Feature | Cenário |
 |---|---|
 | F1 fila (enqueue/kick/poll/histórico) | 1, 5 |
-| F1 cancelar + re-enfileirar | 5 |
+| F1 cancelar + Reabrir no builder (Reopen) | 5 |
 | F2 dropdowns com busca | pré-setup, 1 |
 | F3 apelido de conta + `{{conta}}` | pré-setup, 1, 4 |
 | F4 Google Drive Picker + download no worker | 1 |

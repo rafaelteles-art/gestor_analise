@@ -10,11 +10,12 @@
  * Step 2 — Expand de detalhe: log de eventos por entidade com mensagens de erro,
  *           botão de cancelar (pending/running).
  *
- * Step 3 — Re-enfileirar: POST do payload armazenado para /api/campaigns/create
- *           com reenqueue_of=<jobId>. O servidor SEMPRE recalcula access_token (via
- *           resolveAuth) e recomputa frozen_context — o payload enviado pelo cliente
- *           é apenas o template; campos sensíveis/expiráveis são descartados
- *           server-side. Ver app/api/campaigns/create/route.ts linhas 113-144.
+ * Step 3 — Reabrir no builder (CONTEXT.md "Reopen"): substituiu o re-enqueue
+ *           1-clique. O botão é um link para /campaigns?from_job=<id>; o builder
+ *           reidrata o formulário com o Builder Snapshot gravado no payload do
+ *           job e o usuário revisa/submete lá (a submissão manda reenqueue_of
+ *           para manter a linhagem). Jobs anteriores ao snapshot não podem ser
+ *           reabertos — botão desabilitado com aviso.
  *
  * Step 4 — Link de nav adicionado em V2MediaLabLayout (ver notas_para_dependentes).
  *
@@ -34,6 +35,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { fmtDateTime } from '@/lib/timezone';
 import type { CampaignJobListRow, CampaignJob } from '@/lib/campaign-jobs';
 import type { BatchEvent } from '@/lib/batch-contract';
+import { isBuilderSnapshot } from '@/lib/builder-snapshot';
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -218,19 +220,15 @@ type CancelOutcome = 'cancelled' | 'cancel_requested' | 'not_cancellable' | 'not
 function JobDetailRow({
   jobId,
   onCancelled,
-  onReenqueued,
 }: {
   jobId: number;
   onCancelled: (id: number, outcome: CancelOutcome) => void;
-  onReenqueued: () => void;
 }) {
   const [job, setJob] = useState<CampaignJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelMsg, setCancelMsg] = useState<string | null>(null);
-  const [reenqueueing, setReenqueueing] = useState(false);
-  const [reenqueueMsg, setReenqueueMsg] = useState<string | null>(null);
 
   // fetchJob re-loads the detail row from the server (used after 409 to show
   // the real terminal status rather than a stale cancellable view).
@@ -320,42 +318,6 @@ function JobDetailRow({
     }
   };
 
-  const handleReenqueue = async () => {
-    if (!job) return;
-    setReenqueueing(true);
-    setReenqueueMsg(null);
-    try {
-      // Envia o payload original como template junto com reenqueue_of=<id>.
-      // O servidor (/api/campaigns/create) SEMPRE descarta o access_token e o
-      // frozen_context vindos do cliente e os recomputa — resolveAuth obtém um
-      // token fresco do DB e frozenDateParts captura o instante atual em GMT-3.
-      // Tokens expirados no payload armazenado são portanto inócuos.
-      // Ref: app/api/campaigns/create/route.ts linhas 113-144.
-      const res = await fetch('/api/campaigns/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...job.payload,
-          reenqueue_of: job.id,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error ?? `HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      const count = data?.jobs?.length ?? 1;
-      setReenqueueMsg(
-        `Re-enfileirado com sucesso (${count} job${count !== 1 ? 's' : ''}).`
-      );
-      onReenqueued();
-    } catch (e: any) {
-      setReenqueueMsg(`Erro: ${e.message}`);
-    } finally {
-      setReenqueueing(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="py-4 px-6 text-sm text-console-muted animate-pulse">
@@ -376,6 +338,10 @@ function JobDetailRow({
 
   const cancellable = isCancellable(job.status);
   const provenance = job.payload?.reenqueue_of;
+  // Reopen (CONTEXT.md): só jobs com Builder Snapshot válido podem ser
+  // reabertos no builder. Jobs anteriores à feature não têm o campo — o botão
+  // fica desabilitado (decisão: sem fallback 1-clique nem decodificador).
+  const canReopen = isBuilderSnapshot(job.payload?.builder_snapshot);
 
   return (
     <div className="bg-console-surface-2 px-6 py-4 border-b border-console-border">
@@ -420,20 +386,21 @@ function JobDetailRow({
           </span>
         )}
 
-        <button
-          onClick={handleReenqueue}
-          disabled={reenqueueing}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
-        >
-          {reenqueueing ? 'Re-enfileirando…' : 'Re-enfileirar'}
-        </button>
-
-        {reenqueueMsg && (
-          <span
-            className={`text-xs ${reenqueueMsg.startsWith('Erro') ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}
+        {canReopen ? (
+          <a
+            href={`/campaigns?from_job=${job.id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
           >
-            {reenqueueMsg}
-          </span>
+            Reabrir no builder
+          </a>
+        ) : (
+          <button
+            disabled
+            title="Job anterior ao Builder Snapshot — sem configurações salvas para reabrir."
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 opacity-50 cursor-not-allowed"
+          >
+            Reabrir no builder
+          </button>
         )}
       </div>
     </div>
@@ -448,14 +415,12 @@ function BroadcastGroupRow({
   expandedJobs,
   toggleExpand,
   onCancelled,
-  onReenqueued,
 }: {
   groupId: string;
   jobs: CampaignJobListRow[];
   expandedJobs: Set<number>;
   toggleExpand: (id: number) => void;
   onCancelled: (id: number, outcome: CancelOutcome) => void;
-  onReenqueued: () => void;
 }) {
   // Aggregate status: prefer worst status for group header
   const statusPriority: Record<string, number> = {
@@ -526,7 +491,6 @@ function BroadcastGroupRow({
             expanded={expandedJobs.has(job.id)}
             onToggle={() => toggleExpand(job.id)}
             onCancelled={onCancelled}
-            onReenqueued={onReenqueued}
             indent={jobs.length > 1}
           />
         ))}
@@ -541,14 +505,12 @@ function JobRow({
   expanded,
   onToggle,
   onCancelled,
-  onReenqueued,
   indent,
 }: {
   job: CampaignJobListRow;
   expanded: boolean;
   onToggle: () => void;
   onCancelled: (id: number, outcome: CancelOutcome) => void;
-  onReenqueued: () => void;
   indent: boolean;
 }) {
   const displayName = job.account_name ?? job.account_id;
@@ -635,7 +597,6 @@ function JobRow({
             <JobDetailRow
               jobId={job.id}
               onCancelled={onCancelled}
-              onReenqueued={onReenqueued}
             />
           </td>
         </tr>
@@ -868,13 +829,6 @@ export default function ClientFila() {
       })
     );
   }, []);
-
-  const handleReenqueued = useCallback(() => {
-    // Recarrega a lista do início para mostrar o novo job
-    beforeIdRef.current = undefined;
-    setExpandedJobs(new Set());
-    fetchJobs(true);
-  }, [fetchJobs]);
 
   const handleLoadMore = () => {
     fetchJobs(false);
@@ -1115,7 +1069,6 @@ export default function ClientFila() {
                     expandedJobs={expandedJobs}
                     toggleExpand={toggleExpand}
                     onCancelled={handleCancelled}
-                    onReenqueued={handleReenqueued}
                   />
                 ))
               )}

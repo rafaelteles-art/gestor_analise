@@ -36,8 +36,14 @@ export const runtime = 'nodejs';
  * `frozen_context` (computed via the GMT-3 helpers — never raw new Date()), so a
  * job that runs hours later still uses the enqueue-time clock.
  *
- * Optional `reenqueue_of: number` records provenance from the fila history page;
- * when present any incoming `frozen_context` is stripped and recomputed fresh.
+ * Optional `reenqueue_of: number` records provenance (a submission Reopened from
+ * the fila — see CONTEXT.md "Reopen"); when present any incoming `frozen_context`
+ * is stripped and recomputed fresh.
+ *
+ * Optional `builder_snapshot` (CONTEXT.md "Builder Snapshot") is the builder's
+ * frozen form state. It rides the `...body` spread below into every job's
+ * payload unchanged — the worker never reads it; only the fila's "Reabrir no
+ * builder" does. Do NOT strip it here.
  *
  * Response: 202 { jobs: [{ id, account_id, profile_name }], broadcast_group_id }.
  */

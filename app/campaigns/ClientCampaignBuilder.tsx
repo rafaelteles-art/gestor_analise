@@ -19,6 +19,7 @@ import {
 } from '@/lib/creative-groups';
 import { useRefreshable, fetchJson } from './useRefreshable';
 import { runPageSyncJob } from '@/lib/page-sync-client';
+import { reopenSchedule, type BuilderSnapshot } from '@/lib/builder-snapshot';
 import { shouldResetOrphanPixel, pixelSubmitErrors } from '@/lib/pixel-guard';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1307,7 +1308,18 @@ function CampaignNameModal({
 // Componente principal
 // ────────────────────────────────────────────────────────────────────────────
 
-export default function ClientCampaignBuilder({ accounts, profileNames }: { accounts: Account[]; profileNames: string[] }) {
+export default function ClientCampaignBuilder({
+  accounts,
+  profileNames,
+  reopen = null,
+  reopenError = null,
+}: {
+  accounts: Account[];
+  profileNames: string[];
+  /** Reopen (CONTEXT.md): job + Builder Snapshot resolvidos por page.tsx via ?from_job=. */
+  reopen?: { jobId: number; snapshot: BuilderSnapshot } | null;
+  reopenError?: string | null;
+}) {
   const availableProfiles = profileNames;
 
   const accountsByProfile = useMemo(() => {
@@ -2242,6 +2254,128 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   const [sharedCopy, setSharedCopy] = useState<SharedCopy>(emptySharedCopy());
   const updateSharedCopy = (patch: Partial<SharedCopy>) => setSharedCopy(prev => ({ ...prev, ...patch }));
 
+  // ── Reopen (CONTEXT.md "Reopen") — reidrata o form com o Builder Snapshot ──
+  // Chegando via /campaigns?from_job=<id>, page.tsx resolveu o job e validou o
+  // snapshot. A aplicação é em 3 estágios porque as opções são assíncronas:
+  //   1) mount: perfil, contas, config genérica (mesmo aplicador dos presets),
+  //      criativos+grupos, copy, agendamento (datas passadas recalculadas);
+  //   2) quando as páginas do perfil carregam: page_ids/alocações (if-valid);
+  //   3) quando pixels/públicos/catálogos da conta primária carregam:
+  //      applyAccountScopedPreset (apply-if-valid-else-skip, igual presets).
+  // Linhagem: o id de origem vai como reenqueue_of no submit.
+  const [reopenedFromJobId, setReopenedFromJobId] = useState<number | null>(null);
+  const [reopenNotice, setReopenNotice] = useState<string | null>(reopenError);
+  const appendReopenNotice = (msg: string) =>
+    setReopenNotice(prev => (prev ? `${prev} ${msg}` : msg));
+  const reopenScopedRef = useRef<PresetConfig | null>(null);
+  const reopenPrimaryRef = useRef<string | null>(null);
+  const reopenPagesRef = useRef<{ page_ids: string[]; page_allocations: Record<string, number> } | null>(null);
+  const reopenProfileRef = useRef<string | null>(null);
+  // Referências do primeiro render: distinguem "ainda não carregou" (mesma
+  // referência do initial) de "carregou vazio" (referência nova, array vazio).
+  const reopenInitialDataRef = useRef({ pixels, audiences, catalogs, pages });
+  const reopenAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (reopenAppliedRef.current || !reopen) return;
+    reopenAppliedRef.current = true;
+    const snap = reopen.snapshot;
+    const config = snap.config as PresetConfig;
+    const skipped: string[] = [];
+
+    // Perfil primeiro — contas, páginas e recursos são escopados por ele.
+    const profileOk = availableProfiles.includes(snap.profile_name);
+    if (profileOk) setProfileName(snap.profile_name);
+    else skipped.push(`perfil ${snap.profile_name}`);
+
+    const profileForAccounts = profileOk ? snap.profile_name : (availableProfiles[0] ?? '');
+    const validAccounts = snap.account_ids.filter(id =>
+      accounts.some(a => a.account_id === id && a.profile_name === profileForAccounts));
+    if (validAccounts.length) setAccountIds(validAccounts);
+    if (validAccounts.length < snap.account_ids.length) {
+      skipped.push(`${snap.account_ids.length - validAccounts.length} conta(s)`);
+    }
+
+    // Config genérica + extras exatos do snapshot (criativos com a mídia como
+    // estava — refs Drive re-resolvem por conta no worker; video_id/image_hash
+    // são reusados como no broadcast). image_preview não existe no snapshot
+    // (object URL de sessão); o card renderiza sem thumbnail local.
+    applyPresetConfig(config);
+    setSharedCopy(prev => ({ ...prev, ...(snap.shared_copy as Partial<SharedCopy>) }));
+    setAds(snap.ads.map(a => ({ ...emptyAd(), ...a })));
+    setCreativeGroups({ names: [...snap.creative_groups.names], byId: { ...snap.creative_groups.byId } });
+    setScheduleVideoFill(!!snap.schedule_video_fill);
+    const sched = reopenSchedule(snap.schedule);
+    setStartTime(sched.start);
+    setEndTime(sched.end);
+    setHasEndTime(sched.has_end);
+
+    // Estágios 2 e 3 — pendências consumidas pelos efeitos abaixo.
+    if (validAccounts.length) {
+      reopenScopedRef.current = config;
+      reopenPrimaryRef.current = validAccounts[0];
+    } else {
+      skipped.push('pixel/públicos/catálogo (conta primária indisponível)');
+    }
+    if (profileOk) {
+      reopenPagesRef.current = { page_ids: snap.page_ids, page_allocations: snap.page_allocations };
+      reopenProfileRef.current = snap.profile_name;
+    } else if (snap.page_ids.length) {
+      skipped.push('páginas (perfil indisponível)');
+    }
+
+    setReopenedFromJobId(reopen.jobId);
+    setReopenNotice(
+      `Formulário pré-preenchido com as configurações do job #${reopen.jobId}. Revise e publique para re-enfileirar.` +
+      (skipped.length ? ` Ignorados (não existem mais): ${skipped.join(', ')}.` : '')
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Estágio 2 — páginas do perfil do snapshot carregadas → aplica if-valid.
+  // Declarado DEPOIS do prune de pageIds ([pages]) de propósito: na mesma
+  // passada de efeitos, este roda por último e a seleção do snapshot vence.
+  useEffect(() => {
+    const p = reopenPagesRef.current;
+    if (!p) return;
+    if (profileName !== reopenProfileRef.current) return;
+    const loaded = pages !== reopenInitialDataRef.current.pages || pagesRes.error != null;
+    if (!loaded) return;
+    reopenPagesRef.current = null;
+    const valid = p.page_ids.filter(id => pages.some(pg => pg.id === id));
+    if (valid.length) {
+      setPageIds(valid);
+      const alloc: Record<string, number> = {};
+      for (const id of valid) if (p.page_allocations[id] !== undefined) alloc[id] = p.page_allocations[id];
+      setPageAllocations(alloc);
+    }
+    if (valid.length < p.page_ids.length) {
+      appendReopenNotice(`Ignoradas ${p.page_ids.length - valid.length} página(s) que não existem mais no perfil.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages, pagesRes.error, profileName]);
+
+  // Estágio 3 — pixels/públicos/catálogos da conta primária carregados →
+  // apply-if-valid-else-skip (mesmo mecanismo dos presets, incluindo o product
+  // set deferido via pendingProductSetRef quando o catálogo muda).
+  useEffect(() => {
+    const config = reopenScopedRef.current;
+    if (!config) return;
+    if (accountId !== reopenPrimaryRef.current) return;
+    const init = reopenInitialDataRef.current;
+    const ready =
+      (pixels !== init.pixels || pixelsRes.error != null) &&
+      (audiences !== init.audiences || audiencesRes.error != null) &&
+      (catalogs !== init.catalogs || catalogsRes.error != null);
+    if (!ready) return;
+    reopenScopedRef.current = null;
+    const skipped = applyAccountScopedPreset(config);
+    if (skipped.length) {
+      appendReopenNotice(`Ignorados (não existem nesta conta): ${skipped.join(', ')}.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pixels, audiences, catalogs, pixelsRes.error, audiencesRes.error, catalogsRes.error, accountId]);
+
   // Quando o total de anúncios a publicar muda (mais/menos criativos ou
   // mudança nos multiplicadores), garante que a soma das alocações manuais
   // nunca exceda o teto. Estratégia: percorre pageIds em ordem e clampa o
@@ -2334,6 +2468,29 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     () => normalizeGroups(creativeGroups, ads.map(a => a.id)),
     [creativeGroups, ads]
   );
+
+  // Builder Snapshot (CONTEXT.md): estado COMPLETO do form, congelado no
+  // enqueue e gravado no payload de cada job (a rota espalha ...body). É o que
+  // o "Reabrir no builder" da fila reidrata. Diferente do preset (parcial de
+  // propósito), inclui contas, páginas, criativos, grupos e agendamento.
+  // image_preview fica de fora: é um object URL de blob, morto fora da sessão.
+  const buildCurrentSnapshot = (): BuilderSnapshot => ({
+    v: 1,
+    profile_name: profileName,
+    account_ids: accountIds,
+    page_ids: pageIds,
+    page_allocations: pageIds.reduce<Record<string, number>>((acc, id) => {
+      const v = pageAllocations[id];
+      if (v !== undefined) acc[id] = v;
+      return acc;
+    }, {}),
+    ads: ads.map(({ image_preview: _preview, ...rest }) => rest),
+    creative_groups: { names: [...groupsView.names], byId: { ...groupsView.byId } },
+    shared_copy: sharedCopy,
+    schedule: { start: startTime, end: endTime, has_end: hasEndTime },
+    schedule_video_fill: scheduleVideoFill,
+    config: buildCurrentPresetConfig(),
+  });
 
   // Contagem por nível de separação (total de anúncios é SEMPRE N*C*S*A; muda o
   // agrupamento — nº real de campanhas/conjuntos que o orquestrador vai criar).
@@ -2504,6 +2661,10 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
     } else {
       targeting.age_min = ageMin;
       targeting.age_max = ageMax;
+      // Opt-out do Advantage+ Audience TEM que ser explícito: a partir da v23 a
+      // Meta assume advantage_audience=1 quando o campo é omitido, então só
+      // deixar de mandar targeting_relaxation_types NÃO desliga o Advantage+.
+      targeting.targeting_automation = { advantage_audience: 0 };
     }
     if (gender !== 'all') targeting.genders = [gender === 'male' ? 1 : 2];
     if (includedAudiences.length) targeting.custom_audiences = includedAudiences.map(id => ({ id }));
@@ -2697,6 +2858,11 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
       // F7 — top-level (a rota /api/campaigns/create lê body.separation_level e
       // o injeta em cada job para o orquestrador A2 consumir).
       separation_level: separationLevel,
+      // Builder Snapshot — persiste em cada job via ...body na rota; habilita o
+      // "Reabrir no builder" da fila. reenqueue_of preserva a linhagem quando
+      // esta submissão nasceu de um Reopen.
+      builder_snapshot: buildCurrentSnapshot(),
+      ...(reopenedFromJobId != null ? { reenqueue_of: reopenedFromJobId } : {}),
       batch: {
         // Creative Groups (ADR-0009): dentro do batch — flui route→worker→
         // createCampaignBatch via flattenBatchPayload. assignments[i] casa com
@@ -2825,6 +2991,13 @@ export default function ClientCampaignBuilder({ accounts, profileNames }: { acco
   // ── UI ────────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-4">
+
+      {/* Aviso de Reopen: pré-preenchimento via ?from_job= (ou o motivo de não ter rolado) */}
+      {reopenNotice && (
+        <div className="bg-amber-500/10 border border-amber-500/50 rounded p-3 text-xs text-amber-400">
+          {reopenNotice}
+        </div>
+      )}
 
       {/* ───────── 0. Perfil ───────── */}
       <MainSection title="Perfil Meta" subtitle="Token usado para ler contas, pixels, páginas, públicos e publicar.">

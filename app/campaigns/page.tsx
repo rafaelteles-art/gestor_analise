@@ -1,5 +1,7 @@
 import { pool } from '@/lib/db';
 import { getMetaProfiles } from '@/lib/config';
+import { getJob } from '@/lib/campaign-jobs';
+import { isBuilderSnapshot, type BuilderSnapshot } from '@/lib/builder-snapshot';
 import V2MediaLabLayout from '../components/V2MediaLabLayout';
 import ClientCampaignBuilder from './ClientCampaignBuilder';
 
@@ -18,9 +20,42 @@ interface AccountRow {
   nickname: string | null;
 }
 
-export default async function CampaignsPage() {
+export default async function CampaignsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from_job?: string }>;
+}) {
   let accounts: AccountRow[] = [];
   let profileNames: string[] = [];
+
+  // Reopen (CONTEXT.md): ?from_job=<id> reidrata o builder com o Builder
+  // Snapshot gravado no payload do job. Resolvido server-side (getJob) para o
+  // cliente não precisar de fetch/loading próprio; snapshot ausente/inválido
+  // vira um aviso no builder em vez de um form quebrado.
+  const { from_job } = await searchParams;
+  let reopen: { jobId: number; snapshot: BuilderSnapshot } | null = null;
+  let reopenError: string | null = null;
+  if (from_job) {
+    const jobId = Number(from_job);
+    if (!Number.isFinite(jobId)) {
+      reopenError = `from_job inválido: "${from_job}".`;
+    } else {
+      try {
+        const job = await getJob(jobId);
+        const snapshot: unknown = job?.payload?.builder_snapshot;
+        if (!job) {
+          reopenError = `Job #${jobId} não encontrado — nada foi pré-preenchido.`;
+        } else if (!isBuilderSnapshot(snapshot)) {
+          reopenError = `Job #${jobId} é anterior ao Builder Snapshot — sem configurações salvas para reabrir.`;
+        } else {
+          reopen = { jobId, snapshot };
+        }
+      } catch (err) {
+        console.error('[campaigns] erro carregando job para reopen:', err);
+        reopenError = `Erro ao carregar o job #${jobId} — nada foi pré-preenchido.`;
+      }
+    }
+  }
 
   try {
     const profiles = await getMetaProfiles();
@@ -92,7 +127,12 @@ export default async function CampaignsPage() {
   return (
     <V2MediaLabLayout title="Criar campanha">
       <div className="max-w-5xl">
-        <ClientCampaignBuilder accounts={accounts} profileNames={profileNames} />
+        <ClientCampaignBuilder
+          accounts={accounts}
+          profileNames={profileNames}
+          reopen={reopen}
+          reopenError={reopenError}
+        />
       </div>
     </V2MediaLabLayout>
   );

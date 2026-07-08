@@ -11,6 +11,12 @@
 import { pool } from './db';
 import { getMetaProfiles } from './config';
 import type { ConjuntoSessionItem } from './conjunto-sessions';
+import {
+  isItemsBatchRequiredError,
+  formatItemsBatchPrice,
+  buildItemsBatchCreateData,
+  ITEMS_BATCH_ITEM_TYPE,
+} from './meta-catalog-items-batch';
 
 const API_VERSION = 'v21.0';
 const GRAPH = `https://graph.facebook.com/${API_VERSION}`;
@@ -261,35 +267,126 @@ export async function createProductWithSetUsingToken(
   }
   const priceCents = Math.round(priceNum * 100);
 
-  const product = await postGraph<{ id: string }>(
-    `${catalogId}/products`,
-    {
-      retailer_id: retailerId,
-      name: productName,
-      description: preset.description,
-      url: preset.link,
-      image_url: preset.image_url,
-      price: priceCents,
-      currency: preset.currency,
-      brand: preset.brand,
-      availability: preset.availability,
-      condition: preset.condition,
-    },
-    token,
-    'createProduct',
-  );
+  // Caminho padrão: edge legada /products (funciona em catálogos commerce
+  // "normais"). Se a Meta bloquear porque o catálogo já contém itens do tipo
+  // OTHER (#100 "use items_batch item_type=OTHER"), cai no fallback. Ver
+  // lib/meta-catalog-other-items.ts para o porquê da detecção ser pelo erro.
+  let productId: string;
+  try {
+    const product = await postGraph<{ id: string }>(
+      `${catalogId}/products`,
+      {
+        retailer_id: retailerId,
+        name: productName,
+        description: preset.description,
+        url: preset.link,
+        image_url: preset.image_url,
+        price: priceCents,
+        currency: preset.currency,
+        brand: preset.brand,
+        availability: preset.availability,
+        condition: preset.condition,
+      },
+      token,
+      'createProduct',
+    );
+    productId = product.id;
+  } catch (err) {
+    if (!isItemsBatchRequiredError(err)) throw err;
+    productId = await createItemViaBatch(catalogId, retailerId, productName, preset, priceNum, token);
+  }
 
   // 2) Cria o product set com nome = retailer_id (per request do usuário).
   // Usa retry com backoff por causa do subcode 1798130 (empty set) — a Meta
   // pode levar alguns segundos para indexar o produto recém-criado.
+  // Compartilhado entre os dois caminhos de criação (products / items_batch).
   const set = await createProductSetWithRetry(catalogId, retailerId, retailerId, token);
 
   return {
-    product_id: product.id,
+    product_id: productId,
     product_set_id: set.id,
     retailer_id: retailerId,
     product_name: productName,
   };
+}
+
+/**
+ * Cria um item via `items_batch` — fallback usado quando a edge /products é
+ * bloqueada porque o catálogo exige items_batch ("contains other items").
+ *
+ * ⚠️ item_type = PRODUCT_ITEM, NÃO OTHER: a mensagem da Meta pede OTHER mas
+ * OTHER é rejeitado ao vivo; PRODUCT_ITEM é o aceito. Ver lib/meta-catalog-items-batch.ts.
+ *
+ * items_batch é ASSÍNCRONO: devolve um `handle`, não o product_id numérico.
+ * Fazemos poll do handle e um lookup best-effort do product_id por retailer_id
+ * (só informativo — o fluxo downstream usa retailer_id + product_set, ver
+ * ClientCampaignBuilder). Devolve o product_id ('' se o lookup não achar).
+ */
+async function createItemViaBatch(
+  catalogId: string,
+  retailerId: string,
+  productName: string,
+  preset: ProductPresetConfig,
+  priceAmount: number,
+  token: string,
+): Promise<string> {
+  const data = buildItemsBatchCreateData({
+    retailerId,
+    title: productName,
+    price: formatItemsBatchPrice(priceAmount, preset.currency),
+    link: preset.link,
+    imageLink: preset.image_url,
+    description: preset.description,
+    brand: preset.brand,
+    availability: preset.availability,
+    condition: preset.condition,
+  });
+
+  const resp = await postGraph<any>(
+    `${catalogId}/items_batch`,
+    {
+      item_type: ITEMS_BATCH_ITEM_TYPE,
+      validate_only: false,
+      requests: [{ method: 'CREATE', data }],
+    },
+    token,
+    'createProduct:items_batch',
+  );
+
+  // items_batch pode responder 200 com erros por-item em validation_status —
+  // erro de field-name/formato aparece aqui de forma síncrona. Se houver, o
+  // item NÃO foi criado; falha explícita (senão o product set falharia com
+  // empty-set alguns segundos depois, com mensagem menos clara).
+  const validation = Array.isArray(resp?.validation_status) ? resp.validation_status[0] : null;
+  const errors: any[] = Array.isArray(validation?.errors) ? validation.errors : [];
+  if (errors.length > 0) {
+    const msg = errors.map((e) => e?.message ?? JSON.stringify(e)).join('; ');
+    throw new MetaCatalogApiError('createProduct:items_batch', 100, `items_batch rejeitou o item: ${msg}`, resp);
+  }
+
+  // Poll do handle pra dar tempo da Meta processar o batch antes do product set.
+  const handle = resp?.handles?.[0] ?? null;
+  if (handle) {
+    try { await pollBatchHandle(catalogId, handle, token); } catch { /* createProductSetWithRetry cobre a propagação */ }
+  }
+
+  return (await lookupProductIdByRetailer(catalogId, retailerId, token)) ?? '';
+}
+
+/** GET best-effort do product_id numérico a partir do retailer_id (mesmo filtro do createProductSet). */
+async function lookupProductIdByRetailer(catalogId: string, retailerId: string, token: string): Promise<string | null> {
+  try {
+    const filter = JSON.stringify({ retailer_id: { eq: retailerId } });
+    const url =
+      `${GRAPH}/${catalogId}/products?fields=id&filter=${encodeURIComponent(filter)}&limit=1` +
+      `&access_token=${encodeURIComponent(token)}`;
+    const res = await fetch(url);
+    const data: any = await res.json().catch(() => ({}));
+    const first = Array.isArray(data?.data) ? data.data[0] : null;
+    return first?.id ? String(first.id) : null;
+  } catch {
+    return null;
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
