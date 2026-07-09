@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { getRedtrackApiKey } from '@/lib/config';
+import { buildRtSyncTasks } from '@/lib/rt-sync-tasks';
 import { format, subDays, parseISO, isValid, differenceInCalendarDays } from 'date-fns';
 import { todayStr, daysAgoStr } from '@/lib/timezone';
 
@@ -17,10 +18,16 @@ export const maxDuration = 300;
  *   { mode: 'days', days: 3 | 7 | ... }   → últimos N dias, incluindo hoje
  *   { mode: 'range', dateFrom: 'YYYY-MM-DD', dateTo: 'YYYY-MM-DD' }
  *
+ * Body opcional: { startTask: number } — cursor de retomada. O load balancer do
+ * App Hosting corta qualquer request em 300s, então a rota processa tarefas
+ * (pares campanha×dia) até ~150s e devolve um evento chunk_end com o índice da
+ * próxima tarefa; o cliente re-chama com startTask até receber o done real.
+ *
  * Todos os dias selecionados são re-buscados e sobrescritos no cache.
  * Retorna NDJSON em streaming com eventos de progresso.
  */
 export async function POST(request: NextRequest) {
+  const t0 = Date.now();
   const apiKey = await getRedtrackApiKey();
   if (!apiKey) {
     return NextResponse.json({ error: 'REDTRACK_API_KEY não configurada.' }, { status: 500 });
@@ -29,6 +36,8 @@ export async function POST(request: NextRequest) {
   // ── Parse body e monta lista de dias ──────────────────────────────────
   const body = await request.json().catch(() => ({} as any));
   const mode: string = body.mode ?? 'today';
+  const startTask: number =
+    Number.isInteger(body.startTask) && body.startTask > 0 ? body.startTask : 0;
   const today = todayStr();
 
   let days: string[] = [];
@@ -68,10 +77,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Erro ao processar datas: ' + err.message }, { status: 400 });
   }
 
-  const DELAY_BETWEEN_CALLS_MS     = 3000;
+  const DELAY_BETWEEN_CALLS_MS     = 1000; // 3 chamadas/dia a ~30 req/min fica folgado no limite do RT; 429 tem retry
   const DELAY_BETWEEN_CAMPAIGNS_MS = 2000;
   const RETRY_WAIT_MS              = 60000;
   const MAX_RETRIES                = 5;
+  // Orçamento por request: bem abaixo dos 300s do LB, com folga p/ absorver
+  // esperas de 429 (60s cada) na última tarefa da fatia.
+  const TIME_BUDGET_MS             = 150000;
 
   const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -140,14 +152,11 @@ export async function POST(request: NextRequest) {
         throw new Error(`Esgotou ${MAX_RETRIES} tentativas por rate limit em ${tag}`);
       };
 
-      // Todos os pares (campanha, dia) são buscados — sem pular cache.
-      const tasks: { camp: typeof selectedCampaigns[number]; day: string }[] = [];
-      for (const camp of selectedCampaigns) {
-        for (const day of days) {
-          tasks.push({ camp, day });
-        }
-      }
-      const totalTasks = tasks.length;
+      // Todos os pares (campanha, dia) são buscados — sem pular cache. A lista é
+      // determinística, então startTask indexa a mesma sequência entre fatias.
+      const allTasks = buildRtSyncTasks(selectedCampaigns, days);
+      const totalTasks = allTasks.length;
+      const pending = allTasks.slice(startTask);
 
       send({
         type: 'start',
@@ -158,30 +167,34 @@ export async function POST(request: NextRequest) {
         dateFrom: days[0],
         dateTo: days[days.length - 1],
         mode,
+        startTask,
       });
-      log(`Sincronização iniciada · ${selectedCampaigns.length} campanha(s) · ${rangeLabel}`);
+      if (startTask === 0) {
+        log(`Sincronização iniciada · ${selectedCampaigns.length} campanha(s) · ${rangeLabel}`);
+      } else {
+        log(`Retomando · tarefa ${Math.min(startTask + 1, totalTasks)}/${totalTasks}`);
+      }
 
       let synced = 0;
       let errorCount = 0;
-      let taskIdx = 0;
+      let taskIdx = startTask;
+      let budgetHit = false;
 
       // Agrupa por campanha para manter o log amigável
       const byCamp = new Map<string, string[]>();
-      for (const t of tasks) {
+      for (const t of pending) {
         const list = byCamp.get(t.camp.campaign_id) ?? [];
         list.push(t.day);
         byCamp.set(t.camp.campaign_id, list);
       }
 
-      for (let i = 0; i < selectedCampaigns.length; i++) {
+      for (let i = 0; i < selectedCampaigns.length && !budgetHit; i++) {
         const camp = selectedCampaigns[i];
         const campDays = byCamp.get(camp.campaign_id) ?? [];
         const idx = i + 1;
 
-        if (campDays.length === 0) {
-          log(`[${idx}/${selectedCampaigns.length}] ${camp.campaign_name} — todos os dias em cache, pulando`);
-          continue;
-        }
+        // sem dias pendentes = campanha já coberta por uma fatia anterior
+        if (campDays.length === 0) continue;
 
         log(`[${idx}/${selectedCampaigns.length}] ${camp.campaign_name} — ${campDays.length} dia(s) a buscar`);
 
@@ -189,6 +202,7 @@ export async function POST(request: NextRequest) {
         let totalAds = 0, totalCamps = 0, totalCampIds = 0;
 
         for (const day of campDays) {
+          if (Date.now() - t0 > TIME_BUDGET_MS) { budgetHit = true; break; }
           taskIdx++;
           send({
             type: 'progress',
@@ -254,6 +268,10 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // fatia estourou o orçamento no meio da campanha: o campaign_done dela
+        // sai na próxima conexão, quando os dias restantes forem processados
+        if (budgetHit) break;
+
         send({
           type: 'campaign_done',
           campaign: camp.campaign_name,
@@ -270,16 +288,21 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      log(`Concluído · ${synced} dia(s) salvo(s) · ${errorCount} erro(s)`, errorCount > 0 ? 'warn' : 'info');
-      send({
-        type: 'done',
-        synced,
-        errorCount,
-        today: todayStr,
-        dateFrom: days[0],
-        dateTo: days[days.length - 1],
-        daysCount: days.length,
-      });
+      if (budgetHit) {
+        log(`Fatia concluída · ${taskIdx}/${totalTasks} tarefa(s) — continuando na próxima conexão…`);
+        send({ type: 'chunk_end', nextTask: taskIdx, synced, errorCount });
+      } else {
+        log(`Concluído · ${synced} dia(s) salvo(s) · ${errorCount} erro(s)`, errorCount > 0 ? 'warn' : 'info');
+        send({
+          type: 'done',
+          synced,
+          errorCount,
+          today: todayStr,
+          dateFrom: days[0],
+          dateTo: days[days.length - 1],
+          daysCount: days.length,
+        });
+      }
       controller.close();
     },
   });

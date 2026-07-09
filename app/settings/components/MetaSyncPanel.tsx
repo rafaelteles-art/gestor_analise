@@ -35,6 +35,7 @@ interface LogLine {
   level?: 'info' | 'warn' | 'error';
   message?: string;
   ts?: number;
+  nextTask?: number;
   batch?: number;
   totalBatches?: number;
   batchSize?: number;
@@ -364,16 +365,35 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
     if (!payload) return;
     setRunning(true); setDone(false); setLines([]);
     try {
-      const res = await fetch('/api/sync/rt-bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) { append({ type: 'error', error: (await res.json().catch(() => ({}))).error ?? res.statusText }); return; }
-      await readNdjsonStream(res, append);
-      setDone(true);
+      // A rota processa fatias de ~150s (parede de 300s do LB) e devolve um
+      // cursor chunk_end; re-chama com startTask até receber o done real.
+      let startTask = 0;
+      for (let chunk = 0; chunk < 60; chunk++) {
+        const res = await fetch('/api/sync/rt-bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, startTask }),
+        });
+        if (!res.ok) {
+          const msg = (await res.json().catch(() => ({}))).error ?? res.statusText;
+          append({ type: 'log', level: 'error', message: `Erro: ${msg}`, ts: Date.now() });
+          return;
+        }
+        let last: LogLine | null = null;
+        await readNdjsonStream(res, (line) => { last = line; append(line); });
+        const lastLine = last as LogLine | null;
+        if (lastLine?.type === 'chunk_end' && typeof lastLine.nextTask === 'number' && lastLine.nextTask > startTask) {
+          startTask = lastLine.nextTask;
+          continue;
+        }
+        if (lastLine?.type === 'done') { setDone(true); return; }
+        // stream cortado sem done/chunk_end — não fingir que concluiu
+        append({ type: 'log', level: 'error', message: 'Conexão interrompida antes do fim. Clique de novo para sincronizar — os dias já salvos ficam no cache.', ts: Date.now() });
+        return;
+      }
+      append({ type: 'log', level: 'error', message: 'Limite de fatias atingido sem concluir — tente um período menor.', ts: Date.now() });
     } catch (err: any) {
-      append({ type: 'error', error: err.message });
+      append({ type: 'log', level: 'error', message: `Erro de rede: ${err.message}`, ts: Date.now() });
     } finally {
       setRunning(false);
     }
@@ -394,6 +414,10 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
   const doneLine     = lines.find(l => l.type === 'done');
   const campLines    = lines.filter(l => l.type === 'campaign_done');
   const streamLogs   = lines.filter(l => l.type === 'log');
+  // synced/errorCount vêm por fatia (chunk_end) + fatia final (done) — soma tudo
+  const chunkEnds    = lines.filter(l => l.type === 'chunk_end');
+  const totalSynced  = chunkEnds.reduce((a, l) => a + (l.synced ?? 0), 0) + (doneLine?.synced ?? 0);
+  const totalErrors  = chunkEnds.reduce((a, l) => a + (l.errorCount ?? 0), 0) + (doneLine?.errorCount ?? 0);
   const progressPct  = progressLine
     ? Math.min(100, Math.round(((progressLine.index ?? 0) / (progressLine.total ?? 1)) * 100))
     : 0;
@@ -497,10 +521,10 @@ function RedTrackPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
       )}
 
       {done && doneLine && (
-        <StatusBanner ok={(doneLine.errorCount ?? 0) === 0}>
-          {doneLine.synced} campanha(s) sincronizada(s)
-          {(doneLine.errorCount ?? 0) > 0 && ` · ${doneLine.errorCount} erro(s)`}
-          {doneLine.today && ` · dia ${doneLine.today}`}
+        <StatusBanner ok={totalErrors === 0}>
+          {totalSynced} dia(s) sincronizado(s)
+          {totalErrors > 0 && ` · ${totalErrors} erro(s)`}
+          {doneLine.dateFrom && doneLine.dateTo && ` · ${doneLine.dateFrom} → ${doneLine.dateTo}`}
         </StatusBanner>
       )}
 
