@@ -25,6 +25,7 @@ import type {
   BatchRunResult,
   CreativeMedia,
 } from './batch-contract';
+import { claimResumeRetry } from './batch-contract';
 
 // Re-export do contrato compartilhado entre agentes (lib/batch-contract.ts).
 export type {
@@ -2204,6 +2205,10 @@ export async function createCampaignBatch(
   await runPool(plan.campaigns, MUTATION_CONCURRENCY, async (pc) => {
     if (shouldAbort()) { aborted = true; return; }
     if (created[pc.key]) return;
+    // Retry-then-skip: uma chave que já falhou ganha UM retry num resume; depois
+    // é pulada em silêncio (segue contada como failed via run_state). Sem isto o
+    // job re-tentava todas as falhas permanentes a cada tick, para sempre.
+    if (!claimResumeRetry(runState, pc.key)) return;
 
     const creativeName = pc.creativeIdx === null ? null : creatives[pc.creativeIdx].name;
     const campSuffix = nCamp > 1 ? `_C${pad2(pc.campSuffixNum)}` : '';
@@ -2220,8 +2225,10 @@ export async function createCampaignBatch(
       // retentativa é intencional), ao suceder precisamos limpar a marca de
       // falha — senão a mesma chave fica em created E failed ao mesmo tempo e o
       // reduceCounts() do campaign-jobs-core conta as duas, inflando total e
-      // reportando uma falha-fantasma. Limpar ANTES de setar created.
+      // reportando uma falha-fantasma. Limpar ANTES de setar created. O marker
+      // de retry idem — a chave saiu do estado de falha.
       delete failed[pc.key];
+      if (runState.retried) delete runState.retried[pc.key];
       created[pc.key] = camp.id;
       counts.created += 1;
       await onEvent({ kind: 'created', key: pc.key, entity: 'campaign', name, id: camp.id });
@@ -2238,6 +2245,8 @@ export async function createCampaignBatch(
   await runPool(plan.adsets, MUTATION_CONCURRENCY, async (ps) => {
     if (shouldAbort()) { aborted = true; return; }
     if (created[ps.key]) return;
+    // Retry-then-skip (ver fase 1): falha antiga sem retry restante → silêncio.
+    if (!claimResumeRetry(runState, ps.key)) return;
     if (failed[ps.campKey]) {
       counts.skipped += 1;
       await onEvent({ kind: 'skipped', key: ps.key, reason: `campanha-pai falhou (${ps.campKey})` });
@@ -2288,6 +2297,7 @@ export async function createCampaignBatch(
       // Limpa marca de falha de um run anterior (ver nota no loop de campanhas):
       // sem isso a chave fica em created E failed e reduceCounts() conta as duas.
       delete failed[ps.key];
+      if (runState.retried) delete runState.retried[ps.key];
       created[ps.key] = adset.id;
       counts.created += 1;
       await onEvent({ kind: 'created', key: ps.key, entity: 'adset', name, id: adset.id });
@@ -2306,6 +2316,8 @@ export async function createCampaignBatch(
   await runPool(plan.ads, MUTATION_CONCURRENCY, async (pa, adOrdinal) => {
     if (shouldAbort()) { aborted = true; return; }
     if (created[pa.key]) return;
+    // Retry-then-skip (ver fase 1): falha antiga sem retry restante → silêncio.
+    if (!claimResumeRetry(runState, pa.key)) return;
 
     const adsetKey = pa.adsetKey;
     const campKey = level === 'campaign' ? `c:${pa.creativeIdx}:${pa.campIdx}` : `c:-:${pa.campIdx}`;
@@ -2402,6 +2414,7 @@ export async function createCampaignBatch(
       // sem isso a chave fica em created E failed e reduceCounts() conta as duas
       // — exatamente o duplo-count que faz um ad re-sucedido virar falha-fantasma.
       delete failed[pa.key];
+      if (runState.retried) delete runState.retried[pa.key];
       created[pa.key] = ad.id;
       counts.created += 1;
       await onEvent({ kind: 'created', key: pa.key, entity: 'ad', name: adName, id: ad.id });

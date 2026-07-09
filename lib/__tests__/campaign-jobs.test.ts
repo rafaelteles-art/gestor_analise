@@ -11,6 +11,7 @@ import {
   clampListLimit,
   isTransientMediaError,
   normalizeBatchInput,
+  buildListColumns,
   buildClaimSql,
   buildCancelSql,
   classifyCancelOutcome,
@@ -22,6 +23,7 @@ import {
   type TxClient,
   type EnqueueRow,
 } from '../campaign-jobs-core';
+import { claimResumeRetry } from '../batch-contract';
 import type { BatchRunState, BatchEvent } from '../batch-contract';
 
 const NOW = 1_000_000_000_000; // fixed epoch ms for deterministic lease math
@@ -608,5 +610,92 @@ describe('decodeVidCheckpoint — split on the FIRST delimiter only (review fix 
     const out = decodeVidCheckpoint('vid:42');
     expect(out.video_id).toBe('42');
     expect(out.thumbnail_url).toBeUndefined();
+  });
+});
+
+describe('buildListColumns — a lista de jobs tem que ser LEVE de verdade', () => {
+  // BEHAVIORAL: listJobs() interpola exatamente esta projeção. A regressão que ela
+  // pinta: 40 jobs × events completos = ~43MB num GET, acima do corte de ~32MB da
+  // infra (Cloud Run/LB) → corpo truncado → "Bad control character in string
+  // literal in JSON" e a /campaigns/fila inteira morta. events de um job grande
+  // chegou a 19,5MB (53k eventos p/ 1.910 entidades — ver claimResumeRetry).
+  const cols = buildListColumns();
+
+  it('NÃO seleciona payload nem run_state (ninguém na lista os lê)', () => {
+    expect(cols).not.toMatch(/\bpayload\b/);
+    expect(cols).not.toMatch(/\brun_state\b/);
+  });
+
+  it('trunca events ao ÚLTIMO elemento, preservando o nome da coluna', () => {
+    // O QueueWidget lê events[events.length - 1] — um array de ≤1 elemento com o
+    // mesmo nome de coluna mantém o contrato do cliente sem mudança de shape.
+    expect(cols).toContain('jsonb_build_array(events -> -1)');
+    expect(cols).toContain('AS events');
+  });
+
+  it('devolve [] (não [null]) quando events está vazio', () => {
+    // Sem o CASE, `events -> -1` em array vazio dá NULL e jsonb_build_array(NULL)
+    // vira [null] — e o QueueWidget renderizaria um evento fantasma.
+    expect(cols).toContain('CASE WHEN jsonb_array_length(events) > 0');
+    expect(cols).toContain("ELSE '[]'::jsonb");
+  });
+
+  it('mantém as colunas leves que a UI da fila consome', () => {
+    for (const c of [
+      'id', 'status', 'profile_name', 'account_id', 'account_name',
+      'broadcast_group_id', 'counts', 'error', 'cancel_requested',
+      'leased_until', 'created_at', 'started_at', 'finished_at',
+    ]) {
+      expect(cols).toMatch(new RegExp(`\\b${c}\\b`));
+    }
+  });
+});
+
+describe('claimResumeRetry — retry-then-skip com marker persistido (Contract 1)', () => {
+  // BEHAVIORAL: as 3 fases de runBatch chamam exatamente esta função antes de cada
+  // tentativa. O bug que ela mata: sem marker, TODA falha permanente era re-tentada
+  // em TODO resume — um job com ~900 falhas de pixel re-emitia ~900 eventos failed
+  // por tick, nunca fechava a passada dentro do budget de 270s e rodou ~9h em loop
+  // (job #119: 53.836 eventos p/ 1.910 chaves), queimando quota da Meta API.
+  const fresh = (): BatchRunState => ({ created: {}, failed: {} });
+
+  it('chave que nunca falhou: tenta, e NÃO consome o retry', () => {
+    const rs = fresh();
+    expect(claimResumeRetry(rs, 'a:0:0:0:0')).toBe(true);
+    expect(rs.retried?.['a:0:0:0:0']).toBeUndefined();
+  });
+
+  it('chave que falhou: ganha UMA re-tentativa e o marker é gravado', () => {
+    const rs = fresh();
+    rs.failed['a:0:0:0:0'] = 'pixel sem acesso';
+    expect(claimResumeRetry(rs, 'a:0:0:0:0')).toBe(true); // o único retry
+    expect(rs.retried?.['a:0:0:0:0']).toBe(true);          // persiste via run_state
+  });
+
+  it('chave que falhou e JÁ usou o retry: pula em silêncio para sempre', () => {
+    const rs = fresh();
+    rs.failed['a:0:0:0:0'] = 'pixel sem acesso';
+    claimResumeRetry(rs, 'a:0:0:0:0');                      // consome o retry
+    // Simula N ticks de resume subsequentes — o loop infinito de antes:
+    for (let tick = 0; tick < 5; tick++) {
+      expect(claimResumeRetry(rs, 'a:0:0:0:0')).toBe(false);
+    }
+  });
+
+  it('run_state legado (JSONB sem o campo retried) funciona — mapa criado sob demanda', () => {
+    // Jobs enfileirados antes deste campo têm {created,failed} apenas; o job #119
+    // em produção resume com esse shape e precisa parar de re-tentar após 1 retry.
+    const legacy = { created: {}, failed: { 'c:-:1': 'erro' } } as BatchRunState;
+    expect(legacy.retried).toBeUndefined();
+    expect(claimResumeRetry(legacy, 'c:-:1')).toBe(true);
+    expect(claimResumeRetry(legacy, 'c:-:1')).toBe(false);
+  });
+
+  it('o mapa retried NÃO vaza para as contagens (reduceCounts só lê created/failed)', () => {
+    const rs = fresh();
+    rs.failed['s:0:0:0'] = 'erro';
+    claimResumeRetry(rs, 's:0:0:0'); // grava retried['s:0:0:0']
+    const counts = reduceCounts(rs, { created: 0, failed: 0, skipped: 0, total: 0 });
+    expect(counts).toEqual({ created: 0, failed: 1, skipped: 0, total: 1 });
   });
 });

@@ -14,7 +14,35 @@ export type SeparationLevel = 'campaign' | 'adset' | 'ad' | 'group';
 export type BatchRunState = {
   created: Record<string, string>; // entityKey -> Meta entity id (skip create, reuse id)
   failed: Record<string, string>;  // entityKey -> error message (descendants are skipped)
+  // entityKey -> true quando a chave JÁ consumiu seu único retry-de-resume
+  // (Contract 1, retry-then-skip). Opcional: jobs anteriores a este campo não o
+  // têm no JSONB — claimResumeRetry() cria o mapa sob demanda.
+  retried?: Record<string, true>;
 };
+
+/**
+ * Contract 1 — retry-then-skip de verdade. Decide se uma chave deve ser TENTADA
+ * neste run ou pulada em silêncio:
+ *
+ * - nunca falhou            → tenta (primeira tentativa, não consome retry);
+ * - falhou e sem marca      → tenta UMA última vez e marca retried[key] (o
+ *                             marker persiste via run_state no próximo checkpoint);
+ * - falhou e já marcada     → false: pula em silêncio (sem evento, sem counts —
+ *                             a chave continua contada como failed via run_state).
+ *
+ * Sem o marker, cada tick de resume re-tentava TODAS as falhas permanentes de
+ * novo: um job com ~900 falhas de pixel re-emitia ~900 eventos `failed` por tick
+ * e nunca fechava a passada dentro do budget de 270s — loop infinito de ~9h que
+ * inflou events a 19MB/job e derrubou a fila (resposta da lista > 32MB → corte
+ * do LB → JSON inválido no cliente).
+ */
+export function claimResumeRetry(runState: BatchRunState, key: string): boolean {
+  if (!runState.failed[key]) return true;
+  const retried = (runState.retried ??= {});
+  if (retried[key]) return false;
+  retried[key] = true;
+  return true;
+}
 
 export type BatchEvent =
   | { kind: 'created'; key: string; entity: 'campaign' | 'adset' | 'ad'; name: string; id: string }

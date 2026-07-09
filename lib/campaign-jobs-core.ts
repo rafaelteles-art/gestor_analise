@@ -236,6 +236,28 @@ export function reduceCounts(
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Projeção da LISTA de jobs (widget da fila + /campaigns/fila). A lista precisa
+ * ser leve de verdade:
+ *
+ * - `payload` fica fora (sempre ficou — pode ter snapshot do builder inteiro);
+ * - `run_state` fica fora (nenhum consumidor da lista o lê; num job grande o
+ *   mapa created/failed passa de 0,5MB);
+ * - `events` é truncado para APENAS o último elemento (o QueueWidget só mostra
+ *   a última linha de progresso; o detalhe expandido busca /jobs/{id} completo).
+ *
+ * Sem isso, 40 jobs × events completos chegaram a ~43MB num único GET — acima do
+ * corte de ~32MB da infra (Cloud Run/LB), que truncava o corpo e o cliente
+ * quebrava com "Bad control character in string literal in JSON" na fila inteira.
+ */
+export function buildListColumns(): string {
+  return (
+    'id, status, profile_name, account_id, account_name, broadcast_group_id, ' +
+    "CASE WHEN jsonb_array_length(events) > 0 THEN jsonb_build_array(events -> -1) ELSE '[]'::jsonb END AS events, " +
+    'counts, error, cancel_requested, leased_until, created_at, started_at, finished_at'
+  );
+}
+
+/**
  * The single UPDATE…RETURNING that atomically claims the next runnable job with
  * race-safe per-Profile FIFO serialization. $1 is the lease length in minutes.
  *

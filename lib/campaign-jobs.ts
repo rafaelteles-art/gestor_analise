@@ -23,6 +23,7 @@ import {
   clampListLimit,
   isTransientMediaError,
   normalizeBatchInput,
+  buildListColumns,
   buildClaimSql,
   buildCancelSql,
   classifyCancelOutcome,
@@ -44,6 +45,7 @@ export {
   clampListLimit,
   isTransientMediaError,
   normalizeBatchInput,
+  buildListColumns,
   buildClaimSql,
   buildCancelSql,
   classifyCancelOutcome,
@@ -86,8 +88,16 @@ export interface CampaignJob {
   finished_at: string | null;
 }
 
-/** Row for the list endpoint — same as CampaignJob minus the heavy payload. */
-export type CampaignJobListRow = Omit<CampaignJob, 'payload'>;
+/**
+ * Row for the list endpoint — CampaignJob minus the heavy columns:
+ * - `payload` fora (pode conter o Builder Snapshot inteiro);
+ * - `run_state` fora (nenhum consumidor da lista o lê);
+ * - `events` contém NO MÁXIMO 1 elemento — o último evento (linha de progresso
+ *   do QueueWidget). O log completo vem só do detalhe (GET /jobs/{id}).
+ * Ver buildListColumns() em campaign-jobs-core.ts (e o porquê: lista de 40 jobs
+ * chegou a ~43MB e estourava o corte de ~32MB da infra, matando a fila).
+ */
+export type CampaignJobListRow = Omit<CampaignJob, 'payload' | 'run_state'>;
 
 // How long a claimed job stays leased before another tick may steal it. Matches
 // the worker channel budget (cron maxDuration 1200s) with headroom over the
@@ -100,10 +110,9 @@ const CANCEL_RECHECK_EVERY = 5;
 
 const DEFAULT_BUDGET_MS = 270_000;
 
-const ALL_COLUMNS_NO_PAYLOAD =
-  'id, status, profile_name, account_id, account_name, broadcast_group_id, ' +
-  'run_state, events, counts, error, cancel_requested, leased_until, ' +
-  'created_at, started_at, finished_at';
+// Projeção da lista (sem payload, sem run_state, events truncado ao último
+// elemento) — vive em campaign-jobs-core.ts para ser testável (review fix #3).
+const LIST_COLUMNS = buildListColumns();
 
 export async function ensureCampaignJobsTable(): Promise<void> {
   await pool.query(`
@@ -356,7 +365,10 @@ export interface ListJobsFilters {
   before_id?: number;
 }
 
-/** List jobs (newest first) WITHOUT the heavy payload column. */
+/**
+ * List jobs (newest first) — projeção leve: sem payload, sem run_state e com
+ * events truncado ao último elemento (ver CampaignJobListRow/buildListColumns).
+ */
 export async function listJobs(
   filters: ListJobsFilters = {}
 ): Promise<CampaignJobListRow[]> {
@@ -383,7 +395,7 @@ export async function listJobs(
   const limit = clampListLimit(filters.limit);
   params.push(limit);
   const sql =
-    `SELECT ${ALL_COLUMNS_NO_PAYLOAD} FROM campaign_jobs` +
+    `SELECT ${LIST_COLUMNS} FROM campaign_jobs` +
     (where.length ? ` WHERE ${where.join(' AND ')}` : '') +
     ` ORDER BY id DESC LIMIT $${params.length}`;
   const res = await pool.query(sql, params);
