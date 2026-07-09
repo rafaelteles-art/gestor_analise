@@ -5,7 +5,8 @@ import { todayStr, daysAgoStr } from '@/lib/timezone';
 import Select from 'react-select';
 import { darkAwareSelectStyles } from '@/app/lib/reactSelectStyles';
 import CampaignHoverPopup from '../import/CampaignHoverPopup';
-import { preloadHistoryBatch } from '../import/hoverCache';
+import { preloadHistoryBatch, globalHoverCache, cacheKey } from '../import/hoverCache';
+import { buildCreativeBreakdown, type CreativeMoney, type MetaAdDelivery } from '@/lib/creative-breakdown';
 import OfferSelector from '../components/OfferSelector';
 import { AccountStatusBadge } from '@/app/lib/accountStatus';
 
@@ -79,6 +80,89 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
 
   const cancelMouseLeave = () => {
     if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
+  };
+
+  // ── Creative Breakdown: dropdown de criativos por linha (ADR-0011) ────
+  type RowBreakdown = {
+    rtLoading: boolean;
+    rtError: string | null;
+    rtRows: CreativeMoney[] | null;
+    metaLoading: boolean;
+    metaAds: Record<string, MetaAdDelivery> | null;
+  };
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [breakdowns, setBreakdowns] = useState<Record<string, RowBreakdown>>({});
+
+  // Tabela recarregou (período/seleção mudou) → recolhe tudo: o breakdown é
+  // sempre do período corrente.
+  useEffect(() => {
+    setExpandedRows(new Set());
+    setBreakdowns({});
+  }, [importResults]);
+
+  const creativeLabel = (creative: string) => (creative === '' ? '(não rastreado)' : creative);
+
+  const fetchBreakdown = (rowKey: string, mc: any, accId: string) => {
+    const campaignIds: string[] = mc.campaign_ids ?? [mc.campaign_id];
+    setBreakdowns(prev => ({
+      ...prev,
+      [rowKey]: { rtLoading: true, rtError: null, rtRows: null, metaLoading: true, metaAds: null },
+    }));
+
+    // Lado RedTrack (dinheiro + janelas do hover) — lê do cache diário no banco.
+    fetch('/api/import/creative-breakdown', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignIds, rtCampaignIds: selectedRtCampaignIds, dateFrom, dateTo }),
+    })
+      .then(async res => {
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+        // Pré-carrega as janelas no cache do hover com escopo POR LINHA: o
+        // mesmo criativo em linhas diferentes tem janelas diferentes, então o
+        // "accountId" do popup vira o rowKey.
+        for (const creative of Object.keys(d.windows || {})) {
+          globalHoverCache[cacheKey(creativeLabel(creative), rowKey, selectedRtCampaignIds)] = d.windows[creative];
+        }
+        setBreakdowns(prev => prev[rowKey]
+          ? { ...prev, [rowKey]: { ...prev[rowKey], rtLoading: false, rtRows: d.rows } }
+          : prev);
+      })
+      .catch(e => {
+        setBreakdowns(prev => prev[rowKey]
+          ? { ...prev, [rowKey]: { ...prev[rowKey], rtLoading: false, rtError: e.message } }
+          : prev);
+      });
+
+    // Lado Meta (CPM/CTR/impressões por criativo) — level=ad ao vivo. Falha
+    // aqui é só enriquecimento perdido: as colunas ficam "—".
+    fetch('/api/import/campaign-ads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: accId, campaignIds, dateFrom, dateTo }),
+    })
+      .then(async res => {
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+        setBreakdowns(prev => prev[rowKey]
+          ? { ...prev, [rowKey]: { ...prev[rowKey], metaLoading: false, metaAds: d.ads } }
+          : prev);
+      })
+      .catch(() => {
+        setBreakdowns(prev => prev[rowKey]
+          ? { ...prev, [rowKey]: { ...prev[rowKey], metaLoading: false, metaAds: null } }
+          : prev);
+      });
+  };
+
+  const toggleExpand = (rowKey: string, mc: any, accId: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(rowKey)) next.delete(rowKey);
+      else next.add(rowKey);
+      return next;
+    });
+    if (!breakdowns[rowKey]) fetchBreakdown(rowKey, mc, accId);
   };
 
   // Mount-only restore: date range and sort initialize ONCE.
@@ -630,14 +714,23 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                   meta_campaigns: [mc],
                 };
 
+                const rowKey = `${accId}::${mc.campaign_name}`;
+                const isExpanded = expandedRows.has(rowKey);
+                const bd = breakdowns[rowKey];
+                const breakdownRows = bd?.rtRows
+                  ? buildCreativeBreakdown(bd.rtRows, new Map(Object.entries(bd.metaAds ?? {})))
+                  : null;
+
                 return (
+                <React.Fragment key={mc.campaign_id + '-' + idx}>
                 <div
-                  key={mc.campaign_id + '-' + idx}
-                  className="grid grid-cols-[repeat(14,minmax(0,1fr))] text-xs hover:bg-console-surface-2 transition-colors group relative cursor-help border-l-2 border-transparent hover:border-amber-500"
+                  className="grid grid-cols-[repeat(14,minmax(0,1fr))] text-xs hover:bg-console-surface-2 transition-colors group relative cursor-pointer border-l-2 border-transparent hover:border-amber-500"
+                  onClick={() => toggleExpand(rowKey, mc, accId)}
                   onMouseEnter={(e) => handleMouseEnterRow(e, hoverGroup, accId)}
                   onMouseLeave={handleMouseLeaveRow}
                 >
                     <div className="col-span-2 px-6 py-3.5 flex items-center gap-3">
+                        <span className={`shrink-0 text-[10px] transition-transform ${isExpanded ? 'rotate-90 text-amber-400' : 'text-console-muted'} group-hover:text-amber-400`}>▶</span>
                         <span className="font-medium text-foreground break-words whitespace-normal leading-relaxed">
                             {mc.campaign_name}
                         </span>
@@ -655,6 +748,58 @@ export default function ClientImportV2({ dbAccounts, rtCampaigns, offers, curren
                     <div className="px-4 py-3.5 text-right font-mono text-fuchsia-500">{mc.vturb_over_pitch_rate != null ? formatPercent(mc.vturb_over_pitch_rate) : '—'}</div>
                     <div className="px-4 py-3.5 text-right font-mono text-fuchsia-500">{mc.vturb_conversion_rate != null ? formatPercent(mc.vturb_conversion_rate) : '—'}</div>
                 </div>
+
+                {isExpanded && (
+                  <div className="bg-background border-l-2 border-amber-500/40">
+                    {bd?.rtLoading && (
+                      <div className="px-12 py-3 text-xs text-console-muted">Carregando criativos…</div>
+                    )}
+                    {bd?.rtError && (
+                      <div className="px-12 py-3 text-xs text-rose-500">Erro ao carregar criativos: {bd.rtError}</div>
+                    )}
+                    {breakdownRows && breakdownRows.length === 0 && (
+                      <div className="px-12 py-3 text-xs text-console-muted">
+                        Sem criativos no período — sincronize o RedTrack (Configurações) para popular o cache sub3×rt_ad.
+                      </div>
+                    )}
+                    {breakdownRows && breakdownRows.map((cr) => {
+                      const crProfitColor = cr.profit >= 0 ? 'text-emerald-500' : 'text-rose-500';
+                      const crRoasColor = cr.roas >= 1 ? 'text-emerald-500' : cr.roas > 0 ? 'text-amber-500' : 'text-console-muted';
+                      const label = creativeLabel(cr.creative);
+                      // Hover por criativo: janelas pré-carregadas no cache com
+                      // escopo rowKey (ver fetchBreakdown) — o popup acha o cache
+                      // e não dispara fetch próprio.
+                      const crHoverGroup = { rt_ad: label, cost: cr.cost };
+                      return (
+                        <div
+                          key={rowKey + '::' + label}
+                          className="grid grid-cols-[repeat(14,minmax(0,1fr))] text-xs hover:bg-console-surface-2 transition-colors cursor-help border-t border-console-border/60"
+                          onMouseEnter={(e) => handleMouseEnterRow(e, crHoverGroup, rowKey)}
+                          onMouseLeave={handleMouseLeaveRow}
+                        >
+                          <div className="col-span-2 pl-12 pr-6 py-2.5 flex items-center">
+                            <span className={`break-words whitespace-normal leading-relaxed ${cr.untracked ? 'italic text-console-muted' : 'text-foreground'}`}>
+                              {label}
+                            </span>
+                          </div>
+                          <div className="px-4 py-2.5 text-right font-mono">{cr.cost > 0 ? formatCurrency(cr.cost) : '—'}</div>
+                          <div className="px-4 py-2.5 text-right font-mono">{cr.revenue > 0 ? formatCurrency(cr.revenue) : '—'}</div>
+                          <div className="px-4 py-2.5 text-right font-mono font-bold">{cr.sales > 0 ? cr.sales : '—'} <span className="text-console-muted text-[10px] font-sans">v</span></div>
+                          <div className="px-4 py-2.5 text-right font-mono text-sky-500">{cr.ic > 0 ? cr.ic : '—'}</div>
+                          <div className="px-4 py-2.5 text-right font-mono text-cyan-500">{cr.ic > 0 ? formatPercent(cr.sales / cr.ic * 100) : '—'}</div>
+                          <div className="px-4 py-2.5 text-right font-mono">{cr.cpa > 0 ? formatCurrency(cr.cpa) : '—'}</div>
+                          <div className={`px-4 py-2.5 text-right font-mono font-bold ${cr.revenue > 0 ? crProfitColor : 'text-console-muted'}`}>{cr.revenue > 0 ? formatCurrency(cr.profit) : '—'}</div>
+                          <div className={`px-4 py-2.5 text-right font-mono font-bold ${cr.revenue > 0 ? crRoasColor : 'text-console-muted'}`}>{cr.roas > 0 ? cr.roas.toFixed(2)+'x' : '—'}</div>
+                          <div className="px-4 py-2.5 text-right font-mono text-console-muted">{bd?.metaLoading ? '…' : (cr.cpm != null && cr.cpm > 0 ? formatCurrency(cr.cpm) : '—')}</div>
+                          <div className="px-4 py-2.5 text-right font-mono text-console-muted">{bd?.metaLoading ? '…' : (cr.ctr != null && cr.ctr > 0 ? formatPercent(cr.ctr) : '—')}</div>
+                          <div className="px-4 py-2.5 text-right font-mono text-console-muted">—</div>
+                          <div className="px-4 py-2.5 text-right font-mono text-console-muted">—</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                </React.Fragment>
                 );
             })}
           </div>

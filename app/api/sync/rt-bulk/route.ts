@@ -10,7 +10,7 @@ export const maxDuration = 300;
 /**
  * POST /api/sync/rt-bulk
  *
- * Sincroniza rt_ad, rt_campaign e sub3 no cache.
+ * Sincroniza rt_ad, rt_campaign, sub3 e sub3×rt_ad no cache.
  *
  * Body:
  *   { mode: 'today' }
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Erro ao processar datas: ' + err.message }, { status: 400 });
   }
 
-  const DELAY_BETWEEN_CALLS_MS     = 1000; // 3 chamadas/dia a ~30 req/min fica folgado no limite do RT; 429 tem retry
+  const DELAY_BETWEEN_CALLS_MS     = 1000; // 4 chamadas/dia a ~30 req/min fica folgado no limite do RT; 429 tem retry
   const DELAY_BETWEEN_CAMPAIGNS_MS = 2000;
   const RETRY_WAIT_MS              = 60000;
   const MAX_RETRIES                = 5;
@@ -240,19 +240,29 @@ export async function POST(request: NextRequest) {
               `&tz=America/Sao_Paulo&group=sub3&campaign_id=${camp.campaign_id}`,
               'sub3'
             );
+            await delay(DELAY_BETWEEN_CALLS_MS);
+
+            log(`  ${day} → sub3,rt_ad`);
+            const rtSub3Ads = await fetchWithRetry(
+              `https://api.redtrack.io/report?api_key=${apiKey}` +
+              `&date_from=${day}&date_to=${day}` +
+              `&tz=America/Sao_Paulo&group=sub3,rt_ad&campaign_id=${camp.campaign_id}`,
+              'sub3,rt_ad'
+            );
 
             await pool.query(
               `INSERT INTO import_cache (cache_key, date_from, date_to, data, synced_at)
-               VALUES ($1, $2, $2, $3, NOW()), ($4, $2, $2, $5, NOW()), ($6, $2, $2, $7, NOW())
+               VALUES ($1, $2, $2, $3, NOW()), ($4, $2, $2, $5, NOW()), ($6, $2, $2, $7, NOW()), ($8, $2, $2, $9, NOW())
                ON CONFLICT (cache_key, date_from, date_to) DO UPDATE SET
                  data = EXCLUDED.data, synced_at = NOW()`,
               [
                 `rt_ad:${camp.campaign_id}`,      day, JSON.stringify(rtAds),
                 `rt_camp:${camp.campaign_id}`,         JSON.stringify(rtCampaigns),
                 `rt_camp_id:${camp.campaign_id}`,      JSON.stringify(rtCampById),
+                `rt_sub3_ad:${camp.campaign_id}`,      JSON.stringify(rtSub3Ads),
               ]
             );
-            log(`  ✓ ${day}: ${rtAds.length} rt_ads · ${rtCampaigns.length} rt_campaigns · ${rtCampById.length} sub3`);
+            log(`  ✓ ${day}: ${rtAds.length} rt_ads · ${rtCampaigns.length} rt_campaigns · ${rtCampById.length} sub3 · ${rtSub3Ads.length} sub3×rt_ad`);
 
             campOk++;
             totalAds += rtAds.length;

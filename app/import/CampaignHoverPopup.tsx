@@ -232,9 +232,11 @@ export default function CampaignHoverPopup({
               Idade: ~{daysActive}d
             </span>
           )}
-          <span className="border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
-            {activeSetsCount} conj{activeSetsCount !== 1 ? 's' : ''}
-          </span>
+          {Array.isArray(groupData?.meta_campaigns) && (
+            <span className="border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
+              {activeSetsCount} conj{activeSetsCount !== 1 ? 's' : ''}
+            </span>
+          )}
           {active ? (
             <span className="border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />

@@ -281,6 +281,10 @@ export async function POST(req: NextRequest) {
         return {
           account_id:    mc.account_id,
           campaign_id:   mc.campaign_id,
+          // Todos os ids que compartilham o nome na conta (escalas ABO). O
+          // Creative Breakdown do v2 precisa da lista completa para fatiar o
+          // RT por sub3 e chamar level=ad em cada campanha da linha.
+          campaign_ids:  mc.campaign_ids || [mc.campaign_id],
           campaign_name: mc.campaign_name,
           spend:         spendBrl,
           impressions:   mc.impressions,
