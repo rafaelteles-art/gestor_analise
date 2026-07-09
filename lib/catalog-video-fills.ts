@@ -1,11 +1,17 @@
-// Scheduled Video Fill records (docs/adr/0008): one deferred, catalog-level fill per
-// (catalog_id, fire_date), armed at campaign creation, run once at 08:30 GMT-3.
+// Scheduled Video Fill records (docs/adr/0008 + 0010): one deferred, catalog-level
+// fill per (catalog_id, fire_date), armed at campaign creation, fired at the next
+// 08:30 GMT-3 anchor or at an operator-chosen `creation + N h`. At most ONE pending
+// fill per catalog/day (re-anchored to the earlier time); completed fills never
+// block a new arm. Pure timing/arm logic lives in catalog-video-fills-core.ts.
 import { pool } from './db';
-import { nextDailyRunAfter } from './timezone';
+import {
+  computeFillTiming,
+  runArmVideoFill,
+  LEGACY_UNIQ_DROP_SQL,
+  PENDING_UNIQ_INDEX_SQL,
+} from './catalog-video-fills-core';
 import { getCatalogVideoSheet } from './meta-catalogs';
 
-const FILL_HOUR = 8;
-const FILL_MINUTE = 30;
 const RUNNING_LEASE_MIN = 20; // a 'running' row older than this is reclaimable (crash recovery)
 
 export interface CatalogVideoFill {
@@ -33,41 +39,38 @@ async function ensureVideoFillsTable(): Promise<void> {
       armed_by     TEXT,
       armed_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
       ran_at       TIMESTAMPTZ,
-      outcome      JSONB,
-      UNIQUE (catalog_id, fire_date)
+      outcome      JSONB
     )
   `);
+  // Migração 0010: a unicidade por (catálogo, dia) vale só para PENDENTES —
+  // um fill done não pode bloquear um novo arm no mesmo dia.
+  await pool.query(LEGACY_UNIQ_DROP_SQL);
+  await pool.query(PENDING_UNIQ_INDEX_SQL);
   await pool.query(
     `CREATE INDEX IF NOT EXISTS catalog_video_fills_due_idx ON catalog_video_fills (status, fire_at)`,
   );
 }
 
-/** Arm a fill for the next 08:30 GMT-3 after now. One per (catalog, fire_date):
- *  a second campaign on the same catalog the same day is a no-op (returns armed=false
- *  with the existing row). Requires the catalog to have a linked Video Sheet. */
+/** Arm a fill (docs/adr/0010): `hoursFromNow=null` → next 08:30 GMT-3 anchor;
+ *  integer 0–24 → creation + N h (0 = next poller tick). At most one PENDING
+ *  per (catalog, fire_date): an arm against an existing later pending re-anchors
+ *  it to the earlier time (`reanchored`); an earlier pending wins (armed=false).
+ *  Completed/failed/canceled fills never block. Requires a linked Video Sheet. */
 export async function armCatalogVideoFill(
   catalogId: string,
   armedBy: string | null = null,
-): Promise<{ armed: boolean; fill: CatalogVideoFill }> {
+  hoursFromNow: number | null = null,
+): Promise<{ armed: boolean; reanchored: boolean; fill: CatalogVideoFill }> {
   await ensureVideoFillsTable();
-  const sheet = await getCatalogVideoSheet(catalogId);
+  const id = catalogId.trim();
+  const sheet = await getCatalogVideoSheet(id);
   if (!sheet) throw new Error('Catálogo sem planilha vinculada — vincule uma planilha antes de agendar.');
 
-  const { fireAt, fireDate } = nextDailyRunAfter(new Date(), FILL_HOUR, FILL_MINUTE);
-  const ins = await pool.query(
-    `INSERT INTO catalog_video_fills (catalog_id, catalog_name, fire_date, fire_at, armed_by)
-     VALUES ($1, $2, $3::date, $4, $5)
-     ON CONFLICT (catalog_id, fire_date) DO NOTHING
-     RETURNING *`,
-    [catalogId.trim(), sheet.catalog_name, fireDate, fireAt.toISOString(), armedBy],
+  const { fireAt, fireDate } = computeFillTiming(new Date(), hoursFromNow);
+  return runArmVideoFill<CatalogVideoFill>(
+    { query: (sql, values) => pool.query(sql, values as any[]) },
+    { catalogId: id, catalogName: sheet.catalog_name, armedBy, fireAt, fireDate },
   );
-  if (ins.rows[0]) return { armed: true, fill: ins.rows[0] as CatalogVideoFill };
-
-  const existing = await pool.query(
-    `SELECT * FROM catalog_video_fills WHERE catalog_id = $1 AND fire_date = $2::date`,
-    [catalogId.trim(), fireDate],
-  );
-  return { armed: false, fill: existing.rows[0] as CatalogVideoFill };
 }
 
 /** Atomically claim one due fill (fire_at reached), recovering stale 'running' rows. */

@@ -219,6 +219,23 @@ export interface PlannedFill {
   link: string;
 }
 
+export interface LinkCheckSummary {
+  /** produtos sem vídeo que JÁ têm link na planilha (encheriam agora). */
+  with_link: number;
+  /** total de produtos sem vídeo no catálogo. */
+  missing_total: number;
+}
+
+/** Resume um plano dry-run para a checagem de links do builder (docs/adr/0010):
+ *  "X de Y produtos sem vídeo já têm link". Informa a escolha do hora+N; nunca
+ *  bloqueia o submit. */
+export function linkCheckSummary(plan: VideoImportPlan): LinkCheckSummary {
+  return {
+    with_link: plan.toFill.length,
+    missing_total: plan.toFill.length + plan.productsWithoutLink.length,
+  };
+}
+
 export interface VideoImportPlan {
   /** products that matched a sheet link and will be written. */
   toFill: PlannedFill[];

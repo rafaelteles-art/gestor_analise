@@ -4,7 +4,33 @@ import {
   baseAdNameOf,
   parseNomenclaturaSheet,
   buildVideoImportPlan,
+  linkCheckSummary,
+  type VideoImportPlan,
 } from '../catalog-video-import';
+
+// Checagem de links do builder (docs/adr/0010): resume um plano dry-run em
+// "X de Y produtos sem vídeo já têm link" — informa a escolha do hora+N,
+// nunca bloqueia o submit.
+describe('linkCheckSummary', () => {
+  const plan = (toFill: number, withoutLink: number): VideoImportPlan => ({
+    toFill: Array.from({ length: toFill }, (_, i) => ({
+      product_id: `p${i}`, retailer_id: `LT${i} 01/07`, baseAdName: `LT${i}`, link: `https://v/${i}`,
+    })),
+    productsWithoutLink: Array.from({ length: withoutLink }, (_, i) => ({
+      product_id: `q${i}`, retailer_id: `BD${i} 01/07`, name: null,
+    })),
+    unmatchedSheetKeys: [],
+    duplicateSheetKeys: [],
+  });
+
+  it('conta com-link vs. total de produtos sem vídeo', () => {
+    expect(linkCheckSummary(plan(42, 8))).toEqual({ with_link: 42, missing_total: 50 });
+  });
+
+  it('catálogo sem produtos faltando vídeo → zeros', () => {
+    expect(linkCheckSummary(plan(0, 0))).toEqual({ with_link: 0, missing_total: 0 });
+  });
+});
 
 // Helper: build a raw cell matrix with 4 preamble rows + header on row 5 (index 4).
 function sheet(header: string[], ...dataRows: string[][]): string[][] {

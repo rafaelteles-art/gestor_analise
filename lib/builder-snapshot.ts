@@ -53,8 +53,40 @@ export interface BuilderSnapshot<C = unknown, S = unknown> {
   shared_copy: S;
   schedule: SnapshotSchedule;
   schedule_video_fill: boolean;
+  /** Timing do Scheduled Video Fill (docs/adr/0010): âncora 08:30 ou hora+N.
+   *  Ausentes em snapshots antigos — o Reopen normaliza via snapshotVideoFillTiming. */
+  video_fill_mode?: VideoFillMode;
+  video_fill_hours?: number;
   /** PresetConfig completo do builder (campos genéricos + IDs account-scoped). */
   config: C;
+}
+
+export type VideoFillMode = 'anchor' | 'relative';
+
+export interface VideoFillTiming {
+  mode: VideoFillMode;
+  hours: number;
+}
+
+export const DEFAULT_VIDEO_FILL_HOURS = 2;
+export const MAX_VIDEO_FILL_HOURS = 24;
+
+/**
+ * Normaliza o timing do fill de um snapshot para o Reopen: snapshots antigos
+ * (sem os campos) e modos desconhecidos caem no âncora (default seguro do
+ * ADR-0008); horas fora de 0–24 são clampadas e não-números viram o default.
+ */
+export function snapshotVideoFillTiming(snap: {
+  video_fill_mode?: unknown;
+  video_fill_hours?: unknown;
+}): VideoFillTiming {
+  const mode: VideoFillMode = snap.video_fill_mode === 'relative' ? 'relative' : 'anchor';
+  const raw = snap.video_fill_hours;
+  const hours =
+    typeof raw === 'number' && Number.isFinite(raw)
+      ? Math.min(MAX_VIDEO_FILL_HOURS, Math.max(0, Math.trunc(raw)))
+      : DEFAULT_VIDEO_FILL_HOURS;
+  return { mode, hours };
 }
 
 /**

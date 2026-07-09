@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isBuilderSnapshot,
   reopenSchedule,
+  snapshotVideoFillTiming,
   type BuilderSnapshot,
 } from '../builder-snapshot';
 
@@ -121,5 +122,38 @@ describe('reopenSchedule', () => {
     );
     expect(r.has_end).toBe(false);
     expect(r.end).toBe('');
+  });
+});
+
+// Timing do Scheduled Video Fill no snapshot (docs/adr/0010): modo âncora
+// (08:30) vs. relativo (hora+N). Snapshots antigos não têm os campos — o
+// Reopen precisa de defaults seguros (âncora, N=2).
+describe('snapshotVideoFillTiming', () => {
+  it('snapshot antigo (sem os campos) → âncora com N default 2', () => {
+    expect(snapshotVideoFillTiming(validSnapshot())).toEqual({ mode: 'anchor', hours: 2 });
+  });
+
+  it('restaura modo relativo com as horas gravadas', () => {
+    const snap = { ...validSnapshot(), video_fill_mode: 'relative' as const, video_fill_hours: 5 };
+    expect(snapshotVideoFillTiming(snap)).toEqual({ mode: 'relative', hours: 5 });
+  });
+
+  it('restaura modo âncora explícito', () => {
+    const snap = { ...validSnapshot(), video_fill_mode: 'anchor' as const, video_fill_hours: 7 };
+    expect(snapshotVideoFillTiming(snap)).toEqual({ mode: 'anchor', hours: 7 });
+  });
+
+  it('clampa horas fora de 0–24 e trunca não-inteiros', () => {
+    const at = (h: unknown) =>
+      snapshotVideoFillTiming({ ...validSnapshot(), video_fill_mode: 'relative' as const, video_fill_hours: h as number });
+    expect(at(99)).toEqual({ mode: 'relative', hours: 24 });
+    expect(at(-3)).toEqual({ mode: 'relative', hours: 0 });
+    expect(at(2.7)).toEqual({ mode: 'relative', hours: 2 });
+    expect(at('x')).toEqual({ mode: 'relative', hours: 2 });
+  });
+
+  it('modo desconhecido cai no âncora (default seguro)', () => {
+    const snap = { ...validSnapshot(), video_fill_mode: 'weird' as any };
+    expect(snapshotVideoFillTiming(snap)).toEqual({ mode: 'anchor', hours: 2 });
   });
 });

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { RefreshCw, CheckCircle2 } from 'lucide-react';
-import { todayStr, toDatetimeLocal, datetimeLocalToISO } from '@/lib/timezone';
+import { todayStr, toDatetimeLocal, datetimeLocalToISO, fmtTime } from '@/lib/timezone';
 import {
   SearchableSelect as SSSelect,
   filterOptions as ssFilterOptions,
@@ -18,7 +18,14 @@ import {
   type CreativeGroupsState,
 } from '@/lib/creative-groups';
 import { useRefreshable, fetchJson } from './useRefreshable';
-import { reopenSchedule, type BuilderSnapshot } from '@/lib/builder-snapshot';
+import {
+  reopenSchedule,
+  snapshotVideoFillTiming,
+  DEFAULT_VIDEO_FILL_HOURS,
+  MAX_VIDEO_FILL_HOURS,
+  type BuilderSnapshot,
+  type VideoFillMode,
+} from '@/lib/builder-snapshot';
 import { shouldResetOrphanPixel, pixelSubmitErrors } from '@/lib/pixel-guard';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1489,6 +1496,16 @@ export default function ClientCampaignBuilder({
   const [catalogId, setCatalogId] = useState('');
   const [productSetId, setProductSetId] = useState('');
   const [scheduleVideoFill, setScheduleVideoFill] = useState(false);
+  // Timing do fill (docs/adr/0010): âncora 08:30 (default seguro) ou criação + N horas.
+  const [videoFillMode, setVideoFillMode] = useState<VideoFillMode>('anchor');
+  const [videoFillHours, setVideoFillHours] = useState<number>(DEFAULT_VIDEO_FILL_HOURS);
+  // Checagem de links on-demand: lê a planilha só no clique (leitura de Sheets é cara).
+  const [linkCheck, setLinkCheck] = useState<
+    | { status: 'idle' }
+    | { status: 'loading' }
+    | { status: 'done'; with_link: number; missing_total: number }
+    | { status: 'error'; error: string }
+  >({ status: 'idle' });
   const [catalogSheetInfo, setCatalogSheetInfo] = useState<{
     linked: boolean;
     catalog_name: string | null;
@@ -2261,6 +2278,9 @@ export default function ClientCampaignBuilder({
     setAds(snap.ads.map(a => ({ ...emptyAd(), ...a })));
     setCreativeGroups({ names: [...snap.creative_groups.names], byId: { ...snap.creative_groups.byId } });
     setScheduleVideoFill(!!snap.schedule_video_fill);
+    const fillTiming = snapshotVideoFillTiming(snap);
+    setVideoFillMode(fillTiming.mode);
+    setVideoFillHours(fillTiming.hours);
     const sched = reopenSchedule(snap.schedule);
     setStartTime(sched.start);
     setEndTime(sched.end);
@@ -2445,6 +2465,8 @@ export default function ClientCampaignBuilder({
     shared_copy: sharedCopy,
     schedule: { start: startTime, end: endTime, has_end: hasEndTime },
     schedule_video_fill: scheduleVideoFill,
+    video_fill_mode: videoFillMode,
+    video_fill_hours: videoFillHours,
     config: buildCurrentPresetConfig(),
   });
 
@@ -2548,11 +2570,19 @@ export default function ClientCampaignBuilder({
   }, [audiences]);
 
   // Status do Video Sheet vinculado ao catálogo DPA selecionado (D1). Reseta o
-  // toggle de agendamento sempre que o catálogo muda ou deixa de estar vinculado.
+  // toggle de agendamento (e o timing/checagem — docs/adr/0010) sempre que o
+  // catálogo muda ou deixa de estar vinculado.
   useEffect(() => {
+    const resetFill = () => {
+      setScheduleVideoFill(false);
+      setVideoFillMode('anchor');
+      setVideoFillHours(DEFAULT_VIDEO_FILL_HOURS);
+    };
+    // Contagem de links é do catálogo anterior — não vale para o novo.
+    setLinkCheck({ status: 'idle' });
     if (!isDPA || !catalogId) {
       setCatalogSheetInfo(null);
-      setScheduleVideoFill(false);
+      resetFill();
       return;
     }
     let cancelled = false;
@@ -2568,17 +2598,39 @@ export default function ClientCampaignBuilder({
             sheet: data.sheet ?? null,
             missing_video_count: Number(data.missing_video_count ?? 0),
           });
-          if (!data.linked) setScheduleVideoFill(false);
+          if (!data.linked) resetFill();
         } else {
           setCatalogSheetInfo(null);
-          setScheduleVideoFill(false);
+          resetFill();
         }
       } catch {
-        if (!cancelled) { setCatalogSheetInfo(null); setScheduleVideoFill(false); }
+        if (!cancelled) { setCatalogSheetInfo(null); resetFill(); }
       }
     })();
     return () => { cancelled = true; };
   }, [isDPA, catalogId]);
+
+  // Checagem de links (docs/adr/0010): dry-run da planilha no clique — informa
+  // quantos produtos sem vídeo já têm link antes de escolher o hora+N.
+  const runLinkCheck = async () => {
+    if (!catalogId) return;
+    setLinkCheck({ status: 'loading' });
+    try {
+      const res = await fetch(`/api/catalogs/video-fills/check?catalog_id=${encodeURIComponent(catalogId)}`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.success) {
+        setLinkCheck({
+          status: 'done',
+          with_link: Number(data.with_link ?? 0),
+          missing_total: Number(data.missing_total ?? 0),
+        });
+      } else {
+        setLinkCheck({ status: 'error', error: data?.error ?? `HTTP ${res.status}` });
+      }
+    } catch (e: any) {
+      setLinkCheck({ status: 'error', error: e?.message ?? String(e) });
+    }
+  };
 
   // ── Submit ───────────────────────────────────────────────────────────────
   const submit = async () => {
@@ -2894,10 +2946,16 @@ export default function ClientCampaignBuilder({
       setShowQueueWidget(true);
       setEnqueuedCount(ids.length);
       // Arma o preenchimento de vídeo agendado — independente do resultado dos jobs
-      // (é uma operação de catálogo; ver docs/adr/0008).
+      // (é uma operação de catálogo; ver docs/adr/0008 + 0010).
       if (scheduleVideoFill && catalogId) {
+        const isRelativeFill = videoFillMode === 'relative';
+        const fireHint = !isRelativeFill
+          ? 'as próximas 08:30 (GMT-3)'
+          : videoFillHours === 0
+            ? 'o quanto antes (próximo tick, ~5 min)'
+            : `daqui a ${videoFillHours}h (~${fmtTime(new Date(Date.now() + videoFillHours * 3_600_000), { hour: '2-digit', minute: '2-digit' })})`;
         const okArm = window.confirm(
-          `Agendar o preenchimento de vídeo do catálogo${catalogSheetInfo?.catalog_name ? ` «${catalogSheetInfo.catalog_name}»` : ''} para amanhã às 08:30 (GMT-3)?\n\n` +
+          `Agendar o preenchimento de vídeo do catálogo${catalogSheetInfo?.catalog_name ? ` «${catalogSheetInfo.catalog_name}»` : ''} para ${fireHint}?\n\n` +
           `Fonte: ${catalogSheetInfo?.sheet?.filename ?? 'planilha vinculada'} (aba ${catalogSheetInfo?.sheet?.tab ?? 'NOMECLATURA ADS'}).\n` +
           `Preencherá todos os produtos do catálogo sem vídeo que tiverem link.`,
         );
@@ -2906,7 +2964,10 @@ export default function ClientCampaignBuilder({
             const armRes = await fetch('/api/catalogs/video-fills', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ catalog_id: catalogId }),
+              body: JSON.stringify({
+                catalog_id: catalogId,
+                hours_from_now: isRelativeFill ? videoFillHours : null,
+              }),
             });
             const armData = await armRes.json().catch(() => ({}));
             if (!armRes.ok || !armData.success) {
@@ -3142,19 +3203,87 @@ export default function ClientCampaignBuilder({
             {catalogSheetInfo?.linked && (
               <SubBlock
                 label="Preenchimento de vídeo (agendado)"
-                hint="Preenche os vídeos dos produtos do catálogo às 08:30 (GMT-3) do dia seguinte, a partir da planilha vinculada."
+                hint="Preenche os vídeos dos produtos do catálogo a partir da planilha vinculada — nas próximas 08:30 (GMT-3) ou N horas após a criação."
               >
-                <div className="rounded border border-console-border bg-console-surface-2 px-4 py-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[12px] font-semibold text-foreground">Agendar preenchimento de vídeo (08:30)</p>
-                    <p className="text-[11px] text-console-muted">
-                      Planilha: {catalogSheetInfo.sheet?.filename ?? '—'} · aba {catalogSheetInfo.sheet?.tab ?? 'NOMECLATURA ADS'}
-                      {catalogSheetInfo.missing_video_count > 0
-                        ? ` · ${catalogSheetInfo.missing_video_count} produto(s) sem vídeo hoje`
-                        : ''}
-                    </p>
+                <div className="rounded border border-console-border bg-console-surface-2 px-4 py-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[12px] font-semibold text-foreground">Agendar preenchimento de vídeo</p>
+                      <p className="text-[11px] text-console-muted">
+                        Planilha: {catalogSheetInfo.sheet?.filename ?? '—'} · aba {catalogSheetInfo.sheet?.tab ?? 'NOMECLATURA ADS'}
+                        {catalogSheetInfo.missing_video_count > 0
+                          ? ` · ${catalogSheetInfo.missing_video_count} produto(s) sem vídeo hoje`
+                          : ''}
+                      </p>
+                    </div>
+                    <Toggle checked={scheduleVideoFill} onChange={setScheduleVideoFill} />
                   </div>
-                  <Toggle checked={scheduleVideoFill} onChange={setScheduleVideoFill} />
+                  {scheduleVideoFill && (
+                    <div className="space-y-2 border-t border-console-border pt-3">
+                      <label className="flex items-center gap-2 text-[12px] text-foreground cursor-pointer">
+                        <input
+                          type="radio" name="videoFillMode" className="accent-amber-500"
+                          checked={videoFillMode === 'anchor'}
+                          onChange={() => setVideoFillMode('anchor')}
+                        />
+                        Próximas 08:30 (GMT-3) — após a automação diária escrever os links
+                      </label>
+                      <label className="flex items-center gap-2 text-[12px] text-foreground cursor-pointer">
+                        <input
+                          type="radio" name="videoFillMode" className="accent-amber-500"
+                          checked={videoFillMode === 'relative'}
+                          onChange={() => setVideoFillMode('relative')}
+                        />
+                        Daqui a
+                        <input
+                          type="number" min={0} max={MAX_VIDEO_FILL_HOURS} step={1}
+                          className={`${inputBase} w-16`}
+                          value={videoFillHours}
+                          onChange={e => {
+                            setVideoFillMode('relative');
+                            const n = Math.trunc(Number(e.target.value));
+                            setVideoFillHours(Math.max(0, Math.min(MAX_VIDEO_FILL_HOURS, Number.isFinite(n) ? n : DEFAULT_VIDEO_FILL_HOURS)));
+                          }}
+                        />
+                        horas
+                        <span className="text-console-muted">
+                          {videoFillMode === 'relative' && videoFillHours === 0 ? '(o quanto antes, ~5 min)' : ''}
+                        </span>
+                      </label>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={runLinkCheck}
+                          disabled={linkCheck.status === 'loading'}
+                          className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded border border-console-border bg-console-surface text-foreground hover:border-amber-500 disabled:opacity-50"
+                        >
+                          <RefreshCw size={12} className={linkCheck.status === 'loading' ? 'animate-spin' : ''} />
+                          Verificar links
+                        </button>
+                        <span className="text-[11px] text-console-muted">
+                          {linkCheck.status === 'idle' && 'Lê a planilha agora e conta quantos produtos sem vídeo já têm link.'}
+                          {linkCheck.status === 'loading' && 'Lendo a planilha…'}
+                          {linkCheck.status === 'done' && (
+                            <span className="text-foreground font-semibold">
+                              {linkCheck.with_link} de {linkCheck.missing_total} produto(s) sem vídeo já têm link
+                            </span>
+                          )}
+                          {linkCheck.status === 'error' && (
+                            <span className="text-rose-500">Falha na checagem: {linkCheck.error}</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </SubBlock>
+            )}
+            {catalogSheetInfo && !catalogSheetInfo.linked && (
+              <SubBlock label="Preenchimento de vídeo (agendado)">
+                <div className="rounded border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-[12px] text-amber-400">
+                  Catálogo sem planilha vinculada — vincule uma planilha em{' '}
+                  <a href="/catalogo" className="underline font-semibold">Catálogo</a>{' '}
+                  para poder agendar o preenchimento de vídeo.
                 </div>
               </SubBlock>
             )}
