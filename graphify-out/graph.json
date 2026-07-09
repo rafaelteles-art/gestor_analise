@@ -58,7 +58,7 @@
       "source_file": "auth.ts",
       "source_location": "L1",
       "id": "auth_ts",
-      "community": 103,
+      "community": 105,
       "norm_label": "auth.ts"
     },
     {
@@ -67,7 +67,7 @@
       "source_file": "next-env.d.ts",
       "source_location": "L1",
       "id": "next_env_d_ts",
-      "community": 104,
+      "community": 106,
       "norm_label": "next-env.d.ts"
     },
     {
@@ -76,7 +76,7 @@
       "source_file": "app\\next.config.ts",
       "source_location": "L1",
       "id": "app_next_config_ts",
-      "community": 105,
+      "community": 107,
       "norm_label": "next.config.ts"
     },
     {
@@ -85,7 +85,7 @@
       "source_file": "proxy.ts",
       "source_location": "L1",
       "id": "proxy_ts",
-      "community": 106,
+      "community": 108,
       "norm_label": "proxy.ts"
     },
     {
@@ -94,7 +94,7 @@
       "source_file": "app\\test_rt_pag.js",
       "source_location": "L1",
       "id": "app_test_rt_pag_js",
-      "community": 72,
+      "community": 75,
       "norm_label": "test_rt_pag.js"
     },
     {
@@ -103,7 +103,7 @@
       "source_file": "app\\test_rt_pag.js",
       "source_location": "L5",
       "id": "test_rt_pag_run",
-      "community": 72,
+      "community": 75,
       "norm_label": "run()"
     },
     {
@@ -112,7 +112,7 @@
       "source_file": "vitest.config.ts",
       "source_location": "L1",
       "id": "vitest_config_ts",
-      "community": 107,
+      "community": 109,
       "norm_label": "vitest.config.ts"
     },
     {
@@ -121,7 +121,7 @@
       "source_file": "app\\ConsoleClock.tsx",
       "source_location": "L1",
       "id": "app_consoleclock_tsx",
-      "community": 56,
+      "community": 57,
       "norm_label": "consoleclock.tsx"
     },
     {
@@ -130,7 +130,7 @@
       "source_file": "app\\ConsoleClock.tsx",
       "source_location": "L9",
       "id": "consoleclock_partsinapptz",
-      "community": 56,
+      "community": 57,
       "norm_label": "partsinapptz()"
     },
     {
@@ -139,7 +139,7 @@
       "source_file": "app\\ConsoleClock.tsx",
       "source_location": "L34",
       "id": "consoleclock_consoleclock",
-      "community": 56,
+      "community": 57,
       "norm_label": "consoleclock()"
     },
     {
@@ -148,7 +148,7 @@
       "source_file": "app\\HomeSignOut.tsx",
       "source_location": "L1",
       "id": "app_homesignout_tsx",
-      "community": 73,
+      "community": 76,
       "norm_label": "homesignout.tsx"
     },
     {
@@ -157,7 +157,7 @@
       "source_file": "app\\HomeSignOut.tsx",
       "source_location": "L5",
       "id": "homesignout_homesignout",
-      "community": 73,
+      "community": 76,
       "norm_label": "homesignout()"
     },
     {
@@ -166,7 +166,7 @@
       "source_file": "app\\layout.tsx",
       "source_location": "L1",
       "id": "app_layout_tsx",
-      "community": 74,
+      "community": 77,
       "norm_label": "layout.tsx"
     },
     {
@@ -175,7 +175,7 @@
       "source_file": "app\\layout.tsx",
       "source_location": "L29",
       "id": "layout_rootlayout",
-      "community": 74,
+      "community": 77,
       "norm_label": "rootlayout()"
     },
     {
@@ -184,7 +184,7 @@
       "source_file": "app\\page.tsx",
       "source_location": "L1",
       "id": "app_page_tsx",
-      "community": 108,
+      "community": 110,
       "norm_label": "page.tsx"
     },
     {
@@ -337,7 +337,7 @@
       "source_file": "app\\analise\\page.tsx",
       "source_location": "L1",
       "id": "app_analise_page_tsx",
-      "community": 75,
+      "community": 78,
       "norm_label": "page.tsx"
     },
     {
@@ -346,7 +346,7 @@
       "source_file": "app\\analise\\page.tsx",
       "source_location": "L8",
       "id": "page_analisepage",
-      "community": 75,
+      "community": 78,
       "norm_label": "analisepage()"
     },
     {
@@ -400,7 +400,7 @@
       "source_file": "app\\app\\api\\auth\\[...nextauth]\\route.ts",
       "source_location": "L1",
       "id": "app_app_api_auth_nextauth_route_ts",
-      "community": 109,
+      "community": 111,
       "norm_label": "route.ts"
     },
     {
@@ -409,7 +409,7 @@
       "source_file": "app\\api\\campaigns\\_helpers.ts",
       "source_location": "L1",
       "id": "app_api_campaigns_helpers_ts",
-      "community": 57,
+      "community": 58,
       "norm_label": "_helpers.ts"
     },
     {
@@ -418,7 +418,7 @@
       "source_file": "app\\api\\campaigns\\_helpers.ts",
       "source_location": "L15",
       "id": "helpers_loadaccountauth",
-      "community": 57,
+      "community": 58,
       "norm_label": "loadaccountauth()"
     },
     {
@@ -427,7 +427,7 @@
       "source_file": "app\\api\\campaigns\\_helpers.ts",
       "source_location": "L35",
       "id": "helpers_resolveauth",
-      "community": 57,
+      "community": 58,
       "norm_label": "resolveauth()"
     },
     {
@@ -751,6 +751,15 @@
       "source_file": "app\\api\\catalogs\\video-fills\\route.ts",
       "source_location": "L1",
       "id": "app_api_catalogs_video_fills_route_ts",
+      "community": 0,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app\\api\\catalogs\\video-fills\\check\\route.ts",
+      "source_location": "L1",
+      "id": "app_api_catalogs_video_fills_check_route_ts",
       "community": 0,
       "norm_label": "route.ts"
     },
@@ -1129,7 +1138,7 @@
       "source_file": "app\\api-config\\actions.ts",
       "source_location": "L1",
       "id": "app_api_config_actions_ts",
-      "community": 47,
+      "community": 48,
       "norm_label": "actions.ts"
     },
     {
@@ -1138,7 +1147,7 @@
       "source_file": "app\\api-config\\actions.ts",
       "source_location": "L7",
       "id": "actions_ensuresettingstable",
-      "community": 47,
+      "community": 48,
       "norm_label": "ensuresettingstable()"
     },
     {
@@ -1147,7 +1156,7 @@
       "source_file": "app\\api-config\\actions.ts",
       "source_location": "L17",
       "id": "actions_getstoredtokens",
-      "community": 47,
+      "community": 48,
       "norm_label": "getstoredtokens()"
     },
     {
@@ -1156,7 +1165,7 @@
       "source_file": "app\\api-config\\actions.ts",
       "source_location": "L61",
       "id": "actions_saveapitokens",
-      "community": 47,
+      "community": 48,
       "norm_label": "saveapitokens()"
     },
     {
@@ -1165,7 +1174,7 @@
       "source_file": "app\\api-config\\page.tsx",
       "source_location": "L1",
       "id": "app_api_config_page_tsx",
-      "community": 76,
+      "community": 79,
       "norm_label": "page.tsx"
     },
     {
@@ -1174,7 +1183,7 @@
       "source_file": "app\\api-config\\page.tsx",
       "source_location": "L6",
       "id": "page_apiconfigpage",
-      "community": 76,
+      "community": 79,
       "norm_label": "apiconfigpage()"
     },
     {
@@ -1183,7 +1192,7 @@
       "source_file": "app\\api-config\\components\\GoogleDrivePanel.tsx",
       "source_location": "L1",
       "id": "app_api_config_components_googledrivepanel_tsx",
-      "community": 58,
+      "community": 59,
       "norm_label": "googledrivepanel.tsx"
     },
     {
@@ -1192,7 +1201,7 @@
       "source_file": "app\\api-config\\components\\GoogleDrivePanel.tsx",
       "source_location": "L18",
       "id": "googledrivepanel_fetchstatus",
-      "community": 58,
+      "community": 59,
       "norm_label": "fetchstatus()"
     },
     {
@@ -1201,7 +1210,7 @@
       "source_file": "app\\api-config\\components\\GoogleDrivePanel.tsx",
       "source_location": "L55",
       "id": "googledrivepanel_handledisconnect",
-      "community": 58,
+      "community": 59,
       "norm_label": "handledisconnect()"
     },
     {
@@ -1217,7 +1226,7 @@
       "label": "cls()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L332",
+      "source_location": "L339",
       "id": "clientcampaignbuilder_cls",
       "community": 2,
       "norm_label": "cls()"
@@ -1226,7 +1235,7 @@
       "label": "makeId()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L336",
+      "source_location": "L343",
       "id": "clientcampaignbuilder_makeid",
       "community": 2,
       "norm_label": "makeid()"
@@ -1235,7 +1244,7 @@
       "label": "emptyAd()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L340",
+      "source_location": "L347",
       "id": "clientcampaignbuilder_emptyad",
       "community": 2,
       "norm_label": "emptyad()"
@@ -1244,7 +1253,7 @@
       "label": "emptySharedCopy()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L364",
+      "source_location": "L371",
       "id": "clientcampaignbuilder_emptysharedcopy",
       "community": 2,
       "norm_label": "emptysharedcopy()"
@@ -1253,7 +1262,7 @@
       "label": "MainSection()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L369",
+      "source_location": "L376",
       "id": "clientcampaignbuilder_mainsection",
       "community": 2,
       "norm_label": "mainsection()"
@@ -1262,7 +1271,7 @@
       "label": "SubBlock()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L387",
+      "source_location": "L394",
       "id": "clientcampaignbuilder_subblock",
       "community": 2,
       "norm_label": "subblock()"
@@ -1271,7 +1280,7 @@
       "label": "acctLabel()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L496",
+      "source_location": "L503",
       "id": "clientcampaignbuilder_acctlabel",
       "community": 2,
       "norm_label": "acctlabel()"
@@ -1280,7 +1289,7 @@
       "label": "toggle()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L499",
+      "source_location": "L506",
       "id": "clientcampaignbuilder_toggle",
       "community": 2,
       "norm_label": "toggle()"
@@ -1289,7 +1298,7 @@
       "label": "toggleBM()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L507",
+      "source_location": "L514",
       "id": "clientcampaignbuilder_togglebm",
       "community": 2,
       "norm_label": "togglebm()"
@@ -1298,7 +1307,7 @@
       "label": "add()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L756",
+      "source_location": "L763",
       "id": "clientcampaignbuilder_add",
       "community": 2,
       "norm_label": "add()"
@@ -1307,7 +1316,7 @@
       "label": "remove()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L760",
+      "source_location": "L767",
       "id": "clientcampaignbuilder_remove",
       "community": 2,
       "norm_label": "remove()"
@@ -1316,7 +1325,7 @@
       "label": "setBusy()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1018",
+      "source_location": "L1025",
       "id": "clientcampaignbuilder_setbusy",
       "community": 2,
       "norm_label": "setbusy()"
@@ -1325,7 +1334,7 @@
       "label": "onKey()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1139",
+      "source_location": "L1146",
       "id": "clientcampaignbuilder_onkey",
       "community": 2,
       "norm_label": "onkey()"
@@ -1334,7 +1343,7 @@
       "label": "handleRefreshAccounts()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1345",
+      "source_location": "L1352",
       "id": "clientcampaignbuilder_handlerefreshaccounts",
       "community": 2,
       "norm_label": "handlerefreshaccounts()"
@@ -1343,7 +1352,7 @@
       "label": "handleSyncAccounts()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1347",
+      "source_location": "L1354",
       "id": "clientcampaignbuilder_handlesyncaccounts",
       "community": 2,
       "norm_label": "handlesyncaccounts()"
@@ -1352,7 +1361,7 @@
       "label": "loadBusinesses()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1538",
+      "source_location": "L1555",
       "id": "clientcampaignbuilder_loadbusinesses",
       "community": 2,
       "norm_label": "loadbusinesses()"
@@ -1361,7 +1370,7 @@
       "label": "handleCreateCatalog()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1555",
+      "source_location": "L1572",
       "id": "clientcampaignbuilder_handlecreatecatalog",
       "community": 2,
       "norm_label": "handlecreatecatalog()"
@@ -1370,7 +1379,7 @@
       "label": "fetchProductPresets()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1621",
+      "source_location": "L1638",
       "id": "clientcampaignbuilder_fetchproductpresets",
       "community": 2,
       "norm_label": "fetchproductpresets()"
@@ -1379,7 +1388,7 @@
       "label": "applyProductPreset()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1634",
+      "source_location": "L1651",
       "id": "clientcampaignbuilder_applyproductpreset",
       "community": 2,
       "norm_label": "applyproductpreset()"
@@ -1388,7 +1397,7 @@
       "label": "handleCreateProduct()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1654",
+      "source_location": "L1671",
       "id": "clientcampaignbuilder_handlecreateproduct",
       "community": 2,
       "norm_label": "handlecreateproduct()"
@@ -1397,7 +1406,7 @@
       "label": "buildCurrentPresetConfig()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1821",
+      "source_location": "L1838",
       "id": "clientcampaignbuilder_buildcurrentpresetconfig",
       "community": 2,
       "norm_label": "buildcurrentpresetconfig()"
@@ -1406,7 +1415,7 @@
       "label": "applyPresetConfig()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1868",
+      "source_location": "L1885",
       "id": "clientcampaignbuilder_applypresetconfig",
       "community": 2,
       "norm_label": "applypresetconfig()"
@@ -1415,7 +1424,7 @@
       "label": "applyAccountScopedPreset()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1939",
+      "source_location": "L1956",
       "id": "clientcampaignbuilder_applyaccountscopedpreset",
       "community": 2,
       "norm_label": "applyaccountscopedpreset()"
@@ -1424,7 +1433,7 @@
       "label": "handleApplyPreset()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2014",
+      "source_location": "L2031",
       "id": "clientcampaignbuilder_handleapplypreset",
       "community": 2,
       "norm_label": "handleapplypreset()"
@@ -1433,7 +1442,7 @@
       "label": "handleSavePreset()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2031",
+      "source_location": "L2048",
       "id": "clientcampaignbuilder_handlesavepreset",
       "community": 2,
       "norm_label": "handlesavepreset()"
@@ -1442,7 +1451,7 @@
       "label": "handleDeletePreset()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2057",
+      "source_location": "L2074",
       "id": "clientcampaignbuilder_handledeletepreset",
       "community": 2,
       "norm_label": "handledeletepreset()"
@@ -1451,7 +1460,7 @@
       "label": "updateAd()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2118",
+      "source_location": "L2135",
       "id": "clientcampaignbuilder_updatead",
       "community": 2,
       "norm_label": "updatead()"
@@ -1460,7 +1469,7 @@
       "label": "addAd()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2120",
+      "source_location": "L2137",
       "id": "clientcampaignbuilder_addad",
       "community": 2,
       "norm_label": "addad()"
@@ -1469,7 +1478,7 @@
       "label": "removeAd()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2121",
+      "source_location": "L2138",
       "id": "clientcampaignbuilder_removead",
       "community": 2,
       "norm_label": "removead()"
@@ -1478,7 +1487,7 @@
       "label": "importGroupsTable()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2126",
+      "source_location": "L2143",
       "id": "clientcampaignbuilder_importgroupstable",
       "community": 2,
       "norm_label": "importgroupstable()"
@@ -1487,7 +1496,7 @@
       "label": "importProductSetList()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2146",
+      "source_location": "L2163",
       "id": "clientcampaignbuilder_importproductsetlist",
       "community": 2,
       "norm_label": "importproductsetlist()"
@@ -1496,7 +1505,7 @@
       "label": "toggleGroupSelect()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2187",
+      "source_location": "L2204",
       "id": "clientcampaignbuilder_togglegroupselect",
       "community": 2,
       "norm_label": "togglegroupselect()"
@@ -1505,7 +1514,7 @@
       "label": "toggleSelectAllGroups()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2194",
+      "source_location": "L2211",
       "id": "clientcampaignbuilder_toggleselectallgroups",
       "community": 2,
       "norm_label": "toggleselectallgroups()"
@@ -1514,7 +1523,7 @@
       "label": "deleteSelectedGroups()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2199",
+      "source_location": "L2216",
       "id": "clientcampaignbuilder_deleteselectedgroups",
       "community": 2,
       "norm_label": "deleteselectedgroups()"
@@ -1523,7 +1532,7 @@
       "label": "updateSharedCopy()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2211",
+      "source_location": "L2228",
       "id": "clientcampaignbuilder_updatesharedcopy",
       "community": 2,
       "norm_label": "updatesharedcopy()"
@@ -1532,7 +1541,7 @@
       "label": "appendReopenNotice()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2224",
+      "source_location": "L2241",
       "id": "clientcampaignbuilder_appendreopennotice",
       "community": 2,
       "norm_label": "appendreopennotice()"
@@ -1541,7 +1550,7 @@
       "label": "uploadFor()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2360",
+      "source_location": "L2380",
       "id": "clientcampaignbuilder_uploadfor",
       "community": 2,
       "norm_label": "uploadfor()"
@@ -1550,16 +1559,34 @@
       "label": "buildCurrentSnapshot()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2433",
+      "source_location": "L2453",
       "id": "clientcampaignbuilder_buildcurrentsnapshot",
       "community": 2,
       "norm_label": "buildcurrentsnapshot()"
     },
     {
+      "label": "resetFill()",
+      "file_type": "code",
+      "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
+      "source_location": "L2576",
+      "id": "clientcampaignbuilder_resetfill",
+      "community": 2,
+      "norm_label": "resetfill()"
+    },
+    {
+      "label": "runLinkCheck()",
+      "file_type": "code",
+      "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
+      "source_location": "L2615",
+      "id": "clientcampaignbuilder_runlinkcheck",
+      "community": 2,
+      "norm_label": "runlinkcheck()"
+    },
+    {
       "label": "submit()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2584",
+      "source_location": "L2636",
       "id": "clientcampaignbuilder_submit",
       "community": 2,
       "norm_label": "submit()"
@@ -1568,7 +1595,7 @@
       "label": "handleDriveImport()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L4614",
+      "source_location": "L4743",
       "id": "clientcampaignbuilder_handledriveimport",
       "community": 2,
       "norm_label": "handledriveimport()"
@@ -1577,7 +1604,7 @@
       "label": "handleSingleUpload()",
       "file_type": "code",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L4637",
+      "source_location": "L4766",
       "id": "clientcampaignbuilder_handlesingleupload",
       "community": 2,
       "norm_label": "handlesingleupload()"
@@ -1588,7 +1615,7 @@
       "source_file": "app\\campaigns\\page.tsx",
       "source_location": "L1",
       "id": "app_campaigns_page_tsx",
-      "community": 77,
+      "community": 80,
       "norm_label": "page.tsx"
     },
     {
@@ -1597,7 +1624,7 @@
       "source_file": "app\\campaigns\\page.tsx",
       "source_location": "L23",
       "id": "page_campaignspage",
-      "community": 77,
+      "community": 80,
       "norm_label": "campaignspage()"
     },
     {
@@ -1606,7 +1633,7 @@
       "source_file": "app\\campaigns\\useRefreshable.ts",
       "source_location": "L1",
       "id": "app_campaigns_userefreshable_ts",
-      "community": 59,
+      "community": 60,
       "norm_label": "userefreshable.ts"
     },
     {
@@ -1615,7 +1642,7 @@
       "source_file": "app\\campaigns\\useRefreshable.ts",
       "source_location": "L28",
       "id": "userefreshable_userefreshable",
-      "community": 59,
+      "community": 60,
       "norm_label": "userefreshable()"
     },
     {
@@ -1624,7 +1651,7 @@
       "source_file": "app\\campaigns\\useRefreshable.ts",
       "source_location": "L84",
       "id": "userefreshable_fetchjson",
-      "community": 59,
+      "community": 60,
       "norm_label": "fetchjson()"
     },
     {
@@ -1705,7 +1732,7 @@
       "source_file": "app\\campaigns\\fila\\page.tsx",
       "source_location": "L1",
       "id": "app_campaigns_fila_page_tsx",
-      "community": 78,
+      "community": 81,
       "norm_label": "page.tsx"
     },
     {
@@ -1714,7 +1741,7 @@
       "source_file": "app\\campaigns\\fila\\page.tsx",
       "source_location": "L6",
       "id": "page_filapage",
-      "community": 78,
+      "community": 81,
       "norm_label": "filapage()"
     },
     {
@@ -2065,7 +2092,7 @@
       "source_file": "app\\catalogo\\page.tsx",
       "source_location": "L1",
       "id": "app_catalogo_page_tsx",
-      "community": 79,
+      "community": 82,
       "norm_label": "page.tsx"
     },
     {
@@ -2074,7 +2101,7 @@
       "source_file": "app\\catalogo\\page.tsx",
       "source_location": "L7",
       "id": "page_catalogopage",
-      "community": 79,
+      "community": 82,
       "norm_label": "catalogopage()"
     },
     {
@@ -2083,7 +2110,7 @@
       "source_file": "app\\app\\components\\DopScaleLayout.tsx",
       "source_location": "L1",
       "id": "app_app_components_dopscalelayout_tsx",
-      "community": 110,
+      "community": 112,
       "norm_label": "dopscalelayout.tsx"
     },
     {
@@ -2092,7 +2119,7 @@
       "source_file": "app\\components\\OfferSelector.tsx",
       "source_location": "L1",
       "id": "app_components_offerselector_tsx",
-      "community": 80,
+      "community": 83,
       "norm_label": "offerselector.tsx"
     },
     {
@@ -2101,7 +2128,7 @@
       "source_file": "app\\components\\OfferSelector.tsx",
       "source_location": "L10",
       "id": "offerselector_offerselector",
-      "community": 80,
+      "community": 83,
       "norm_label": "offerselector()"
     },
     {
@@ -2236,7 +2263,7 @@
       "source_file": "app\\app\\components\\SessionProvider.tsx",
       "source_location": "L1",
       "id": "app_app_components_sessionprovider_tsx",
-      "community": 81,
+      "community": 84,
       "norm_label": "sessionprovider.tsx"
     },
     {
@@ -2245,7 +2272,7 @@
       "source_file": "app\\app\\components\\SessionProvider.tsx",
       "source_location": "L5",
       "id": "sessionprovider_sessionprovider",
-      "community": 81,
+      "community": 84,
       "norm_label": "sessionprovider()"
     },
     {
@@ -2254,7 +2281,7 @@
       "source_file": "app\\components\\ThemeProvider.tsx",
       "source_location": "L1",
       "id": "app_components_themeprovider_tsx",
-      "community": 60,
+      "community": 61,
       "norm_label": "themeprovider.tsx"
     },
     {
@@ -2263,7 +2290,7 @@
       "source_file": "app\\components\\ThemeProvider.tsx",
       "source_location": "L21",
       "id": "themeprovider_systemprefersdark",
-      "community": 60,
+      "community": 61,
       "norm_label": "systemprefersdark()"
     },
     {
@@ -2272,7 +2299,7 @@
       "source_file": "app\\components\\ThemeProvider.tsx",
       "source_location": "L46",
       "id": "themeprovider_onchange",
-      "community": 60,
+      "community": 61,
       "norm_label": "onchange()"
     },
     {
@@ -2281,7 +2308,7 @@
       "source_file": "app\\components\\ThemeToggle.tsx",
       "source_location": "L1",
       "id": "app_components_themetoggle_tsx",
-      "community": 82,
+      "community": 85,
       "norm_label": "themetoggle.tsx"
     },
     {
@@ -2290,7 +2317,7 @@
       "source_file": "app\\components\\ThemeToggle.tsx",
       "source_location": "L14",
       "id": "themetoggle_themetoggle",
-      "community": 82,
+      "community": 85,
       "norm_label": "themetoggle()"
     },
     {
@@ -2299,7 +2326,7 @@
       "source_file": "app\\components\\V2MediaLabLayout.tsx",
       "source_location": "L1",
       "id": "app_components_v2medialablayout_tsx",
-      "community": 111,
+      "community": 113,
       "norm_label": "v2medialablayout.tsx"
     },
     {
@@ -2308,7 +2335,7 @@
       "source_file": "app\\data-studio\\page.tsx",
       "source_location": "L1",
       "id": "app_data_studio_page_tsx",
-      "community": 83,
+      "community": 86,
       "norm_label": "page.tsx"
     },
     {
@@ -2317,7 +2344,7 @@
       "source_file": "app\\data-studio\\page.tsx",
       "source_location": "L5",
       "id": "page_datastudiopage",
-      "community": 83,
+      "community": 86,
       "norm_label": "datastudiopage()"
     },
     {
@@ -2569,7 +2596,7 @@
       "source_file": "app\\import\\hoverCache.ts",
       "source_location": "L1",
       "id": "app_import_hovercache_ts",
-      "community": 48,
+      "community": 49,
       "norm_label": "hovercache.ts"
     },
     {
@@ -2578,7 +2605,7 @@
       "source_file": "app\\import\\hoverCache.ts",
       "source_location": "L7",
       "id": "hovercache_rtcampaignsetkey",
-      "community": 48,
+      "community": 49,
       "norm_label": "rtcampaignsetkey()"
     },
     {
@@ -2587,7 +2614,7 @@
       "source_file": "app\\import\\hoverCache.ts",
       "source_location": "L11",
       "id": "hovercache_cachekey",
-      "community": 48,
+      "community": 49,
       "norm_label": "cachekey()"
     },
     {
@@ -2596,7 +2623,7 @@
       "source_file": "app\\import\\hoverCache.ts",
       "source_location": "L19",
       "id": "hovercache_preloadhistorybatch",
-      "community": 48,
+      "community": 49,
       "norm_label": "preloadhistorybatch()"
     },
     {
@@ -2605,7 +2632,7 @@
       "source_file": "app\\import\\page.tsx",
       "source_location": "L1",
       "id": "app_import_page_tsx",
-      "community": 84,
+      "community": 87,
       "norm_label": "page.tsx"
     },
     {
@@ -2614,7 +2641,7 @@
       "source_file": "app\\import\\page.tsx",
       "source_location": "L8",
       "id": "page_importpage",
-      "community": 84,
+      "community": 87,
       "norm_label": "importpage()"
     },
     {
@@ -2758,7 +2785,7 @@
       "source_file": "app\\importv2\\page.tsx",
       "source_location": "L1",
       "id": "app_importv2_page_tsx",
-      "community": 85,
+      "community": 88,
       "norm_label": "page.tsx"
     },
     {
@@ -2767,7 +2794,7 @@
       "source_file": "app\\importv2\\page.tsx",
       "source_location": "L8",
       "id": "page_importv2page",
-      "community": 85,
+      "community": 88,
       "norm_label": "importv2page()"
     },
     {
@@ -2776,7 +2803,7 @@
       "source_file": "app\\lib\\accountStatus.tsx",
       "source_location": "L1",
       "id": "app_lib_accountstatus_tsx",
-      "community": 86,
+      "community": 89,
       "norm_label": "accountstatus.tsx"
     },
     {
@@ -2785,7 +2812,7 @@
       "source_file": "app\\lib\\accountStatus.tsx",
       "source_location": "L20",
       "id": "accountstatus_accountstatusbadge",
-      "community": 86,
+      "community": 89,
       "norm_label": "accountstatusbadge()"
     },
     {
@@ -2794,7 +2821,7 @@
       "source_file": "app\\lib\\reactSelectStyles.ts",
       "source_location": "L1",
       "id": "app_lib_reactselectstyles_ts",
-      "community": 112,
+      "community": 114,
       "norm_label": "reactselectstyles.ts"
     },
     {
@@ -2803,7 +2830,7 @@
       "source_file": "app\\lib\\theme.test.ts",
       "source_location": "L1",
       "id": "app_lib_theme_test_ts",
-      "community": 113,
+      "community": 115,
       "norm_label": "theme.test.ts"
     },
     {
@@ -2812,7 +2839,7 @@
       "source_file": "app\\lib\\theme.ts",
       "source_location": "L1",
       "id": "app_lib_theme_ts",
-      "community": 49,
+      "community": 50,
       "norm_label": "theme.ts"
     },
     {
@@ -2821,7 +2848,7 @@
       "source_file": "app\\lib\\theme.ts",
       "source_location": "L7",
       "id": "theme_normalizetheme",
-      "community": 49,
+      "community": 50,
       "norm_label": "normalizetheme()"
     },
     {
@@ -2830,7 +2857,7 @@
       "source_file": "app\\lib\\theme.ts",
       "source_location": "L14",
       "id": "theme_resolvetheme",
-      "community": 49,
+      "community": 50,
       "norm_label": "resolvetheme()"
     },
     {
@@ -2839,7 +2866,7 @@
       "source_file": "app\\lib\\theme.ts",
       "source_location": "L20",
       "id": "theme_applytheme",
-      "community": 49,
+      "community": 50,
       "norm_label": "applytheme()"
     },
     {
@@ -2848,7 +2875,7 @@
       "source_file": "app\\login\\page.tsx",
       "source_location": "L1",
       "id": "app_login_page_tsx",
-      "community": 114,
+      "community": 116,
       "norm_label": "page.tsx"
     },
     {
@@ -2965,7 +2992,7 @@
       "source_file": "app\\ofertas\\page.tsx",
       "source_location": "L1",
       "id": "app_ofertas_page_tsx",
-      "community": 87,
+      "community": 90,
       "norm_label": "page.tsx"
     },
     {
@@ -2974,7 +3001,7 @@
       "source_file": "app\\ofertas\\page.tsx",
       "source_location": "L8",
       "id": "page_ofertaspage",
-      "community": 87,
+      "community": 90,
       "norm_label": "ofertaspage()"
     },
     {
@@ -3055,7 +3082,7 @@
       "source_file": "app\\overview\\page.tsx",
       "source_location": "L1",
       "id": "app_overview_page_tsx",
-      "community": 88,
+      "community": 91,
       "norm_label": "page.tsx"
     },
     {
@@ -3064,7 +3091,7 @@
       "source_file": "app\\overview\\page.tsx",
       "source_location": "L8",
       "id": "page_overviewpage",
-      "community": 88,
+      "community": 91,
       "norm_label": "overviewpage()"
     },
     {
@@ -3136,7 +3163,7 @@
       "source_file": "app\\paginas\\page.tsx",
       "source_location": "L1",
       "id": "app_paginas_page_tsx",
-      "community": 61,
+      "community": 62,
       "norm_label": "page.tsx"
     },
     {
@@ -3145,7 +3172,7 @@
       "source_file": "app\\paginas\\page.tsx",
       "source_location": "L8",
       "id": "page_ensuretable",
-      "community": 61,
+      "community": 62,
       "norm_label": "ensuretable()"
     },
     {
@@ -3154,7 +3181,7 @@
       "source_file": "app\\paginas\\page.tsx",
       "source_location": "L21",
       "id": "page_paginaspage",
-      "community": 61,
+      "community": 62,
       "norm_label": "paginaspage()"
     },
     {
@@ -3163,7 +3190,7 @@
       "source_file": "app\\settings\\actions.ts",
       "source_location": "L1",
       "id": "app_settings_actions_ts",
-      "community": 62,
+      "community": 63,
       "norm_label": "actions.ts"
     },
     {
@@ -3172,7 +3199,7 @@
       "source_file": "app\\settings\\actions.ts",
       "source_location": "L7",
       "id": "actions_toggleaccountblacklist",
-      "community": 62,
+      "community": 63,
       "norm_label": "toggleaccountblacklist()"
     },
     {
@@ -3181,7 +3208,7 @@
       "source_file": "app\\settings\\actions.ts",
       "source_location": "L21",
       "id": "actions_togglebmblacklist",
-      "community": 62,
+      "community": 63,
       "norm_label": "togglebmblacklist()"
     },
     {
@@ -3190,7 +3217,7 @@
       "source_file": "app\\settings\\page.tsx",
       "source_location": "L1",
       "id": "app_settings_page_tsx",
-      "community": 63,
+      "community": 64,
       "norm_label": "page.tsx"
     },
     {
@@ -3199,7 +3226,7 @@
       "source_file": "app\\settings\\page.tsx",
       "source_location": "L10",
       "id": "page_ensureblacklistschema",
-      "community": 63,
+      "community": 64,
       "norm_label": "ensureblacklistschema()"
     },
     {
@@ -3208,7 +3235,7 @@
       "source_file": "app\\settings\\page.tsx",
       "source_location": "L23",
       "id": "page_settingspage",
-      "community": 63,
+      "community": 64,
       "norm_label": "settingspage()"
     },
     {
@@ -3595,7 +3622,7 @@
       "source_file": "app\\status-contas\\page.tsx",
       "source_location": "L1",
       "id": "app_status_contas_page_tsx",
-      "community": 64,
+      "community": 65,
       "norm_label": "page.tsx"
     },
     {
@@ -3604,7 +3631,7 @@
       "source_file": "app\\status-contas\\page.tsx",
       "source_location": "L9",
       "id": "page_ensurecolumns",
-      "community": 64,
+      "community": 65,
       "norm_label": "ensurecolumns()"
     },
     {
@@ -3613,7 +3640,7 @@
       "source_file": "app\\status-contas\\page.tsx",
       "source_location": "L55",
       "id": "page_statuscontaspage",
-      "community": 64,
+      "community": 65,
       "norm_label": "statuscontaspage()"
     },
     {
@@ -3712,7 +3739,7 @@
       "source_file": "app\\users\\page.tsx",
       "source_location": "L1",
       "id": "app_users_page_tsx",
-      "community": 89,
+      "community": 92,
       "norm_label": "page.tsx"
     },
     {
@@ -3721,7 +3748,7 @@
       "source_file": "app\\users\\page.tsx",
       "source_location": "L10",
       "id": "page_userspage",
-      "community": 89,
+      "community": 92,
       "norm_label": "userspage()"
     },
     {
@@ -3730,7 +3757,7 @@
       "source_file": "app\\users\\UsersClient.tsx",
       "source_location": "L1",
       "id": "app_users_usersclient_tsx",
-      "community": 90,
+      "community": 93,
       "norm_label": "usersclient.tsx"
     },
     {
@@ -3739,7 +3766,7 @@
       "source_file": "app\\users\\UsersClient.tsx",
       "source_location": "L49",
       "id": "usersclient_run",
-      "community": 90,
+      "community": 93,
       "norm_label": "run()"
     },
     {
@@ -3748,7 +3775,7 @@
       "source_file": "lib\\access-server.ts",
       "source_location": "L1",
       "id": "lib_access_server_ts",
-      "community": 91,
+      "community": 94,
       "norm_label": "access-server.ts"
     },
     {
@@ -3757,7 +3784,7 @@
       "source_file": "lib\\access-server.ts",
       "source_location": "L5",
       "id": "access_server_loaduseraccess",
-      "community": 91,
+      "community": 94,
       "norm_label": "loaduseraccess()"
     },
     {
@@ -3811,7 +3838,7 @@
       "source_file": "lib\\account-sync.ts",
       "source_location": "L1",
       "id": "lib_account_sync_ts",
-      "community": 50,
+      "community": 51,
       "norm_label": "account-sync.ts"
     },
     {
@@ -3820,7 +3847,7 @@
       "source_file": "lib\\account-sync.ts",
       "source_location": "L24",
       "id": "account_sync_withaccountsynclock",
-      "community": 50,
+      "community": 51,
       "norm_label": "withaccountsynclock()"
     },
     {
@@ -3829,7 +3856,7 @@
       "source_file": "lib\\account-sync.ts",
       "source_location": "L62",
       "id": "account_sync_recordaccountsyncrun",
-      "community": 50,
+      "community": 51,
       "norm_label": "recordaccountsyncrun()"
     },
     {
@@ -3838,7 +3865,7 @@
       "source_file": "lib\\account-sync.ts",
       "source_location": "L76",
       "id": "account_sync_getaccountsyncstatus",
-      "community": 50,
+      "community": 51,
       "norm_label": "getaccountsyncstatus()"
     },
     {
@@ -3847,7 +3874,7 @@
       "source_file": "lib\\batch-contract.ts",
       "source_location": "L1",
       "id": "lib_batch_contract_ts",
-      "community": 92,
+      "community": 95,
       "norm_label": "batch-contract.ts"
     },
     {
@@ -3856,7 +3883,7 @@
       "source_file": "lib\\batch-contract.ts",
       "source_location": "L39",
       "id": "batch_contract_claimresumeretry",
-      "community": 92,
+      "community": 95,
       "norm_label": "claimresumeretry()"
     },
     {
@@ -3865,34 +3892,43 @@
       "source_file": "lib\\builder-snapshot.ts",
       "source_location": "L1",
       "id": "lib_builder_snapshot_ts",
-      "community": 51,
+      "community": 44,
       "norm_label": "builder-snapshot.ts"
+    },
+    {
+      "label": "snapshotVideoFillTiming()",
+      "file_type": "code",
+      "source_file": "lib\\builder-snapshot.ts",
+      "source_location": "L79",
+      "id": "builder_snapshot_snapshotvideofilltiming",
+      "community": 44,
+      "norm_label": "snapshotvideofilltiming()"
     },
     {
       "label": "isBuilderSnapshot()",
       "file_type": "code",
       "source_file": "lib\\builder-snapshot.ts",
-      "source_location": "L65",
+      "source_location": "L97",
       "id": "builder_snapshot_isbuildersnapshot",
-      "community": 51,
+      "community": 44,
       "norm_label": "isbuildersnapshot()"
     },
     {
       "label": "isStringArray()",
       "file_type": "code",
       "source_file": "lib\\builder-snapshot.ts",
-      "source_location": "L90",
+      "source_location": "L122",
       "id": "builder_snapshot_isstringarray",
-      "community": 51,
+      "community": 44,
       "norm_label": "isstringarray()"
     },
     {
       "label": "reopenSchedule()",
       "file_type": "code",
       "source_file": "lib\\builder-snapshot.ts",
-      "source_location": "L101",
+      "source_location": "L133",
       "id": "builder_snapshot_reopenschedule",
-      "community": 51,
+      "community": 44,
       "norm_label": "reopenschedule()"
     },
     {
@@ -4175,6 +4211,33 @@
       "norm_label": "runqueuetick()"
     },
     {
+      "label": "catalog-video-fills-core.ts",
+      "file_type": "code",
+      "source_file": "lib\\catalog-video-fills-core.ts",
+      "source_location": "L1",
+      "id": "lib_catalog_video_fills_core_ts",
+      "community": 66,
+      "norm_label": "catalog-video-fills-core.ts"
+    },
+    {
+      "label": "computeFillTiming()",
+      "file_type": "code",
+      "source_file": "lib\\catalog-video-fills-core.ts",
+      "source_location": "L23",
+      "id": "catalog_video_fills_core_computefilltiming",
+      "community": 66,
+      "norm_label": "computefilltiming()"
+    },
+    {
+      "label": "runArmVideoFill()",
+      "file_type": "code",
+      "source_file": "lib\\catalog-video-fills-core.ts",
+      "source_location": "L95",
+      "id": "catalog_video_fills_core_runarmvideofill",
+      "community": 66,
+      "norm_label": "runarmvideofill()"
+    },
+    {
       "label": "catalog-video-fills.ts",
       "file_type": "code",
       "source_file": "lib\\catalog-video-fills.ts",
@@ -4187,7 +4250,7 @@
       "label": "ensureVideoFillsTable()",
       "file_type": "code",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L24",
+      "source_location": "L30",
       "id": "catalog_video_fills_ensurevideofillstable",
       "community": 34,
       "norm_label": "ensurevideofillstable()"
@@ -4196,7 +4259,7 @@
       "label": "armCatalogVideoFill()",
       "file_type": "code",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L48",
+      "source_location": "L59",
       "id": "catalog_video_fills_armcatalogvideofill",
       "community": 34,
       "norm_label": "armcatalogvideofill()"
@@ -4205,7 +4268,7 @@
       "label": "claimDueVideoFill()",
       "file_type": "code",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L74",
+      "source_location": "L77",
       "id": "catalog_video_fills_claimduevideofill",
       "community": 34,
       "norm_label": "claimduevideofill()"
@@ -4214,7 +4277,7 @@
       "label": "finishVideoFill()",
       "file_type": "code",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L95",
+      "source_location": "L98",
       "id": "catalog_video_fills_finishvideofill",
       "community": 34,
       "norm_label": "finishvideofill()"
@@ -4223,7 +4286,7 @@
       "label": "listVideoFills()",
       "file_type": "code",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L108",
+      "source_location": "L111",
       "id": "catalog_video_fills_listvideofills",
       "community": 34,
       "norm_label": "listvideofills()"
@@ -4232,7 +4295,7 @@
       "label": "cancelVideoFill()",
       "file_type": "code",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L119",
+      "source_location": "L122",
       "id": "catalog_video_fills_cancelvideofill",
       "community": 34,
       "norm_label": "cancelvideofill()"
@@ -4364,10 +4427,19 @@
       "norm_label": "parsenomenclaturasheet()"
     },
     {
+      "label": "linkCheckSummary()",
+      "file_type": "code",
+      "source_file": "lib\\catalog-video-import.ts",
+      "source_location": "L232",
+      "id": "catalog_video_import_linkchecksummary",
+      "community": 15,
+      "norm_label": "linkchecksummary()"
+    },
+    {
       "label": "buildVideoImportPlan()",
       "file_type": "code",
       "source_file": "lib\\catalog-video-import.ts",
-      "source_location": "L242",
+      "source_location": "L259",
       "id": "catalog_video_import_buildvideoimportplan",
       "community": 15,
       "norm_label": "buildvideoimportplan()"
@@ -4585,7 +4657,7 @@
       "source_file": "lib\\creative-name.ts",
       "source_location": "L1",
       "id": "lib_creative_name_ts",
-      "community": 65,
+      "community": 67,
       "norm_label": "creative-name.ts"
     },
     {
@@ -4594,7 +4666,7 @@
       "source_file": "lib\\creative-name.ts",
       "source_location": "L26",
       "id": "creative_name_striptrailingdatetoken",
-      "community": 65,
+      "community": 67,
       "norm_label": "striptrailingdatetoken()"
     },
     {
@@ -4603,7 +4675,7 @@
       "source_file": "lib\\creative-name.ts",
       "source_location": "L32",
       "id": "creative_name_defaultcreativename",
-      "community": 65,
+      "community": 67,
       "norm_label": "defaultcreativename()"
     },
     {
@@ -4612,7 +4684,7 @@
       "source_file": "app\\lib\\db.ts",
       "source_location": "L1",
       "id": "app_lib_db_ts",
-      "community": 115,
+      "community": 117,
       "norm_label": "db.ts"
     },
     {
@@ -5296,7 +5368,7 @@
       "source_file": "lib\\meta-catalog-items-batch.test.ts",
       "source_location": "L1",
       "id": "lib_meta_catalog_items_batch_test_ts",
-      "community": 116,
+      "community": 118,
       "norm_label": "meta-catalog-items-batch.test.ts"
     },
     {
@@ -5530,7 +5602,7 @@
       "source_file": "lib\\meta-pages-pacing.test.ts",
       "source_location": "L1",
       "id": "lib_meta_pages_pacing_test_ts",
-      "community": 93,
+      "community": 96,
       "norm_label": "meta-pages-pacing.test.ts"
     },
     {
@@ -5539,7 +5611,7 @@
       "source_file": "lib\\meta-pages-pacing.test.ts",
       "source_location": "L21",
       "id": "meta_pages_pacing_test_reswith",
-      "community": 93,
+      "community": 96,
       "norm_label": "reswith()"
     },
     {
@@ -5629,7 +5701,7 @@
       "source_file": "lib\\meta-pages.test.ts",
       "source_location": "L1",
       "id": "lib_meta_pages_test_ts",
-      "community": 44,
+      "community": 45,
       "norm_label": "meta-pages.test.ts"
     },
     {
@@ -5638,7 +5710,7 @@
       "source_file": "lib\\meta-pages.test.ts",
       "source_location": "L132",
       "id": "meta_pages_test_okresponse",
-      "community": 44,
+      "community": 45,
       "norm_label": "okresponse()"
     },
     {
@@ -5647,7 +5719,7 @@
       "source_file": "lib\\meta-pages.test.ts",
       "source_location": "L145",
       "id": "meta_pages_test_fakegraphfetch",
-      "community": 44,
+      "community": 45,
       "norm_label": "fakegraphfetch()"
     },
     {
@@ -5656,7 +5728,7 @@
       "source_file": "lib\\meta-pages.test.ts",
       "source_location": "L168",
       "id": "meta_pages_test_fakedb",
-      "community": 44,
+      "community": 45,
       "norm_label": "fakedb()"
     },
     {
@@ -5665,7 +5737,7 @@
       "source_file": "lib\\meta-pages.test.ts",
       "source_location": "L187",
       "id": "meta_pages_test_makedeps",
-      "community": 44,
+      "community": 45,
       "norm_label": "makedeps()"
     },
     {
@@ -6205,7 +6277,7 @@
       "source_file": "lib\\offer-links.test.ts",
       "source_location": "L1",
       "id": "lib_offer_links_test_ts",
-      "community": 117,
+      "community": 119,
       "norm_label": "offer-links.test.ts"
     },
     {
@@ -6214,7 +6286,7 @@
       "source_file": "lib\\offer-links.ts",
       "source_location": "L1",
       "id": "lib_offer_links_ts",
-      "community": 45,
+      "community": 46,
       "norm_label": "offer-links.ts"
     },
     {
@@ -6223,7 +6295,7 @@
       "source_file": "lib\\offer-links.ts",
       "source_location": "L9",
       "id": "offer_links_orphanoffernames",
-      "community": 45,
+      "community": 46,
       "norm_label": "orphanoffernames()"
     },
     {
@@ -6232,7 +6304,7 @@
       "source_file": "lib\\offer-links.ts",
       "source_location": "L24",
       "id": "offer_links_ensureofferlinkschema",
-      "community": 45,
+      "community": 46,
       "norm_label": "ensureofferlinkschema()"
     },
     {
@@ -6241,7 +6313,7 @@
       "source_file": "lib\\offer-links.ts",
       "source_location": "L77",
       "id": "offer_links_backfillmetaaccountoffers",
-      "community": 45,
+      "community": 46,
       "norm_label": "backfillmetaaccountoffers()"
     },
     {
@@ -6250,7 +6322,7 @@
       "source_file": "lib\\offer-links.ts",
       "source_location": "L107",
       "id": "offer_links_fetchlinkedplayerids",
-      "community": 45,
+      "community": 46,
       "norm_label": "fetchlinkedplayerids()"
     },
     {
@@ -6259,7 +6331,7 @@
       "source_file": "lib\\offer-scope.test.ts",
       "source_location": "L1",
       "id": "lib_offer_scope_test_ts",
-      "community": 118,
+      "community": 120,
       "norm_label": "offer-scope.test.ts"
     },
     {
@@ -6268,7 +6340,7 @@
       "source_file": "lib\\offer-scope.ts",
       "source_location": "L1",
       "id": "lib_offer_scope_ts",
-      "community": 94,
+      "community": 97,
       "norm_label": "offer-scope.ts"
     },
     {
@@ -6277,7 +6349,7 @@
       "source_file": "lib\\offer-scope.ts",
       "source_location": "L5",
       "id": "offer_scope_parseofertaparam",
-      "community": 94,
+      "community": 97,
       "norm_label": "parseofertaparam()"
     },
     {
@@ -6286,7 +6358,7 @@
       "source_file": "lib\\page-sync-client.test.ts",
       "source_location": "L1",
       "id": "lib_page_sync_client_test_ts",
-      "community": 66,
+      "community": 68,
       "norm_label": "page-sync-client.test.ts"
     },
     {
@@ -6295,7 +6367,7 @@
       "source_file": "lib\\page-sync-client.test.ts",
       "source_location": "L5",
       "id": "page_sync_client_test_jsonres",
-      "community": 66,
+      "community": 68,
       "norm_label": "jsonres()"
     },
     {
@@ -6304,7 +6376,7 @@
       "source_file": "lib\\page-sync-client.test.ts",
       "source_location": "L8",
       "id": "page_sync_client_test_nosleep",
-      "community": 66,
+      "community": 68,
       "norm_label": "nosleep()"
     },
     {
@@ -6313,7 +6385,7 @@
       "source_file": "lib\\page-sync-client.ts",
       "source_location": "L1",
       "id": "lib_page_sync_client_ts",
-      "community": 95,
+      "community": 98,
       "norm_label": "page-sync-client.ts"
     },
     {
@@ -6322,7 +6394,7 @@
       "source_file": "lib\\page-sync-client.ts",
       "source_location": "L14",
       "id": "page_sync_client_runpagesyncjob",
-      "community": 95,
+      "community": 98,
       "norm_label": "runpagesyncjob()"
     },
     {
@@ -6331,7 +6403,7 @@
       "source_file": "lib\\pixel-guard.ts",
       "source_location": "L1",
       "id": "lib_pixel_guard_ts",
-      "community": 67,
+      "community": 69,
       "norm_label": "pixel-guard.ts"
     },
     {
@@ -6340,7 +6412,7 @@
       "source_file": "lib\\pixel-guard.ts",
       "source_location": "L15",
       "id": "pixel_guard_shouldresetorphanpixel",
-      "community": 67,
+      "community": 69,
       "norm_label": "shouldresetorphanpixel()"
     },
     {
@@ -6349,7 +6421,7 @@
       "source_file": "lib\\pixel-guard.ts",
       "source_location": "L35",
       "id": "pixel_guard_pixelsubmiterrors",
-      "community": 67,
+      "community": 69,
       "norm_label": "pixelsubmiterrors()"
     },
     {
@@ -6358,7 +6430,7 @@
       "source_file": "lib\\redtrack-campaigns.test.ts",
       "source_location": "L1",
       "id": "lib_redtrack_campaigns_test_ts",
-      "community": 119,
+      "community": 121,
       "norm_label": "redtrack-campaigns.test.ts"
     },
     {
@@ -6367,7 +6439,7 @@
       "source_file": "lib\\redtrack-campaigns.ts",
       "source_location": "L1",
       "id": "lib_redtrack_campaigns_ts",
-      "community": 68,
+      "community": 70,
       "norm_label": "redtrack-campaigns.ts"
     },
     {
@@ -6376,7 +6448,7 @@
       "source_file": "lib\\redtrack-campaigns.ts",
       "source_location": "L20",
       "id": "redtrack_campaigns_mapredtrackcampaigns",
-      "community": 68,
+      "community": 70,
       "norm_label": "mapredtrackcampaigns()"
     },
     {
@@ -6385,7 +6457,7 @@
       "source_file": "lib\\redtrack-campaigns.ts",
       "source_location": "L34",
       "id": "redtrack_campaigns_fetchandsyncredtrackcampaigns",
-      "community": 68,
+      "community": 70,
       "norm_label": "fetchandsyncredtrackcampaigns()"
     },
     {
@@ -6394,7 +6466,7 @@
       "source_file": "lib\\redtrack-cost.test.ts",
       "source_location": "L1",
       "id": "lib_redtrack_cost_test_ts",
-      "community": 96,
+      "community": 99,
       "norm_label": "redtrack-cost.test.ts"
     },
     {
@@ -6403,7 +6475,7 @@
       "source_file": "lib\\redtrack-cost.test.ts",
       "source_location": "L4",
       "id": "redtrack_cost_test_agg",
-      "community": 96,
+      "community": 99,
       "norm_label": "agg()"
     },
     {
@@ -6412,7 +6484,7 @@
       "source_file": "lib\\redtrack-cost.ts",
       "source_location": "L1",
       "id": "lib_redtrack_cost_ts",
-      "community": 97,
+      "community": 100,
       "norm_label": "redtrack-cost.ts"
     },
     {
@@ -6421,7 +6493,7 @@
       "source_file": "lib\\redtrack-cost.ts",
       "source_location": "L28",
       "id": "redtrack_cost_matchrtcampaigncost",
-      "community": 97,
+      "community": 100,
       "norm_label": "matchrtcampaigncost()"
     },
     {
@@ -6484,7 +6556,7 @@
       "source_file": "lib\\rt-sync-tasks.test.ts",
       "source_location": "L1",
       "id": "lib_rt_sync_tasks_test_ts",
-      "community": 98,
+      "community": 101,
       "norm_label": "rt-sync-tasks.test.ts"
     },
     {
@@ -6493,7 +6565,7 @@
       "source_file": "lib\\rt-sync-tasks.test.ts",
       "source_location": "L4",
       "id": "rt_sync_tasks_test_camp",
-      "community": 98,
+      "community": 101,
       "norm_label": "camp()"
     },
     {
@@ -6502,7 +6574,7 @@
       "source_file": "lib\\rt-sync-tasks.ts",
       "source_location": "L1",
       "id": "lib_rt_sync_tasks_ts",
-      "community": 99,
+      "community": 102,
       "norm_label": "rt-sync-tasks.ts"
     },
     {
@@ -6511,7 +6583,7 @@
       "source_file": "lib\\rt-sync-tasks.ts",
       "source_location": "L8",
       "id": "rt_sync_tasks_buildrtsynctasks",
-      "community": 99,
+      "community": 102,
       "norm_label": "buildrtsynctasks()"
     },
     {
@@ -6520,7 +6592,7 @@
       "source_file": "lib\\stale-action.ts",
       "source_location": "L1",
       "id": "lib_stale_action_ts",
-      "community": 69,
+      "community": 71,
       "norm_label": "stale-action.ts"
     },
     {
@@ -6529,7 +6601,7 @@
       "source_file": "lib\\stale-action.ts",
       "source_location": "L12",
       "id": "stale_action_isstaleserveractionerror",
-      "community": 69,
+      "community": 71,
       "norm_label": "isstaleserveractionerror()"
     },
     {
@@ -6538,7 +6610,7 @@
       "source_file": "lib\\stale-action.ts",
       "source_location": "L17",
       "id": "stale_action_handlestaleserveraction",
-      "community": 69,
+      "community": 71,
       "norm_label": "handlestaleserveraction()"
     },
     {
@@ -6547,7 +6619,7 @@
       "source_file": "app\\lib\\supabase.ts",
       "source_location": "L1",
       "id": "app_lib_supabase_ts",
-      "community": 120,
+      "community": 122,
       "norm_label": "supabase.ts"
     },
     {
@@ -6745,7 +6817,7 @@
       "source_file": "app\\lib\\types.ts",
       "source_location": "L1",
       "id": "app_lib_types_ts",
-      "community": 121,
+      "community": 123,
       "norm_label": "types.ts"
     },
     {
@@ -6907,17 +6979,26 @@
       "source_file": "lib\\__tests__\\builder-snapshot.test.ts",
       "source_location": "L1",
       "id": "lib_tests_builder_snapshot_test_ts",
-      "community": 100,
+      "community": 72,
       "norm_label": "builder-snapshot.test.ts"
     },
     {
       "label": "validSnapshot()",
       "file_type": "code",
       "source_file": "lib\\__tests__\\builder-snapshot.test.ts",
-      "source_location": "L11",
+      "source_location": "L12",
       "id": "builder_snapshot_test_validsnapshot",
-      "community": 100,
+      "community": 72,
       "norm_label": "validsnapshot()"
+    },
+    {
+      "label": "at()",
+      "file_type": "code",
+      "source_file": "lib\\__tests__\\builder-snapshot.test.ts",
+      "source_location": "L147",
+      "id": "builder_snapshot_test_at",
+      "community": 72,
+      "norm_label": "at()"
     },
     {
       "label": "campaign-jobs.test.ts",
@@ -6925,7 +7006,7 @@
       "source_file": "lib\\__tests__\\campaign-jobs.test.ts",
       "source_location": "L1",
       "id": "lib_tests_campaign_jobs_test_ts",
-      "community": 46,
+      "community": 47,
       "norm_label": "campaign-jobs.test.ts"
     },
     {
@@ -6934,7 +7015,7 @@
       "source_file": "lib\\__tests__\\campaign-jobs.test.ts",
       "source_location": "L32",
       "id": "campaign_jobs_test_job",
-      "community": 46,
+      "community": 47,
       "norm_label": "job()"
     },
     {
@@ -6943,7 +7024,7 @@
       "source_file": "lib\\__tests__\\campaign-jobs.test.ts",
       "source_location": "L264",
       "id": "campaign_jobs_test_metaerr",
-      "community": 46,
+      "community": 47,
       "norm_label": "metaerr()"
     },
     {
@@ -6952,7 +7033,7 @@
       "source_file": "lib\\__tests__\\campaign-jobs.test.ts",
       "source_location": "L533",
       "id": "campaign_jobs_test_fakeclient",
-      "community": 46,
+      "community": 47,
       "norm_label": "fakeclient()"
     },
     {
@@ -6961,8 +7042,35 @@
       "source_file": "lib\\__tests__\\campaign-jobs.test.ts",
       "source_location": "L660",
       "id": "campaign_jobs_test_fresh",
-      "community": 46,
+      "community": 47,
       "norm_label": "fresh()"
+    },
+    {
+      "label": "catalog-video-fills-core.test.ts",
+      "file_type": "code",
+      "source_file": "lib\\__tests__\\catalog-video-fills-core.test.ts",
+      "source_location": "L1",
+      "id": "lib_tests_catalog_video_fills_core_test_ts",
+      "community": 73,
+      "norm_label": "catalog-video-fills-core.test.ts"
+    },
+    {
+      "label": "scriptedClient()",
+      "file_type": "code",
+      "source_file": "lib\\__tests__\\catalog-video-fills-core.test.ts",
+      "source_location": "L69",
+      "id": "catalog_video_fills_core_test_scriptedclient",
+      "community": 73,
+      "norm_label": "scriptedclient()"
+    },
+    {
+      "label": "rowAt()",
+      "file_type": "code",
+      "source_file": "lib\\__tests__\\catalog-video-fills-core.test.ts",
+      "source_location": "L90",
+      "id": "catalog_video_fills_core_test_rowat",
+      "community": 73,
+      "norm_label": "rowat()"
     },
     {
       "label": "catalog-video-import.test.ts",
@@ -6970,25 +7078,34 @@
       "source_file": "lib\\__tests__\\catalog-video-import.test.ts",
       "source_location": "L1",
       "id": "lib_tests_catalog_video_import_test_ts",
-      "community": 70,
+      "community": 56,
       "norm_label": "catalog-video-import.test.ts"
+    },
+    {
+      "label": "plan()",
+      "file_type": "code",
+      "source_file": "lib\\__tests__\\catalog-video-import.test.ts",
+      "source_location": "L15",
+      "id": "catalog_video_import_test_plan",
+      "community": 56,
+      "norm_label": "plan()"
     },
     {
       "label": "sheet()",
       "file_type": "code",
       "source_file": "lib\\__tests__\\catalog-video-import.test.ts",
-      "source_location": "L10",
+      "source_location": "L36",
       "id": "catalog_video_import_test_sheet",
-      "community": 70,
+      "community": 56,
       "norm_label": "sheet()"
     },
     {
       "label": "driftedSheet()",
       "file_type": "code",
       "source_file": "lib\\__tests__\\catalog-video-import.test.ts",
-      "source_location": "L144",
+      "source_location": "L170",
       "id": "catalog_video_import_test_driftedsheet",
-      "community": 70,
+      "community": 56,
       "norm_label": "driftedsheet()"
     },
     {
@@ -6997,7 +7114,7 @@
       "source_file": "lib\\__tests__\\conjunto-sessions.test.ts",
       "source_location": "L1",
       "id": "lib_tests_conjunto_sessions_test_ts",
-      "community": 101,
+      "community": 103,
       "norm_label": "conjunto-sessions.test.ts"
     },
     {
@@ -7006,7 +7123,7 @@
       "source_file": "lib\\__tests__\\conjunto-sessions.test.ts",
       "source_location": "L14",
       "id": "conjunto_sessions_test_ok",
-      "community": 101,
+      "community": 103,
       "norm_label": "ok()"
     },
     {
@@ -7015,7 +7132,7 @@
       "source_file": "lib\\__tests__\\creative-groups.test.ts",
       "source_location": "L1",
       "id": "lib_tests_creative_groups_test_ts",
-      "community": 122,
+      "community": 124,
       "norm_label": "creative-groups.test.ts"
     },
     {
@@ -7024,7 +7141,7 @@
       "source_file": "lib\\__tests__\\creative-name.test.ts",
       "source_location": "L1",
       "id": "lib_tests_creative_name_test_ts",
-      "community": 123,
+      "community": 125,
       "norm_label": "creative-name.test.ts"
     },
     {
@@ -7033,7 +7150,7 @@
       "source_file": "lib\\__tests__\\meta-campaigns-naming.test.ts",
       "source_location": "L1",
       "id": "lib_tests_meta_campaigns_naming_test_ts",
-      "community": 124,
+      "community": 126,
       "norm_label": "meta-campaigns-naming.test.ts"
     },
     {
@@ -7042,7 +7159,7 @@
       "source_file": "lib\\__tests__\\pixel-guard.test.ts",
       "source_location": "L1",
       "id": "lib_tests_pixel_guard_test_ts",
-      "community": 71,
+      "community": 74,
       "norm_label": "pixel-guard.test.ts"
     },
     {
@@ -7051,7 +7168,7 @@
       "source_file": "lib\\__tests__\\pixel-guard.test.ts",
       "source_location": "L132",
       "id": "pixel_guard_test_opts",
-      "community": 71,
+      "community": 74,
       "norm_label": "opts()"
     },
     {
@@ -7060,7 +7177,7 @@
       "source_file": "lib\\__tests__\\pixel-guard.test.ts",
       "source_location": "L140",
       "id": "pixel_guard_test_inputsempixel",
-      "community": 71,
+      "community": 74,
       "norm_label": "inputsempixel()"
     },
     {
@@ -7069,7 +7186,7 @@
       "source_file": "lib\\__tests__\\searchable-select-filter.test.ts",
       "source_location": "L1",
       "id": "lib_tests_searchable_select_filter_test_ts",
-      "community": 125,
+      "community": 127,
       "norm_label": "searchable-select-filter.test.ts"
     },
     {
@@ -7159,7 +7276,7 @@
       "source_file": "lib\\__tests__\\timezone-next-run.test.ts",
       "source_location": "L1",
       "id": "lib_tests_timezone_next_run_test_ts",
-      "community": 102,
+      "community": 104,
       "norm_label": "timezone-next-run.test.ts"
     },
     {
@@ -7168,7 +7285,7 @@
       "source_file": "lib\\__tests__\\timezone-next-run.test.ts",
       "source_location": "L5",
       "id": "timezone_next_run_test_at0830",
-      "community": 102,
+      "community": 104,
       "norm_label": "at0830()"
     },
     {
@@ -7177,7 +7294,7 @@
       "source_file": "types\\next-auth.d.ts",
       "source_location": "L1",
       "id": "types_next_auth_d_ts",
-      "community": 126,
+      "community": 128,
       "norm_label": "next-auth.d.ts"
     },
     {
@@ -8422,12 +8539,24 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\catalogs\\video-fills\\route.ts",
-      "source_location": "L43",
+      "source_location": "L59",
       "weight": 1.0,
       "_src": "app_api_catalogs_video_fills_route_ts",
       "_tgt": "route_get",
       "source": "route_get",
       "target": "app_api_catalogs_video_fills_route_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app\\api\\catalogs\\video-fills\\check\\route.ts",
+      "source_location": "L19",
+      "weight": 1.0,
+      "_src": "app_api_catalogs_video_fills_check_route_ts",
+      "_tgt": "route_get",
+      "source": "route_get",
+      "target": "app_api_catalogs_video_fills_check_route_ts",
       "confidence_score": 1.0
     },
     {
@@ -8878,7 +9007,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\catalogs\\video-fills\\route.ts",
-      "source_location": "L20",
+      "source_location": "L23",
       "weight": 1.0,
       "_src": "app_api_catalogs_video_fills_route_ts",
       "_tgt": "route_post",
@@ -9298,7 +9427,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\api\\catalogs\\video-fills\\route.ts",
-      "source_location": "L55",
+      "source_location": "L71",
       "weight": 1.0,
       "_src": "app_api_catalogs_video_fills_route_ts",
       "_tgt": "route_delete",
@@ -9646,7 +9775,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1213",
+      "source_location": "L1220",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_cls",
@@ -9658,7 +9787,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L336",
+      "source_location": "L343",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_makeid",
@@ -9670,7 +9799,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L340",
+      "source_location": "L347",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_emptyad",
@@ -9682,7 +9811,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L364",
+      "source_location": "L371",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_emptysharedcopy",
@@ -9694,7 +9823,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L369",
+      "source_location": "L376",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_mainsection",
@@ -9706,7 +9835,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L387",
+      "source_location": "L394",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_subblock",
@@ -9718,7 +9847,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L496",
+      "source_location": "L503",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_acctlabel",
@@ -9730,7 +9859,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L499",
+      "source_location": "L506",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_toggle",
@@ -9742,7 +9871,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L507",
+      "source_location": "L514",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_togglebm",
@@ -9754,7 +9883,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L756",
+      "source_location": "L763",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_add",
@@ -9766,7 +9895,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L760",
+      "source_location": "L767",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_remove",
@@ -9778,7 +9907,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1018",
+      "source_location": "L1025",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_setbusy",
@@ -9790,7 +9919,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1139",
+      "source_location": "L1146",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_onkey",
@@ -9802,7 +9931,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1345",
+      "source_location": "L1352",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlerefreshaccounts",
@@ -9814,7 +9943,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1347",
+      "source_location": "L1354",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlesyncaccounts",
@@ -9826,7 +9955,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1538",
+      "source_location": "L1555",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_loadbusinesses",
@@ -9838,7 +9967,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1555",
+      "source_location": "L1572",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlecreatecatalog",
@@ -9850,7 +9979,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1621",
+      "source_location": "L1638",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_fetchproductpresets",
@@ -9862,7 +9991,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1634",
+      "source_location": "L1651",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_applyproductpreset",
@@ -9874,7 +10003,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1654",
+      "source_location": "L1671",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlecreateproduct",
@@ -9886,7 +10015,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1821",
+      "source_location": "L1838",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_buildcurrentpresetconfig",
@@ -9898,7 +10027,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1868",
+      "source_location": "L1885",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_applypresetconfig",
@@ -9910,7 +10039,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L1939",
+      "source_location": "L1956",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_applyaccountscopedpreset",
@@ -9922,7 +10051,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2014",
+      "source_location": "L2031",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handleapplypreset",
@@ -9934,7 +10063,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2031",
+      "source_location": "L2048",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlesavepreset",
@@ -9946,7 +10075,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2057",
+      "source_location": "L2074",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handledeletepreset",
@@ -9958,7 +10087,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2118",
+      "source_location": "L2135",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_updatead",
@@ -9970,7 +10099,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2120",
+      "source_location": "L2137",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_addad",
@@ -9982,7 +10111,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2121",
+      "source_location": "L2138",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_removead",
@@ -9994,7 +10123,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2126",
+      "source_location": "L2143",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_importgroupstable",
@@ -10006,7 +10135,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2146",
+      "source_location": "L2163",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_importproductsetlist",
@@ -10018,7 +10147,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2187",
+      "source_location": "L2204",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_togglegroupselect",
@@ -10030,7 +10159,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2194",
+      "source_location": "L2211",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_toggleselectallgroups",
@@ -10042,7 +10171,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2199",
+      "source_location": "L2216",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_deleteselectedgroups",
@@ -10054,7 +10183,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2211",
+      "source_location": "L2228",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_updatesharedcopy",
@@ -10066,7 +10195,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2224",
+      "source_location": "L2241",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_appendreopennotice",
@@ -10078,7 +10207,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2360",
+      "source_location": "L2380",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_uploadfor",
@@ -10090,7 +10219,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2433",
+      "source_location": "L2453",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_buildcurrentsnapshot",
@@ -10102,7 +10231,31 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2584",
+      "source_location": "L2576",
+      "weight": 1.0,
+      "_src": "app_campaigns_clientcampaignbuilder_tsx",
+      "_tgt": "clientcampaignbuilder_resetfill",
+      "source": "app_campaigns_clientcampaignbuilder_tsx",
+      "target": "clientcampaignbuilder_resetfill",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
+      "source_location": "L2615",
+      "weight": 1.0,
+      "_src": "app_campaigns_clientcampaignbuilder_tsx",
+      "_tgt": "clientcampaignbuilder_runlinkcheck",
+      "source": "app_campaigns_clientcampaignbuilder_tsx",
+      "target": "clientcampaignbuilder_runlinkcheck",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
+      "source_location": "L2636",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_submit",
@@ -10114,7 +10267,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L4614",
+      "source_location": "L4743",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handledriveimport",
@@ -10126,7 +10279,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L4637",
+      "source_location": "L4766",
       "weight": 1.0,
       "_src": "app_campaigns_clientcampaignbuilder_tsx",
       "_tgt": "clientcampaignbuilder_handlesingleupload",
@@ -10138,7 +10291,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L342",
+      "source_location": "L349",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_emptyad",
       "_tgt": "clientcampaignbuilder_makeid",
@@ -10150,7 +10303,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2041",
+      "source_location": "L2058",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_handlesavepreset",
       "_tgt": "clientcampaignbuilder_buildcurrentpresetconfig",
@@ -10162,7 +10315,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2448",
+      "source_location": "L2470",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_buildcurrentsnapshot",
       "_tgt": "clientcampaignbuilder_buildcurrentpresetconfig",
@@ -10174,7 +10327,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2021",
+      "source_location": "L2038",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_handleapplypreset",
       "_tgt": "clientcampaignbuilder_applypresetconfig",
@@ -10186,7 +10339,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2022",
+      "source_location": "L2039",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_handleapplypreset",
       "_tgt": "clientcampaignbuilder_applyaccountscopedpreset",
@@ -10198,7 +10351,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L4639",
+      "source_location": "L4768",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_handlesingleupload",
       "_tgt": "clientcampaignbuilder_uploadfor",
@@ -10210,7 +10363,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "app\\campaigns\\ClientCampaignBuilder.tsx",
-      "source_location": "L2823",
+      "source_location": "L2875",
       "weight": 1.0,
       "_src": "clientcampaignbuilder_submit",
       "_tgt": "clientcampaignbuilder_buildcurrentsnapshot",
@@ -13090,7 +13243,19 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\builder-snapshot.ts",
-      "source_location": "L65",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_src": "lib_builder_snapshot_ts",
+      "_tgt": "builder_snapshot_snapshotvideofilltiming",
+      "source": "lib_builder_snapshot_ts",
+      "target": "builder_snapshot_snapshotvideofilltiming",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib\\builder-snapshot.ts",
+      "source_location": "L97",
       "weight": 1.0,
       "_src": "lib_builder_snapshot_ts",
       "_tgt": "builder_snapshot_isbuildersnapshot",
@@ -13102,7 +13267,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\builder-snapshot.ts",
-      "source_location": "L90",
+      "source_location": "L122",
       "weight": 1.0,
       "_src": "lib_builder_snapshot_ts",
       "_tgt": "builder_snapshot_isstringarray",
@@ -13114,7 +13279,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\builder-snapshot.ts",
-      "source_location": "L101",
+      "source_location": "L133",
       "weight": 1.0,
       "_src": "lib_builder_snapshot_ts",
       "_tgt": "builder_snapshot_reopenschedule",
@@ -13126,7 +13291,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "lib\\builder-snapshot.ts",
-      "source_location": "L70",
+      "source_location": "L102",
       "weight": 1.0,
       "_src": "builder_snapshot_isbuildersnapshot",
       "_tgt": "builder_snapshot_isstringarray",
@@ -13665,8 +13830,32 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "lib\\catalog-video-fills-core.ts",
+      "source_location": "L23",
+      "weight": 1.0,
+      "_src": "lib_catalog_video_fills_core_ts",
+      "_tgt": "catalog_video_fills_core_computefilltiming",
+      "source": "lib_catalog_video_fills_core_ts",
+      "target": "catalog_video_fills_core_computefilltiming",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib\\catalog-video-fills-core.ts",
+      "source_location": "L95",
+      "weight": 1.0,
+      "_src": "lib_catalog_video_fills_core_ts",
+      "_tgt": "catalog_video_fills_core_runarmvideofill",
+      "source": "lib_catalog_video_fills_core_ts",
+      "target": "catalog_video_fills_core_runarmvideofill",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L24",
+      "source_location": "L30",
       "weight": 1.0,
       "_src": "lib_catalog_video_fills_ts",
       "_tgt": "catalog_video_fills_ensurevideofillstable",
@@ -13678,7 +13867,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L48",
+      "source_location": "L59",
       "weight": 1.0,
       "_src": "lib_catalog_video_fills_ts",
       "_tgt": "catalog_video_fills_armcatalogvideofill",
@@ -13690,7 +13879,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L74",
+      "source_location": "L77",
       "weight": 1.0,
       "_src": "lib_catalog_video_fills_ts",
       "_tgt": "catalog_video_fills_claimduevideofill",
@@ -13702,7 +13891,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L95",
+      "source_location": "L98",
       "weight": 1.0,
       "_src": "lib_catalog_video_fills_ts",
       "_tgt": "catalog_video_fills_finishvideofill",
@@ -13714,7 +13903,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L108",
+      "source_location": "L111",
       "weight": 1.0,
       "_src": "lib_catalog_video_fills_ts",
       "_tgt": "catalog_video_fills_listvideofills",
@@ -13726,7 +13915,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L119",
+      "source_location": "L122",
       "weight": 1.0,
       "_src": "lib_catalog_video_fills_ts",
       "_tgt": "catalog_video_fills_cancelvideofill",
@@ -13738,7 +13927,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L52",
+      "source_location": "L64",
       "weight": 1.0,
       "_src": "catalog_video_fills_armcatalogvideofill",
       "_tgt": "catalog_video_fills_ensurevideofillstable",
@@ -13750,7 +13939,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L75",
+      "source_location": "L78",
       "weight": 1.0,
       "_src": "catalog_video_fills_claimduevideofill",
       "_tgt": "catalog_video_fills_ensurevideofillstable",
@@ -13762,7 +13951,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L100",
+      "source_location": "L103",
       "weight": 1.0,
       "_src": "catalog_video_fills_finishvideofill",
       "_tgt": "catalog_video_fills_ensurevideofillstable",
@@ -13774,7 +13963,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L109",
+      "source_location": "L112",
       "weight": 1.0,
       "_src": "catalog_video_fills_listvideofills",
       "_tgt": "catalog_video_fills_ensurevideofillstable",
@@ -13786,7 +13975,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-fills.ts",
-      "source_location": "L120",
+      "source_location": "L123",
       "weight": 1.0,
       "_src": "catalog_video_fills_cancelvideofill",
       "_tgt": "catalog_video_fills_ensurevideofillstable",
@@ -13966,7 +14155,19 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-import.ts",
-      "source_location": "L242",
+      "source_location": "L232",
+      "weight": 1.0,
+      "_src": "lib_catalog_video_import_ts",
+      "_tgt": "catalog_video_import_linkchecksummary",
+      "source": "lib_catalog_video_import_ts",
+      "target": "catalog_video_import_linkchecksummary",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib\\catalog-video-import.ts",
+      "source_location": "L259",
       "weight": 1.0,
       "_src": "lib_catalog_video_import_ts",
       "_tgt": "catalog_video_import_buildvideoimportplan",
@@ -14038,7 +14239,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-import.ts",
-      "source_location": "L247",
+      "source_location": "L264",
       "weight": 1.0,
       "_src": "catalog_video_import_buildvideoimportplan",
       "_tgt": "catalog_video_import_normalizekey",
@@ -14050,7 +14251,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "lib\\catalog-video-import.ts",
-      "source_location": "L254",
+      "source_location": "L271",
       "weight": 1.0,
       "_src": "catalog_video_import_buildvideoimportplan",
       "_tgt": "catalog_video_import_baseadnameof",
@@ -18850,12 +19051,36 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\__tests__\\builder-snapshot.test.ts",
-      "source_location": "L11",
+      "source_location": "L12",
       "weight": 1.0,
       "_src": "lib_tests_builder_snapshot_test_ts",
       "_tgt": "builder_snapshot_test_validsnapshot",
       "source": "lib_tests_builder_snapshot_test_ts",
       "target": "builder_snapshot_test_validsnapshot",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib\\__tests__\\builder-snapshot.test.ts",
+      "source_location": "L147",
+      "weight": 1.0,
+      "_src": "lib_tests_builder_snapshot_test_ts",
+      "_tgt": "builder_snapshot_test_at",
+      "source": "lib_tests_builder_snapshot_test_ts",
+      "target": "builder_snapshot_test_at",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "lib\\__tests__\\builder-snapshot.test.ts",
+      "source_location": "L148",
+      "weight": 1.0,
+      "_src": "builder_snapshot_test_at",
+      "_tgt": "builder_snapshot_test_validsnapshot",
+      "source": "builder_snapshot_test_validsnapshot",
+      "target": "builder_snapshot_test_at",
       "confidence_score": 1.0
     },
     {
@@ -18909,8 +19134,44 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "lib\\__tests__\\catalog-video-fills-core.test.ts",
+      "source_location": "L69",
+      "weight": 1.0,
+      "_src": "lib_tests_catalog_video_fills_core_test_ts",
+      "_tgt": "catalog_video_fills_core_test_scriptedclient",
+      "source": "lib_tests_catalog_video_fills_core_test_ts",
+      "target": "catalog_video_fills_core_test_scriptedclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib\\__tests__\\catalog-video-fills-core.test.ts",
+      "source_location": "L90",
+      "weight": 1.0,
+      "_src": "lib_tests_catalog_video_fills_core_test_ts",
+      "_tgt": "catalog_video_fills_core_test_rowat",
+      "source": "lib_tests_catalog_video_fills_core_test_ts",
+      "target": "catalog_video_fills_core_test_rowat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "lib\\__tests__\\catalog-video-import.test.ts",
-      "source_location": "L10",
+      "source_location": "L15",
+      "weight": 1.0,
+      "_src": "lib_tests_catalog_video_import_test_ts",
+      "_tgt": "catalog_video_import_test_plan",
+      "source": "lib_tests_catalog_video_import_test_ts",
+      "target": "catalog_video_import_test_plan",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib\\__tests__\\catalog-video-import.test.ts",
+      "source_location": "L36",
       "weight": 1.0,
       "_src": "lib_tests_catalog_video_import_test_ts",
       "_tgt": "catalog_video_import_test_sheet",
@@ -18922,7 +19183,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\__tests__\\catalog-video-import.test.ts",
-      "source_location": "L144",
+      "source_location": "L170",
       "weight": 1.0,
       "_src": "lib_tests_catalog_video_import_test_ts",
       "_tgt": "catalog_video_import_test_driftedsheet",
