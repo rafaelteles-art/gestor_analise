@@ -64,6 +64,8 @@ export interface TokenInspection {
   canPublish: boolean;
   /** Quantos BMs o token enxerga */
   businessesCount?: number;
+  /** Páginas visíveis em /me/accounts (0 = System User sem Páginas atribuídas → não publica). 200 = 200+. */
+  pagesCount?: number;
   /** Expiração — se o token tiver TTL (System User não expira) */
   expiresAt?: string | null;
   /** Se for de System User (não há "expira em X dias") */
@@ -156,12 +158,16 @@ export async function inspectMetaToken(token: string): Promise<TokenInspection> 
     // ignora
   }
 
-  // 5. Tenta /me/accounts pra inferir pages_show_list
+  // 5. /me/accounts — infere pages_show_list E conta as Páginas visíveis.
+  //    System User só enxerga Páginas atribuídas a ele no BM; com 0 páginas o
+  //    sync de páginas não popula nada e o builder não consegue publicar.
+  let pagesCount: number | undefined;
   try {
-    const pgRes = await fetch(`${GRAPH}/me/accounts?fields=id&limit=1&access_token=${encodeURIComponent(token)}`);
+    const pgRes = await fetch(`${GRAPH}/me/accounts?fields=id&limit=200&access_token=${encodeURIComponent(token)}`);
     const pg = (await pgRes.json()) as { data?: unknown[]; error?: { message?: string } };
-    if (!pg.error && granted.length <= 2) {
-      if (!granted.includes('pages_show_list')) granted.push('pages_show_list');
+    if (!pg.error) {
+      pagesCount = Array.isArray(pg.data) ? pg.data.length : 0;
+      if (granted.length <= 2 && !granted.includes('pages_show_list')) granted.push('pages_show_list');
     }
   } catch {
     // ignora
@@ -183,8 +189,9 @@ export async function inspectMetaToken(token: string): Promise<TokenInspection> 
     declined,
     missingRequired,
     missingOptional,
-    canPublish: missingRequired.length === 0,
+    canPublish: missingRequired.length === 0 && pagesCount !== 0,
     businessesCount,
+    pagesCount,
     expiresAt: null, // sem App Token não dá pra checar expiração via /debug_token
     neverExpires: looksLikeSystemUser ? true : undefined,
   };

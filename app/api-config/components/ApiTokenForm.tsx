@@ -31,6 +31,7 @@ interface Inspection {
   missingOptional: string[];
   canPublish: boolean;
   businessesCount?: number;
+  pagesCount?: number;
   neverExpires?: boolean;
 }
 
@@ -56,6 +57,7 @@ export default function ApiTokenForm() {
   const [vturbToken, setVturbToken] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string[] | null>(null);
   const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
@@ -118,6 +120,11 @@ export default function ApiTokenForm() {
       if (res.success) {
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
+        const lines: string[] = [];
+        for (const r of res.renamed ?? []) lines.push(`Perfil "${r.from}" renomeado para "${r.to}" — páginas, contas e catálogos migrados.`);
+        if (res.synced?.length) lines.push(`Sync de páginas enfileirado para: ${res.synced.join(', ')} (acompanhe em /paginas).`);
+        lines.push(...(res.warnings ?? []));
+        setSaveNotice(lines.length ? lines : null);
         // Re-valida tudo após salvar
         const inspected = await Promise.all(
           profiles.map(async (p) =>
@@ -303,6 +310,11 @@ export default function ApiTokenForm() {
             </span>
           )}
         </div>
+        {saveNotice && (
+          <ul className="mt-3 text-[11px] text-amber-800 dark:text-amber-400 list-disc pl-4 space-y-1">
+            {saveNotice.map((l, i) => <li key={i}>{l}</li>)}
+          </ul>
+        )}
       </form>
     </div>
   );
@@ -330,6 +342,11 @@ function InspectionPanel({ ins }: { ins: Inspection }) {
           {typeof ins.businessesCount === 'number' && (
             <span className="text-console-muted ml-2">· {ins.businessesCount} BM(s) acessíveis</span>
           )}
+          {typeof ins.pagesCount === 'number' && (
+            <span className={`ml-2 ${ins.pagesCount === 0 ? 'text-rose-600 font-semibold' : 'text-console-muted'}`}>
+              · {ins.pagesCount >= 200 ? '200+' : ins.pagesCount} Página(s) visíveis
+            </span>
+          )}
           {ins.neverExpires && (
             <span className="text-emerald-700 ml-2 text-[11px]">· token permanente</span>
           )}
@@ -356,7 +373,16 @@ function InspectionPanel({ ins }: { ins: Inspection }) {
         </p>
       )}
 
-      {!ins.canPublish && (
+      {ins.pagesCount === 0 && (
+        <p className="mt-2 text-[11px] text-rose-700 dark:text-rose-400">
+          Este token não enxerga nenhuma Página. Um System User só vê Páginas atribuídas a ele:
+          no Business Manager, vá em Configurações do negócio → Usuários → Usuários do sistema →
+          selecione este usuário → Adicionar ativos → Páginas (com permissão de criar anúncios).
+          Depois rode «Buscar páginas» em /paginas. Sem isso o builder não publica com este perfil.
+        </p>
+      )}
+
+      {!ins.canPublish && ins.missingRequired.length > 0 && (
         <p className="mt-2 text-[11px] text-amber-800 dark:text-amber-400">
           As permissões marcadas com ✗ acima precisam ser concedidas pelo System User na geração do token.
           Heurística baseada em /me/permissions e endpoints auxiliares — se o token foi gerado via Graph API

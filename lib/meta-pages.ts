@@ -410,6 +410,7 @@ export async function runProfileSyncChunk(opts: {
     accounts: opts.state.accounts ?? null,
     accountOffset: opts.state.accountOffset ?? 0,
     failed: Array.isArray(opts.state.failed) ? [...opts.state.failed] : [],
+    noPages: Array.isArray(opts.state.noPages) ? [...opts.state.noPages] : [],
     order: Array.isArray(opts.state.order) ? [...opts.state.order] : null,
   };
 
@@ -525,6 +526,13 @@ export async function runProfileSyncChunk(opts: {
       st.accounts = accs.map((a) => a.id).filter(Boolean);
       st.accountOffset = 0;
       st.phase = 'limits';
+      // Token válido com contas mas sem página nenhuma = System User sem Páginas
+      // atribuídas no BM. Antes terminava "done" em silêncio e o builder ficava
+      // sem páginas pra esse perfil (submit bloqueado). Registra pra avisar.
+      if (pages.length === 0 && st.accounts.length > 0) {
+        st.noPages ??= [];
+        if (!st.noPages.includes(profile.name)) st.noPages.push(profile.name);
+      }
       report(`Perfil ${profile.name} (${st.profileIndex + 1}/${total}) — ${pages.length} páginas, ${st.accounts.length} contas`, st.profileIndex, total);
     }
 

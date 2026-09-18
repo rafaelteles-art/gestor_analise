@@ -9,6 +9,9 @@ export interface ProfileSyncState {
   accounts: string[] | null;     // cached me/adaccounts ids for the current profile
   accountOffset: number;         // next account to process in the 'limits' phase
   failed: string[];              // profiles skipped due to auth (expired token) errors
+  // Perfis com token válido (têm contas) mas ZERO páginas em me/accounts —
+  // System User sem Páginas atribuídas no BM. O builder não consegue publicar.
+  noPages?: string[];
   // Ordem dos perfis fixada no 1º chunk (menores primeiro). profileIndex indexa
   // ESTA lista; sem ela o resume entre chunks poderia pular/duplicar perfis.
   order?: string[] | null;

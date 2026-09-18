@@ -56,11 +56,14 @@ export async function POST(req: NextRequest) {
 
     if (r.done) {
       const failed = r.state.failed ?? [];
-      const message = failed.length
-        ? `Sync por perfil concluído (${r.total} perfis). Falharam (token?): ${failed.join(', ')}.`
-        : `Sync por perfil concluído (${r.total} perfis).`;
-      await completeJob(job.id, { pagesSynced: r.total, partial: failed.length > 0, message });
-      return NextResponse.json({ ran: true, kind: 'profile', job_id: job.id, done: true, failed });
+      const noPages = r.state.noPages ?? [];
+      let message = `Sync por perfil concluído (${r.total} perfis).`;
+      if (failed.length) message += ` Falharam (token?): ${failed.join(', ')}.`;
+      if (noPages.length) {
+        message += ` Sem Páginas atribuídas (System User precisa das Páginas como ativo no BM): ${noPages.join(', ')}.`;
+      }
+      await completeJob(job.id, { pagesSynced: r.total, partial: failed.length > 0 || noPages.length > 0, message });
+      return NextResponse.json({ ran: true, kind: 'profile', job_id: job.id, done: true, failed, noPages });
     }
 
     await advanceProfileState(job.id, {
